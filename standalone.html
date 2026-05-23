@@ -1,0 +1,1142 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Auckland Live Departures</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f4f6f8;
+      --surface: #ffffff;
+      --surface2: #eef2f5;
+      --border: #cdd6dd;
+      --text: #18232b;
+      --muted: #5f6f7a;
+      --accent: #1f6f9f;
+      --good: #18794e;
+      --warn: #8a5a00;
+      --bad: #b42336;
+      --radius: .3rem;
+      font-family: "Aptos", "Segoe UI", sans-serif;
+    }
+    * { box-sizing: border-box; margin: 0; }
+    html, body { min-height: 100vh; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+    }
+    button {
+      font: inherit;
+      border: 0;
+      border-radius: var(--radius);
+      padding: .42rem .72rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: opacity .15s, border-color .15s;
+    }
+    button:hover { opacity: .88; }
+    button:disabled { opacity: .4; cursor: not-allowed; }
+    button.primary { background: var(--accent); color: #fff; }
+    button.ghost { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+    button.danger { background: transparent; color: var(--bad); border: 1px solid var(--bad); }
+    button.small { padding: .32rem .58rem; font-size: .82rem; }
+    input, textarea, select {
+      font: inherit;
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: #fff;
+      color: var(--text);
+      padding: .42rem .55rem;
+    }
+    input:focus, textarea:focus { outline: none; border-color: var(--accent); }
+    textarea { min-height: 3.1rem; resize: vertical; }
+
+    /* Setup */
+    .setup {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: .75rem;
+      font-size: .9rem;
+    }
+    .setup-header {
+      margin-bottom: .45rem;
+    }
+    .setup-header h1 {
+      font-size: 1.25rem;
+      line-height: 1.15;
+      margin-bottom: .15rem;
+    }
+    .setup-header p { color: var(--muted); font-size: .86rem; }
+    .quick-actions {
+      display: flex;
+      gap: .4rem;
+      margin: .45rem 0;
+      flex-wrap: wrap;
+    }
+    .status-bar {
+      padding: .42rem .55rem;
+      color: var(--muted);
+      font-size: .84rem;
+      min-height: 1.9rem;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--surface);
+    }
+    .status-bar.error { color: var(--bad); border-color: var(--bad); background: var(--surface); }
+    .setup-layout {
+      display: block;
+    }
+    .debug-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: .35rem;
+      margin: .45rem 0;
+    }
+    .debug-item {
+      display: inline-flex;
+      gap: .35rem;
+      padding: .28rem .45rem;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--surface2);
+      color: var(--muted);
+      font-size: .78rem;
+    }
+    .debug-item strong { color: var(--text); font-weight: 800; text-align: right; }
+    .note {
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--surface2);
+      color: var(--muted);
+      font-size: .8rem;
+      padding: .4rem .5rem;
+    }
+    .link-row {
+      display: flex;
+      gap: .5rem;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .link-button {
+      display: inline-flex;
+      align-items: center;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: .32rem .58rem;
+      color: var(--text);
+      font-size: .82rem;
+      font-weight: 700;
+      text-decoration: none;
+      background: var(--surface2);
+    }
+    .link-button:hover { border-color: var(--accent); }
+    .section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      margin-bottom: .45rem;
+      overflow: hidden;
+    }
+    .section-header {
+      padding: .36rem .5rem;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      user-select: none;
+    }
+    .section-header:hover { background: var(--surface2); }
+    .section-header .arrow { transition: transform .2s; font-size: .8rem; color: var(--muted); }
+    .section-header .arrow.open { transform: rotate(90deg); }
+    .section-status { font-size: .75rem; font-weight: 400; color: var(--muted); margin-left: .45rem; }
+    .section-body {
+      padding: 0 .5rem .45rem;
+      display: grid;
+      gap: .42rem;
+    }
+    .section-body.hidden { display: none; }
+    .field label {
+      display: block;
+      font-size: .8rem;
+      color: var(--muted);
+      margin-bottom: .25rem;
+      font-weight: 600;
+    }
+    .hint {
+      color: var(--muted);
+      font-size: .78rem;
+      line-height: 1.35;
+      margin-top: .22rem;
+    }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: .45rem; }
+    .stop-results {
+      max-height: 10rem;
+      overflow-y: auto;
+      display: grid;
+      gap: .4rem;
+    }
+    .stop-item {
+      display: flex;
+      align-items: center;
+      gap: .6rem;
+      padding: .38rem .48rem;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      font-size: .85rem;
+    }
+    .stop-item .name { flex: 1; font-weight: 600; }
+    .stop-item .id { color: var(--muted); font-size: .78rem; }
+
+    /* Board */
+    .board {
+      min-height: 100vh;
+      padding: 1rem;
+      display: flex;
+      flex-direction: column;
+    }
+    .board-shell {
+      flex: 1;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      display: grid;
+      grid-template-rows: auto auto 1fr auto;
+      gap: .75rem;
+      padding: 1rem;
+    }
+    .board-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      padding: .5rem;
+    }
+    .board-header h1 {
+      font-size: clamp(1.6rem, 3.5vw, 3rem);
+      line-height: 1.1;
+    }
+    .board-header .sub { color: var(--muted); font-size: .9rem; }
+    .board-meta {
+      text-align: right;
+      font-size: .8rem;
+      color: var(--muted);
+      display: flex;
+      flex-direction: column;
+      gap: .3rem;
+      align-items: flex-end;
+    }
+    .alert-banner {
+      padding: .6rem .8rem;
+      border-radius: var(--radius);
+      font-size: .9rem;
+      border: 1px solid;
+    }
+    .alert-banner.warn { background: var(--surface2); border-color: var(--warn); color: var(--warn); }
+    .alert-banner.bad { background: var(--surface2); border-color: var(--bad); color: var(--bad); }
+    .dep-table {
+      width: 100%;
+      border-collapse: collapse;
+      background: var(--surface2);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+    .dep-table th {
+      text-align: left;
+      padding: .7rem 1rem;
+      font-size: .8rem;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      color: var(--muted);
+      background: #141a1f;
+    }
+    .dep-table th:last-child { text-align: right; }
+    .dep-table td {
+      padding: .8rem 1rem;
+      border-top: 1px solid var(--border);
+      vertical-align: middle;
+    }
+    .route-pill {
+      display: inline-flex;
+      justify-content: center;
+      min-width: 4.5rem;
+      padding: .4rem .7rem;
+      border-radius: var(--radius);
+      font-weight: 900;
+      font-size: clamp(1.1rem, 1.8vw, 1.6rem);
+      background: var(--surface);
+      border: 1px solid var(--border);
+    }
+    .dest-cell strong {
+      display: block;
+      font-size: clamp(1.1rem, 1.8vw, 1.5rem);
+    }
+    .dest-cell span { color: var(--muted); font-size: .8rem; }
+    .badge {
+      display: inline-block;
+      padding: .3rem .7rem;
+      border-radius: 999px;
+      font-weight: 700;
+      font-size: .8rem;
+    }
+    .badge.live { color: var(--good); background: transparent; border: 1px solid var(--good); }
+    .badge.scheduled { color: var(--muted); background: transparent; border: 1px solid var(--border); }
+    .badge.cancelled { color: var(--bad); background: transparent; border: 1px solid var(--bad); }
+    .variance { color: var(--muted); font-size: .78rem; margin-top: .2rem; }
+    .due-cell {
+      text-align: right;
+      font-size: clamp(1.4rem, 2.2vw, 2rem);
+      font-weight: 900;
+    }
+    .empty-state {
+      display: grid;
+      place-content: center;
+      text-align: center;
+      min-height: 12rem;
+      color: var(--muted);
+      background: var(--surface2);
+      border-radius: var(--radius);
+    }
+    .board-footer {
+      display: flex;
+      align-items: center;
+      gap: .75rem;
+      background: var(--surface2);
+      border-radius: var(--radius);
+      padding: .6rem .8rem;
+      overflow: hidden;
+    }
+    .ticker {
+      flex: 1;
+      overflow: hidden;
+      white-space: nowrap;
+      color: var(--muted);
+      font-size: .85rem;
+    }
+    .ticker-inner {
+      display: inline-flex;
+      gap: 1.5rem;
+    }
+    .clock {
+      font-weight: 900;
+      font-size: 1rem;
+      white-space: nowrap;
+      padding: .3rem .6rem;
+      background: #141a1f;
+      border-radius: var(--radius);
+    }
+    @media (max-width: 700px) {
+      .setup { padding: .5rem; }
+      .board { padding: .5rem; }
+      .board-header { flex-direction: column; gap: .5rem; }
+      .board-meta { text-align: left; align-items: flex-start; }
+      .row { grid-template-columns: 1fr; }
+      .dep-table th { display: none; }
+      .dep-table, .dep-table tbody, .dep-table tr, .dep-table td { display: block; width: 100%; }
+      .dep-table tr { padding: .6rem 0; border-top: 1px solid var(--border); }
+      .dep-table td { border: 0; padding: .3rem .8rem; }
+      .due-cell { text-align: left; }
+    }
+  </style>
+</head>
+<body>
+  <div id="app"></div>
+  <script>
+    const STORE_KEY = "akl-pid-v2";
+    const LEGACY_GTFS_URL = "https://gtfs.at.govt.nz/gtfs.zip";
+    const DEFAULT_GTFS_FILE = "gtfs.zip";
+    const SAME_FOLDER_GTFS_CANDIDATES = [DEFAULT_GTFS_FILE, "gtfs (1).zip"];
+    const DEFAULT_CONFIG = {
+      timezone: "Pacific/Auckland",
+      gtfsUrl: DEFAULT_GTFS_FILE,
+      realtimeUrl: "https://api.at.govt.nz/realtime/legacy/tripupdates",
+      alertsUrl: "https://api.at.govt.nz/realtime/legacy/servicealerts",
+      subscriptionKey: "",
+      pollSeconds: 60,
+      pageSize: 6,
+      rotateSeconds: 12,
+      lookaheadHours: 6,
+      relativeCutoffMinutes: 20,
+      staleMultiplier: 2,
+      routeAllowlist: "94, 95B, 95C, 97B, 97R, 931, 933, 939, 941, 966",
+      stopIds: "3955-edf582eb, 3957-95f7701d, 3959-54a6c40a, 3961-695cebe3",
+      mode: "setup"
+    };
+
+    const state = {
+      config: loadConfig(),
+      bundle: loadBundle(),
+      gtfs: null,
+      realtime: loadRealtime(),
+      status: "",
+      error: "",
+      realtimeStatus: "",
+      now: new Date(),
+      page: 0,
+      stopSearch: "",
+      autoGtfsAttempted: false,
+      expandedSections: (() => {
+        try {
+          const raw = localStorage.getItem(STORE_KEY + ":bundle");
+          const hasBuild = raw && JSON.parse(raw)?.source !== "demo";
+          return { gtfs: !hasBuild, stops: !hasBuild, realtime: false, timing: false };
+        } catch { return { gtfs: true, stops: true, realtime: false, timing: false }; }
+      })()
+    };
+    let timers = [];
+
+    function loadConfig() {
+      const saved = loadJson("config") || {};
+      if (saved.demoMode || String(saved.stopIds || "").includes("demo-")) return Object.assign({}, DEFAULT_CONFIG);
+      delete saved.demoMode;
+      if (saved.gtfsUrl === LEGACY_GTFS_URL) delete saved.gtfsUrl;
+      if (!saved.realtimeUrl) delete saved.realtimeUrl;
+      if (!saved.alertsUrl) delete saved.alertsUrl;
+      return sanitizeConfig(Object.assign({}, DEFAULT_CONFIG, saved));
+    }
+    function loadBundle() {
+      const bundle = loadJson("bundle");
+      return bundle && bundle.source !== "demo" ? bundle : null;
+    }
+    function loadRealtime() {
+      const realtime = loadJson("realtime");
+      return realtime && realtime.sourceUrl !== "demo://local" ? realtime : null;
+    }
+    function loadJson(name) {
+      try {
+        const raw = localStorage.getItem(STORE_KEY + ":" + name);
+        return raw ? JSON.parse(raw) : null;
+      } catch { return null; }
+    }
+    function saveJson(name, value) {
+      try { localStorage.setItem(STORE_KEY + ":" + name, JSON.stringify(value)); }
+      catch { state.status = "Storage unavailable — settings will not persist."; render(); }
+    }
+    function clearTimers() { timers.forEach(clearInterval); timers = []; }
+    function splitList(text) {
+      return String(text || "").split(/[,\n]/).map(v => v.trim()).filter(Boolean);
+    }
+    function gtfsRtArray(value) {
+      if (!value) return [];
+      if (Array.isArray(value)) return value;
+      if (typeof value !== "object") return [];
+      const singleKeys = ["trip_update", "tripUpdate", "vehicle", "alert", "stop_sequence", "stopSequence", "stop_id", "stopId", "arrival", "departure", "route_id", "routeId"];
+      return singleKeys.some(k => k in value) ? [value] : Object.values(value);
+    }
+    function normLabel(value) {
+      return String(value || "").trim().toLowerCase();
+    }
+    function clampNumber(value, fallback, min, max) {
+      const n = Number(value);
+      if (!Number.isFinite(n)) return fallback;
+      return Math.min(max, Math.max(min, n));
+    }
+    function safeTimezone(value) {
+      const tz = String(value || DEFAULT_CONFIG.timezone).trim();
+      try {
+        new Intl.DateTimeFormat("en-NZ", { timeZone: tz }).format(new Date());
+        return tz;
+      } catch { return DEFAULT_CONFIG.timezone; }
+    }
+    function sanitizeConfig(cfg) {
+      cfg.timezone = safeTimezone(cfg.timezone);
+      cfg.pollSeconds = clampNumber(cfg.pollSeconds, DEFAULT_CONFIG.pollSeconds, 10, 3600);
+      cfg.pageSize = Math.round(clampNumber(cfg.pageSize, DEFAULT_CONFIG.pageSize, 1, 50));
+      cfg.rotateSeconds = clampNumber(cfg.rotateSeconds, DEFAULT_CONFIG.rotateSeconds, 3, 3600);
+      cfg.lookaheadHours = clampNumber(cfg.lookaheadHours, DEFAULT_CONFIG.lookaheadHours, 1, 48);
+      cfg.relativeCutoffMinutes = clampNumber(cfg.relativeCutoffMinutes, DEFAULT_CONFIG.relativeCutoffMinutes, 0, 180);
+      cfg.staleMultiplier = clampNumber(cfg.staleMultiplier, DEFAULT_CONFIG.staleMultiplier, 1, 20);
+      return cfg;
+    }
+    function escapeHtml(v) {
+      return String(v == null ? "" : v).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+    }
+    function safeHref(value) {
+      try {
+        const url = new URL(String(value || ""), location.href);
+        return /^(https?|file):$/.test(url.protocol) ? url.href : "#";
+      } catch { return "#"; }
+    }
+    function gtfsFetchCandidates(primary = state.config.gtfsUrl) {
+      const values = [primary, ...SAME_FOLDER_GTFS_CANDIDATES]
+        .map(v => String(v || "").trim())
+        .filter(Boolean);
+      return Array.from(new Set(values));
+    }
+
+    // CSV parser
+    function csvParse(text) {
+      const rows = [];
+      let row = [], field = "", quoted = false;
+      for (let i = 0; i < text.length; i++) {
+        const c = text[i], n = text[i + 1];
+        if (quoted) {
+          if (c === '"' && n === '"') { field += '"'; i++; }
+          else if (c === '"') quoted = false;
+          else field += c;
+        } else if (c === '"') quoted = true;
+        else if (c === ",") { row.push(field); field = ""; }
+        else if (c === "\n") { row.push(field); rows.push(row); row = []; field = ""; }
+        else if (c !== "\r") field += c;
+      }
+      if (field.length || row.length) { row.push(field); rows.push(row); }
+      const header = rows.shift() || [];
+      return rows.filter(r => r.length && r.some(Boolean)).map(r => Object.fromEntries(header.map((h, i) => [h, r[i] || ""])));
+    }
+
+    // ZIP reader
+    async function readZipEntries(buffer, names) {
+      if (!("DecompressionStream" in window)) throw new Error("Browser needs DecompressionStream (Chrome/Edge).");
+      const bytes = new Uint8Array(buffer);
+      const view = new DataView(buffer);
+      let eocd = -1;
+      for (let i = bytes.length - 22; i >= Math.max(0, bytes.length - 66000); i--) {
+        if (view.getUint32(i, true) === 0x06054b50) { eocd = i; break; }
+      }
+      if (eocd < 0) throw new Error("Invalid ZIP file.");
+      const entryCount = view.getUint16(eocd + 10, true);
+      let cdOffset = view.getUint32(eocd + 16, true);
+      const wanted = new Set(names);
+      const output = {};
+      for (let e = 0; e < entryCount; e++) {
+        if (view.getUint32(cdOffset, true) !== 0x02014b50) throw new Error("Invalid ZIP entry.");
+        const method = view.getUint16(cdOffset + 10, true);
+        const compressedSize = view.getUint32(cdOffset + 20, true);
+        const nameLen = view.getUint16(cdOffset + 28, true);
+        const extraLen = view.getUint16(cdOffset + 30, true);
+        const commentLen = view.getUint16(cdOffset + 32, true);
+        const localOffset = view.getUint32(cdOffset + 42, true);
+        const name = new TextDecoder().decode(bytes.slice(cdOffset + 46, cdOffset + 46 + nameLen));
+        if (wanted.has(name)) {
+          const localNameLen = view.getUint16(localOffset + 26, true);
+          const localExtraLen = view.getUint16(localOffset + 28, true);
+          const start = localOffset + 30 + localNameLen + localExtraLen;
+          const compressed = bytes.slice(start, start + compressedSize);
+          let fileBytes;
+          if (method === 0) fileBytes = compressed;
+          else if (method === 8) fileBytes = new Uint8Array(await new Response(new Blob([compressed]).stream().pipeThrough(new DecompressionStream("deflate-raw"))).arrayBuffer());
+          else throw new Error("Unsupported ZIP method " + method);
+          output[name] = new TextDecoder("utf-8").decode(fileBytes);
+        }
+        cdOffset += 46 + nameLen + extraLen + commentLen;
+      }
+      return output;
+    }
+
+    // GTFS ingestion
+    async function ingestGtfs(buffer, source) {
+      const needed = ["stops.txt", "routes.txt", "trips.txt", "stop_times.txt", "calendar.txt", "calendar_dates.txt", "feed_info.txt"];
+      const files = await readZipEntries(buffer, needed);
+      for (const name of ["stops.txt", "routes.txt", "trips.txt", "stop_times.txt"]) {
+        if (!files[name]) throw new Error("GTFS zip missing " + name);
+      }
+      state.gtfs = {
+        source,
+        feedInfo: files["feed_info.txt"] ? csvParse(files["feed_info.txt"]) : [],
+        stops: csvParse(files["stops.txt"]),
+        routes: csvParse(files["routes.txt"]),
+        trips: csvParse(files["trips.txt"]),
+        stopTimes: csvParse(files["stop_times.txt"]),
+        calendars: files["calendar.txt"] ? csvParse(files["calendar.txt"]) : [],
+        calendarDates: files["calendar_dates.txt"] ? csvParse(files["calendar_dates.txt"]) : []
+      };
+      setStatus("Loaded " + state.gtfs.stops.length.toLocaleString() + " stops from GTFS.");
+    }
+
+    async function fetchGtfs(options = {}) {
+      const candidates = options.candidates || gtfsFetchCandidates();
+      const errors = [];
+      try {
+        if (!options.quiet) setStatus("Fetching GTFS zip...");
+        for (const candidate of candidates) {
+          try {
+            const res = await fetch(candidate);
+            if (!res.ok) throw new Error("Fetch failed: " + res.status);
+            await ingestGtfs(await res.arrayBuffer(), candidate);
+            if (candidate !== state.config.gtfsUrl) saveConfig({ gtfsUrl: candidate });
+            return true;
+          } catch (err) {
+            errors.push(candidate + " (" + (err && err.message || err) + ")");
+          }
+        }
+        throw new Error(errors.join("; "));
+      } catch (err) {
+        if (!options.quiet) setStatus(friendlyError(err, "GTFS fetch"), true);
+        return false;
+      }
+    }
+
+    async function uploadGtfs(file) {
+      if (!file) return;
+      try {
+        setStatus("Reading GTFS zip...");
+        await ingestGtfs(await file.arrayBuffer(), file.name);
+      } catch (err) { setStatus(friendlyError(err, "GTFS upload"), true); }
+    }
+
+    function cleanColor(v) {
+      const color = String(v || "").replace(/^#/, "").trim().toUpperCase();
+      return /^[0-9A-F]{6}$/.test(color) ? color : "";
+    }
+
+    function buildBundle() {
+      if (!state.gtfs) { setStatus("Load GTFS data first.", true); return; }
+      const stopIds = new Set(splitList(state.config.stopIds));
+      if (!stopIds.size) { setStatus("Add at least one stop.", true); return; }
+      const routeAllow = new Set(splitList(state.config.routeAllowlist).map(normLabel));
+      const routesById = new Map(state.gtfs.routes.map(r => [r.route_id, r]));
+      const tripsById = new Map(state.gtfs.trips.map(t => [t.trip_id, t]));
+      const stopsById = new Map(state.gtfs.stops.map(s => [s.stop_id, s]));
+      const calendarsByService = new Map(state.gtfs.calendars.map(c => [c.service_id, c]));
+      const selectedStopTimes = [];
+      const tripIds = new Set(), routeIds = new Set(), serviceIds = new Set();
+      for (const st of state.gtfs.stopTimes) {
+        if (!stopIds.has(st.stop_id)) continue;
+        const trip = tripsById.get(st.trip_id);
+        const route = trip && routesById.get(trip.route_id);
+        if (!trip || !route) continue;
+        const labels = [route.route_short_name, route.route_long_name, route.route_id].filter(Boolean);
+        if (routeAllow.size && !labels.some(label => routeAllow.has(normLabel(label)))) continue;
+        selectedStopTimes.push(st);
+        tripIds.add(st.trip_id); routeIds.add(trip.route_id); serviceIds.add(trip.service_id);
+      }
+      if (!selectedStopTimes.length) {
+        setStatus("No departures matched these stop IDs and route filters. Check the stop IDs, route labels, or leave the route filter blank.", true);
+        return;
+      }
+      const bundle = {
+        schemaVersion: 1,
+        generatedAt: new Date().toISOString(),
+        source: state.gtfs.source,
+        config: Object.assign({}, state.config, { mode: "board" }),
+        feedInfo: state.gtfs.feedInfo[0] || {},
+        stops: {}, routes: {}, trips: {},
+        calendars: {}, calendarDates: {}, stopTimesByStop: {}
+      };
+      for (const stopId of stopIds) {
+        const s = stopsById.get(stopId);
+        if (s) bundle.stops[stopId] = { stopId, name: s.stop_name || stopId, lat: +s.stop_lat, lon: +s.stop_lon };
+      }
+      for (const routeId of routeIds) {
+        const r = routesById.get(routeId);
+        bundle.routes[routeId] = { routeId, shortName: r.route_short_name || r.route_long_name || routeId, longName: r.route_long_name || "", color: cleanColor(r.route_color), textColor: cleanColor(r.route_text_color) };
+      }
+      for (const tripId of tripIds) {
+        const t = tripsById.get(tripId);
+        bundle.trips[tripId] = { tripId, routeId: t.route_id, serviceId: t.service_id, headsign: t.trip_headsign || t.trip_short_name || tripId, directionId: t.direction_id || "" };
+      }
+      for (const serviceId of serviceIds) {
+        const c = calendarsByService.get(serviceId);
+        if (c) bundle.calendars[serviceId] = c;
+        bundle.calendarDates[serviceId] = state.gtfs.calendarDates.filter(d => d.service_id === serviceId);
+      }
+      for (const st of selectedStopTimes) {
+        const trip = tripsById.get(st.trip_id);
+        (bundle.stopTimesByStop[st.stop_id] ||= []).push({
+          tripId: st.trip_id, routeId: trip.route_id, serviceId: trip.service_id,
+          stopId: st.stop_id, stopSequence: +st.stop_sequence || 0,
+          arrivalTime: st.arrival_time, departureTime: st.departure_time,
+          headsign: st.stop_headsign || trip.trip_headsign || ""
+        });
+      }
+      for (const stopId of Object.keys(bundle.stopTimesByStop)) {
+        bundle.stopTimesByStop[stopId].sort((a, b) => a.departureTime.localeCompare(b.departureTime) || a.stopSequence - b.stopSequence);
+      }
+      state.bundle = bundle;
+      saveJson("bundle", bundle);
+      saveConfig({ mode: "board" });
+      setStatus("Built board: " + selectedStopTimes.length.toLocaleString() + " departures.");
+    }
+
+    // Realtime
+    async function refreshRealtime() {
+      if (!state.config.realtimeUrl && !state.config.alertsUrl) return;
+      const key = String(state.config.subscriptionKey || "").trim();
+      if (!key) {
+        state.realtimeStatus = "No API key";
+        state.status = "Enter an AT subscription key to fetch live data.";
+        state.error = state.status;
+        return;
+      }
+      try {
+        const urls = [state.config.realtimeUrl, state.config.alertsUrl].filter(Boolean);
+        const headers = {
+          "Cache-Control": "no-cache",
+          "Ocp-Apim-Subscription-Key": key
+        };
+        const feeds = await Promise.all(urls.map(async url => {
+          const res = await fetch(url, { method: "GET", headers });
+          let payload;
+          try { payload = await res.json(); }
+          catch { throw new Error("Realtime response from " + url + " is not JSON."); }
+          if (!res.ok || payload.message) {
+            throw new Error((payload.message || "Realtime fetch failed") + " (" + res.status + ")");
+          }
+          return normalizeRealtime(payload, url);
+        }));
+        state.realtime = feeds.reduce((a, f) => ({
+          fetchedAt: Math.max(a.fetchedAt || 0, f.fetchedAt || 0),
+          feedTimestamp: Math.max(a.feedTimestamp || 0, f.feedTimestamp || 0),
+          sourceUrl: a.sourceUrl || f.sourceUrl,
+          trips: Object.assign(a.trips || {}, f.trips || {}),
+          alerts: (a.alerts || []).concat(f.alerts || [])
+        }), { trips: {}, alerts: [] });
+        state.realtimeStatus = Object.keys(state.realtime.trips || {}).length.toLocaleString() + " trips, " + (state.realtime.alerts || []).length.toLocaleString() + " alerts";
+        state.status = "Realtime loaded: " + state.realtimeStatus + ".";
+        saveJson("realtime", state.realtime);
+        state.error = "";
+      } catch (err) {
+        state.status = friendlyError(err, "Realtime fetch");
+        state.error = state.status;
+        state.realtimeStatus = "Fetch failed";
+      }
+    }
+
+    function normalizeRealtime(payload, sourceUrl) {
+      const feed = payload.response || payload;
+      const entities = gtfsRtArray(feed.entity || payload.entity);
+      const rt = { fetchedAt: Date.now(), sourceUrl, feedTimestamp: secToMs(feed.header && feed.header.timestamp), trips: {}, alerts: [] };
+      for (const e of entities) {
+        const tu = e.trip_update || e.tripUpdate;
+        const tripRef = tu && tu.trip;
+        const tripId = tripRef && (tripRef.trip_id || tripRef.tripId);
+        if (tu && tripRef && tripId) {
+          const updates = {};
+          const orderedUpdates = [];
+          for (const u of gtfsRtArray(tu.stop_time_update || tu.stopTimeUpdate)) {
+            if (!u || typeof u !== "object") continue;
+            const stopId = u.stop_id || u.stopId;
+            const stopSequence = +(u.stop_sequence || u.stopSequence || 0);
+            const update = {
+              stopId,
+              stopSequence,
+              departureTime: secToMs(u.departure && u.departure.time),
+              arrivalTime: secToMs(u.arrival && u.arrival.time),
+              departureDelay: secValue(u.departure && u.departure.delay),
+              arrivalDelay: secValue(u.arrival && u.arrival.delay),
+              scheduleRelationship: schedName(u.schedule_relationship || u.scheduleRelationship, "stop")
+            };
+            if (stopId) updates[stopId] = update;
+            if (stopSequence) updates["seq:" + stopSequence] = update;
+            orderedUpdates.push(update);
+          }
+          orderedUpdates.sort((a, b) => (a.stopSequence || 0) - (b.stopSequence || 0));
+          rt.trips[tripId] = { tripId, routeId: tripRef.route_id || tripRef.routeId || "", startDate: tripRef.start_date || tripRef.startDate || "", timestamp: secToMs(tu.timestamp), tripDelay: secValue(tu.delay), scheduleRelationship: schedName(tripRef.schedule_relationship || tripRef.scheduleRelationship || tu.schedule_relationship || tu.scheduleRelationship, "trip"), updates, orderedUpdates };
+        }
+        if (e.alert) {
+          const header = translated(e.alert.header_text || e.alert.headerText);
+          const informed = gtfsRtArray(e.alert.informed_entity || e.alert.informedEntity);
+          if (header) rt.alerts.push({ id: e.id || header, header, routeIds: informed.map(x => x.route_id || x.routeId).filter(Boolean), stopIds: informed.map(x => x.stop_id || x.stopId).filter(Boolean) });
+        }
+      }
+      return rt;
+    }
+    function translated(v) { const t = v && v.translation && v.translation[0]; return t && t.text; }
+    function secToMs(v) { const n = Number(v); return Number.isFinite(n) ? n * 1000 : undefined; }
+    function secValue(v) { const n = Number(v); return Number.isFinite(n) ? n : undefined; }
+    function schedName(v, kind) {
+      if (typeof v === "string") return v.toUpperCase();
+      const n = Number(v);
+      if (!Number.isFinite(n)) return "";
+      return kind === "trip" ? ["SCHEDULED","ADDED","UNSCHEDULED","CANCELED"][n] || "" : ["SCHEDULED","SKIPPED","NO_DATA","UNSCHEDULED"][n] || "";
+    }
+
+    // Schedule logic
+    function activeService(bundle, serviceId, dateKey) {
+      const overrides = bundle.calendarDates[serviceId] || [];
+      const override = overrides.find(d => d.date === dateKey);
+      if (override) return String(override.exception_type) === "1";
+      const c = bundle.calendars[serviceId];
+      if (!c) return false;
+      if (dateKey < c.start_date || dateKey > c.end_date) return false;
+      const weekday = new Date(Date.UTC(+dateKey.slice(0,4), +dateKey.slice(4,6)-1, +dateKey.slice(6,8))).getUTCDay();
+      return ["sunday","monday","tuesday","wednesday","thursday","friday","saturday"].map(d => String(c[d])==="1")[weekday];
+    }
+    function dateKeyFor(date, tz) {
+      const p = new Intl.DateTimeFormat("en-CA", { timeZone: tz, year:"numeric", month:"2-digit", day:"2-digit" }).formatToParts(date).reduce((a,x) => (x.type !== "literal" && (a[x.type]=x.value), a), {});
+      return p.year + p.month + p.day;
+    }
+    function shiftDateKey(key, days) {
+      const d = new Date(Date.UTC(+key.slice(0,4), +key.slice(4,6)-1, +key.slice(6,8)+days));
+      return String(d.getUTCFullYear()).padStart(4,"0") + String(d.getUTCMonth()+1).padStart(2,"0") + String(d.getUTCDate()).padStart(2,"0");
+    }
+    function offsetMs(date, tz) {
+      const p = new Intl.DateTimeFormat("en-CA", { timeZone: tz, year:"numeric", month:"2-digit", day:"2-digit", hour:"2-digit", minute:"2-digit", second:"2-digit", hourCycle:"h23" }).formatToParts(date).reduce((a,x) => (x.type !== "literal" && (a[x.type]=x.value), a), {});
+      return Date.UTC(+p.year, +p.month-1, +p.day, +p.hour, +p.minute, +p.second) - date.getTime();
+    }
+    function gtfsEpoch(dateKey, time, tz) {
+      const [h, m, s] = String(time || "00:00:00").split(":").map(Number);
+      const overflow = Math.floor(h / 24);
+      const guess = new Date(Date.UTC(+dateKey.slice(0,4), +dateKey.slice(4,6)-1, +dateKey.slice(6,8)+overflow, h%24, m||0, s||0));
+      return guess.getTime() - offsetMs(guess, tz);
+    }
+    function formatDue(epoch, now, cfg) {
+      const delta = epoch - now;
+      if (delta <= 60000) return "Now";
+      const mins = Math.round(delta / 60000);
+      if (mins <= cfg.relativeCutoffMinutes) return mins + " min";
+      return new Intl.DateTimeFormat("en-NZ", { timeZone: cfg.timezone, hour:"2-digit", minute:"2-digit", hourCycle:"h23" }).format(new Date(epoch));
+    }
+    function clockLabel(date, tz) {
+      return new Intl.DateTimeFormat("en-NZ", { timeZone: tz, hour:"2-digit", minute:"2-digit", second:"2-digit", hourCycle:"h23" }).format(date);
+    }
+    function propagatedStopUpdate(rtTrip, stopId, stopSequence) {
+      if (!rtTrip || !rtTrip.updates) return null;
+      const exact = rtTrip.updates[stopId] || rtTrip.updates["seq:" + stopSequence];
+      if (exact) return Object.assign({ propagated: false }, exact);
+      let latest = null;
+      for (const update of rtTrip.orderedUpdates || []) {
+        if (!update.stopSequence || update.stopSequence > stopSequence) break;
+        latest = update;
+      }
+      const delay = latest && (latest.departureDelay ?? latest.arrivalDelay);
+      if (Number.isFinite(delay)) return { propagated: true, departureDelay: delay, arrivalDelay: delay, scheduleRelationship: latest.scheduleRelationship };
+      if (Number.isFinite(rtTrip.tripDelay)) return { propagated: true, departureDelay: rtTrip.tripDelay, arrivalDelay: rtTrip.tripDelay, scheduleRelationship: rtTrip.scheduleRelationship };
+      return null;
+    }
+    function varianceLabel(row) {
+      if (!row.predicted || row.status !== "live") return "";
+      const mins = Math.round((row.predicted - row.scheduled) / 60000);
+      if (mins === 0) return "on time";
+      return Math.abs(mins) + " min " + (mins > 0 ? "late" : "early");
+    }
+
+    function deriveDepartures() {
+      const bundle = state.bundle, cfg = state.config, rt = state.realtime;
+      if (!bundle) return [];
+      const nowMs = state.now.getTime();
+      const maxMs = nowMs + cfg.lookaheadHours * 3600000;
+      const today = dateKeyFor(state.now, cfg.timezone);
+      const dates = [shiftDateKey(today, -1), today, shiftDateKey(today, 1)];
+      const rows = [];
+      for (const stopId of splitList(cfg.stopIds)) {
+        const stop = bundle.stops[stopId];
+        for (const st of (bundle.stopTimesByStop[stopId] || [])) {
+          const trip = bundle.trips[st.tripId], route = bundle.routes[st.routeId];
+          if (!trip || !route) continue;
+          for (const serviceDate of dates) {
+            if (!activeService(bundle, st.serviceId, serviceDate)) continue;
+            const scheduled = gtfsEpoch(serviceDate, st.departureTime || st.arrivalTime, cfg.timezone);
+            if (scheduled < nowMs - 120000 || scheduled > maxMs) continue;
+            const rtTrip = rt && rt.trips && rt.trips[st.tripId];
+            if (rtTrip && rtTrip.startDate && rtTrip.startDate !== serviceDate) continue;
+            const stopUpdate = propagatedStopUpdate(rtTrip, stopId, st.stopSequence);
+            const realtimeTime = stopUpdate && (stopUpdate.departureTime || stopUpdate.arrivalTime);
+            const realtimeDelay = stopUpdate && (stopUpdate.departureDelay ?? stopUpdate.arrivalDelay);
+            const predicted = realtimeTime || (Number.isFinite(realtimeDelay) ? scheduled + realtimeDelay * 1000 : undefined);
+            const cancelled = (rtTrip && ["CANCELED","CANCELLED"].includes(rtTrip.scheduleRelationship)) || (stopUpdate && ["CANCELED","CANCELLED","SKIPPED"].includes(stopUpdate.scheduleRelationship));
+            rows.push({
+              key: st.tripId + ":" + serviceDate, tripId: st.tripId, routeId: route.routeId,
+              stopId, serviceDate, routeLabel: route.shortName, routeColor: route.color,
+              routeTextColor: route.textColor,
+              destination: st.headsign || trip.headsign || "",
+              stopName: stop ? stop.name : stopId,
+              scheduled, predicted, effective: predicted || scheduled,
+              status: cancelled ? "cancelled" : predicted ? "live" : "scheduled"
+            });
+          }
+        }
+      }
+      const deduped = new Map();
+      for (const row of rows) { const ex = deduped.get(row.key); if (!ex || row.effective < ex.effective) deduped.set(row.key, row); }
+      return Array.from(deduped.values()).sort((a, b) => a.effective - b.effective);
+    }
+
+    function boardAlerts() {
+      if (!state.bundle || !state.realtime) return [];
+      const stops = new Set(splitList(state.config.stopIds));
+      const routes = new Set(Object.keys(state.bundle.routes));
+      return (state.realtime.alerts || []).filter(a => (a.stopIds || []).some(s => stops.has(s)) || (a.routeIds || []).some(r => routes.has(r)));
+    }
+
+    function friendlyError(err, context) {
+      const msg = String(err && err.message || err || "Unknown error");
+      if (/failed to fetch|networkerror|load failed/i.test(msg)) {
+        const fileHint = location.protocol === "file:" ? " Because this page is open as a standalone file, upload the GTFS zip if the remote server blocks browser fetches." : "";
+        return context + " failed. Check the URL, CORS access, network connection, and any required API key." + fileHint;
+      }
+      return context + ": " + msg;
+    }
+
+    function runMode() {
+      return location.protocol === "file:" ? "Standalone .html" : "Hosted";
+    }
+
+    function storageKeys() {
+      try { return Object.keys(localStorage).filter(k => k.startsWith(STORE_KEY)); }
+      catch { return []; }
+    }
+
+    function relativeAge(ts) {
+      if (!ts) return "Never";
+      const seconds = Math.max(0, Math.round((Date.now() - ts) / 1000));
+      if (seconds < 90) return seconds + "s ago";
+      const minutes = Math.round(seconds / 60);
+      if (minutes < 90) return minutes + "m ago";
+      return Math.round(minutes / 60) + "h ago";
+    }
+
+    function bundleDepartureCount() {
+      if (!state.bundle) return 0;
+      return Object.values(state.bundle.stopTimesByStop || {}).reduce((sum, rows) => sum + rows.length, 0);
+    }
+
+    function realtimeSummary() {
+      if (state.realtimeStatus) return state.realtimeStatus;
+      if (!String(state.config.subscriptionKey || "").trim()) return "No API key";
+      if (!state.realtime) return "Not fetched";
+      return Object.keys(state.realtime.trips || {}).length.toLocaleString() + " trips, " + (state.realtime.alerts || []).length.toLocaleString() + " alerts";
+    }
+
+    function diagnostics() {
+      const realtimeLatest = state.realtime && (state.realtime.feedTimestamp || state.realtime.fetchedAt);
+      return [
+        ["Run mode", runMode()],
+        ["GTFS unzip support", ("DecompressionStream" in window) ? "Ready" : "Missing"],
+        ["Saved board", state.bundle ? bundleDepartureCount().toLocaleString() + " departures" : "Not built"],
+        ["Loaded GTFS", state.gtfs ? state.gtfs.stops.length.toLocaleString() + " stops" : "Not loaded"],
+        ["Realtime feed", realtimeSummary()],
+        ["Realtime age", relativeAge(realtimeLatest)],
+        ["Storage keys", storageKeys().length.toString()]
+      ];
+    }
+
+    function renderDiagnostics() {
+      return `<div class="debug-grid">${diagnostics().map(([label, value]) => `<div class="debug-item"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>`).join("")}</div>`;
+    }
+
+    // Status
+    function setStatus(msg, isError) {
+      state.status = msg || "";
+      state.error = isError ? msg : "";
+      render();
+    }
+
+    // Config helpers
+    function saveConfig(patch = {}) {
+      Object.assign(state.config, patch);
+      sanitizeConfig(state.config);
+      saveJson("config", state.config);
+    }
+    function resetAll() {
+      try { Object.keys(localStorage).filter(k => k.startsWith(STORE_KEY)).forEach(k => localStorage.removeItem(k)); } catch {}
+      state.config = Object.assign({}, DEFAULT_CONFIG);
+      state.bundle = null; state.gtfs = null; state.realtime = null;
+      state.status = ""; state.error = "";
+      state.autoGtfsAttempted = false;
+      render();
+    }
+
+    // Rendering
+    function renderSetup() {
+      const cfg = state.config;
+      const results = state.gtfs && state.stopSearch.trim()
+        ? state.gtfs.stops.filter(s => (s.stop_id + “ “ + s.stop_name + “ “ + (s.stop_desc || “”)).toLowerCase().includes(state.stopSearch.toLowerCase())).slice(0, 30)
+        : [];
+
+      const stopList = splitList(cfg.stopIds);
+      const routeList = splitList(cfg.routeAllowlist);
+      const gtfsStatus = state.gtfs
+        ? state.gtfs.stops.length.toLocaleString() + “ stops loaded”
+        : state.bundle ? “using saved bundle” : “not loaded”;
+      const stopsStatus = stopList.length
+        ? stopList.length + “ stop” + (stopList.length !== 1 ? “s” : “”) + (routeList.length ? “ · “ + routeList.length + “ route filter” + (routeList.length !== 1 ? “s” : “”) : “ · all routes”)
+        : “not configured”;
+      const rtStatus = String(cfg.subscriptionKey || “”).trim() ? “API key set” : “no key — scheduled times only”;
+      const displayStatus = cfg.pageSize + “ rows · “ + cfg.pollSeconds + “s poll”;
+
+      const html = `
+        <main class=”setup”>
+          <div class=”setup-header”>
+            <h1>Auckland Live Departures</h1>
+            <p>Load a GTFS zip → pick stops → build the board → open it.</p>
+          </div>
+          <div class=”quick-actions”>
+            ${state.bundle ? `<button class=”primary” data-action=”board”>Open Board</button>` : “”}
+            ${state.gtfs ? `<button class=”${state.bundle ? “ghost small” : “primary”}” data-action=”build”>Build Board</button>` : “”}
+            <button class=”danger small” data-action=”reset”>Reset all</button>
+          </div>
+          <div class=”status-bar ${state.error ? “error” : “”}”>${escapeHtml(state.status || (state.bundle ? “Board data ready — click Open Board.” : “Load a GTFS zip to get started.”))}</div>
+          ${renderDiagnostics()}
+
+          <div class=”setup-layout”>
+          <div>
+          ${collapsible(“gtfs”, “1 · GTFS Data”, `
+            <div class=”field”><label>GTFS zip file path or URL</label><input name=”gtfsUrl” value=”${escapeHtml(cfg.gtfsUrl)}”><div class=”hint”>Default is <code>gtfs.zip</code> in the same folder as this HTML file. <code>gtfs (1).zip</code> is also tried as a fallback.</div></div>
+            <div class=”link-row”>
+              <button class=”ghost small” type=”button” data-action=”fetchGtfs”>Try URL fetch</button>
+              <a class=”link-button” href=”${escapeHtml(safeHref(cfg.gtfsUrl))}” target=”_blank” rel=”noopener”>Open zip URL</a>
+              <label style=”font-size:.85rem;color:var(--muted);cursor:pointer”>Upload zip: <input name=”gtfsFile” type=”file” accept=”.zip” style=”width:auto;max-width:14rem”></label>
+            </div>
+            ${location.protocol === “file:” ? `<div class=”note”>Standalone file mode: some browsers block reading sibling files over file://. If same-folder loading fails, upload the zip above or serve this folder with a local web server.</div>` : “”}
+            ${state.gtfs
+              ? `<p style=”font-size:.85rem;color:var(--good);margin-top:.5rem”>${state.gtfs.stops.length.toLocaleString()} stops loaded from ${escapeHtml(state.gtfs.source)}</p>`
+              : `<p style=”font-size:.85rem;color:var(--muted);margin-top:.5rem”>Place the GTFS zip beside this HTML as <code>gtfs.zip</code> and open the page, or upload it above.</p>`}
+          `, gtfsStatus)}
+
+          ${collapsible(“stops”, “2 · Stops & Routes”, `
+            <div class=”field”><label>Route filter — comma-separated short names (blank = show all routes)</label><textarea name=”routeAllowlist”>${escapeHtml(cfg.routeAllowlist)}</textarea></div>
+            <div class=”field”><label>Stop IDs — comma-separated</label><textarea name=”stopIds”>${escapeHtml(cfg.stopIds)}</textarea></div>
+            <button class=”primary small” type=”button” data-action=”build”>Build Board</button>
+            ${state.gtfs ? `
+              <div class=”field” style=”margin-top:.75rem”><label>Search stops (GTFS loaded — click + to add)</label><input name=”stopSearch” placeholder=”Type stop name or ID…” value=”${escapeHtml(state.stopSearch)}”></div>
+              <div class=”stop-results”>${results.map(s => `<div class=”stop-item”><button class=”ghost small” type=”button” data-stop=”${escapeHtml(s.stop_id)}”>+</button><span class=”name”>${escapeHtml(s.stop_name || s.stop_id)}</span><span class=”id”>${escapeHtml(s.stop_id)}</span></div>`).join(“”)}</div>
+            ` : `<p class=”hint” style=”margin-top:.3rem”>Load GTFS data first to search and add stops.</p>`}
+          `, stopsStatus)}
+
+          ${collapsible(“realtime”, “3 · Realtime API”, `
+            <div class=”field”><label>GTFS-RT trip updates URL</label><input name=”realtimeUrl” value=”${escapeHtml(cfg.realtimeUrl)}”></div>
+            <div class=”field”><label>Service alerts URL</label><input name=”alertsUrl” value=”${escapeHtml(cfg.alertsUrl)}”></div>
+            <div class=”field”><label>AT subscription key</label><input name=”subscriptionKey” type=”password” value=”${escapeHtml(cfg.subscriptionKey)}”><div class=”hint”>Get a key from the AT Developer Portal. Without it the board shows scheduled times only.</div></div>
+            <button class=”ghost small” type=”button” data-action=”fetchRealtime”>Test connection</button>
+          `, rtStatus)}
+
+          ${collapsible(“timing”, “Display Settings”, `
+            <div class=”row”>
+              <div class=”field”><label>Poll interval (sec)</label><input name=”pollSeconds” type=”number” value=”${cfg.pollSeconds}”><div class=”hint”>How often the board fetches live updates.</div></div>
+              <div class=”field”><label>Rows per page</label><input name=”pageSize” type=”number” value=”${cfg.pageSize}”><div class=”hint”>Departures shown per page before rotating.</div></div>
+            </div>
+            <div class=”row”>
+              <div class=”field”><label>Page rotation (sec)</label><input name=”rotateSeconds” type=”number” value=”${cfg.rotateSeconds}”><div class=”hint”>How long each page stays on screen.</div></div>
+              <div class=”field”><label>Lookahead (hours)</label><input name=”lookaheadHours” type=”number” value=”${cfg.lookaheadHours}”><div class=”hint”>How far ahead to show departures.</div></div>
+            </div>
+            <div class=”row”>
+              <div class=”field”><label>Relative time cutoff (min)</label><input name=”relativeCutoffMinutes” type=”number” value=”${cfg.relativeCutoffMinutes}”><div class=”hint”>Show “12 min” up to this threshold; beyond it show clock time like “14:35”. Set 0 to always use clock time.</div></div>
+              <div class=”field”><label>Stale after (× poll intervals)</label><input name=”staleMultiplier” type=”number” value=”${cfg.staleMultiplier}”><div class=”hint”>Board warns “data unavailable” if realtime hasn't refreshed in this many poll cycles.</div></div>
+            </div>
+            <div class=”field”><label>Timezone</label><input name=”timezone” value=”${escapeHtml(cfg.timezone)}”><div class=”hint”>IANA timezone for service days and the board clock (e.g. Pacific/Auckland).</div></div>
+            <button class=”ghost small” type=”button” data-action=”save”>Save Settings</button>
+          `, displayStatus)}
+          </div>
+          </div>
+        </main>`;
+      app.innerHTML = html;
+      wireSetup();
+    }
+
+    function collapsible(id, title, body, statusText) {
+      const open = state.expandedSections[id];
+      const status = statusText ? `<span class="section-status">— ${escapeHtml(statusText)}</span>` : "";
+      return `<div class="section"><div class="section-header" data-toggle="${id}"><span>${title}${status}</span><span class="arrow ${open ? "open" : ""}">&#9654;</span></div><div class="section-body ${open ? "" : "hidden"}">${body}</div></div>`;
+    }
+
+    function wireSetup() {
+      document.querySelectorAll("[data-toggle]").forEach(el => {
+        el.addEventListener("click", () => {
+          state.expandedSections[el.dataset.toggle] = !state.expandedSections[el.dataset.toggle];
+          renderSetup();
+        });
+      });
+      const q = s => document.querySelector(s);
+      q("[data-action=board]")?.addEventListener("click", () => { readFormIntoConfig(); saveConfig({ mode: "board" }); render(); });
+      q("[data-action=reset]")?.addEventListener("click", resetAll);
+      q("[data-action=fetchGtfs]")?.addEventListener("click", () => { readFormIntoConfig(); saveConfig(); fetchGtfs(); });
+      q("[data-action=fetchRealtime]")?.addEventListener("click", () => { readFormIntoConfig(); saveConfig(); refreshRealtime().then(() => renderSetup()); });
+      document.querySelectorAll("[data-action=build]").forEach(btn => btn.addEventListener("click", () => { readFormIntoConfig(); saveConfig(); buildBundle(); }));
+      q("[data-action=save]")?.addEventListener("click", () => { readFormIntoConfig(); saveConfig(); setStatus("Settings saved."); });
+      q("[name=gtfsFile]")?.addEventListener("change", e => { readFormIntoConfig(); saveConfig(); uploadGtfs(e.target.files[0]); });
+      q("[name=stopSearch]")?.addEventListener("input", e => { state.stopSearch = e.target.value; renderSetup(); });
+      document.querySelectorAll("[data-stop]").forEach(btn => btn.addEventListener("click", () => {
+        const ta = document.querySelector("[name=stopIds]");
+        const ids = new Set(splitList(ta.value));
+        ids.add(btn.dataset.stop);
+        ta.value = Array.from(ids).join(", ");
+        readFormIntoConfig();
+        saveConfig();
+        renderSetup();
+      }));
+    }
+
+    function readFormIntoConfig() {
+      const get = n => { const el = document.querySelector(`[name="${n}"]`); return el ? el.value : undefined; };
+      const cfg = state.config;
+      const v = n => get(n);
+      if (v("timezone") !== undefined) cfg.timezone = safeTimezone(v("timezone"));
+      if (v("gtfsUrl") !== undefined) cfg.gtfsUrl = v("gtfsUrl");
+      if (v("realtimeUrl") !== undefined) cfg.realtimeUrl = v("realtimeUrl");
+      if (v("alertsUrl") !== undefined) cfg.alertsUrl = v("alertsUrl");
+      if (v("subscriptionKey") !== undefined) cfg.subscriptionKey = v("subscriptionKey");
+      if (v("pollSeconds") !== undefined) cfg.pollSeconds = clampNumber(v("pollSeconds"), 60, 10, 3600);
+      if (v("pageSize") !== undefined) cfg.pageSize = Math.round(clampNumber(v("pageSize"), 6, 1, 50));
+      if (v("rotateSeconds") !== undefined) cfg.rotateSeconds = clampNumber(v("rotateSeconds"), 12, 3, 3600);
+      if (v("lookaheadHours") !== undefined) cfg.lookaheadHours = clampNumber(v("lookaheadHours"), 6, 1, 48);
+      if (v("relativeCutoffMinutes") !== undefined) cfg.relativeCutoffMinutes = clampNumber(v("relativeCutoffMinutes"), 20, 0, 180);
+      if (v("staleMultiplier") !== undefined) cfg.staleMultiplier = clampNumber(v("staleMultiplier"), 2, 1, 20);
+      if (v("routeAllowlist") !== undefined) cfg.routeAllowlist = v("routeAllowlist");
+      if (v("stopIds") !== undefined) cfg.stopIds = v("stopIds");
+    }
+
+    function renderBoard() {
+      const cfg = state.config;
+      const rows = deriveDepartures();
+      const pages = [];
+      for (let i = 0; i < rows.length; i += cfg.pageSize) pages.push(rows.slice(i, i + cfg.pageSize));
+      if (!pages.length) pages.push([]);
+      state.page = state.page % pages.length;
+      const pageRows = pages[state.page] || [];
+      const latest = state.realtime && (state.realtime.feedTimestamp || state.realtime.fetchedAt);
+      const hasRT = Boolean(cfg.realtimeUrl || cfg.alertsUrl);
+      const stale = hasRT && (!latest || Date.now() - latest > cfg.pollSeconds * cfg.staleMultiplier * 1000);
+      const alerts = boardAlerts().map(a => a.header);
+      const tickerItems = [state.bundle?.feedInfo?.feed_publisher_name || "Auckland Transport", ...(alerts.length ? alerts : ["No active alerts"])];
+      const tickerHtml = tickerItems.concat(tickerItems).map(x => `<span>${escapeHtml(x)}</span>`).join("");
+
+      app.innerHTML = `
+        <main class="board">
+          <section class="board-shell">
+            <header class="board-header">
+              <div class="board-meta">
+                <span>${state.realtime ? "Live" : "Scheduled"}</span>
+                <button class="ghost small" data-action="setup">Settings</button>
+              </div>
+            </header>
+            ${stale ? `<div class="alert-banner bad">Live data unavailable - showing scheduled times.</div>` : ""}
+            ${alerts.length ? `<div class="alert-banner warn">${escapeHtml(alerts[0])}</div>` : ""}
+            ${pageRows.length ? renderTable(pageRows, cfg) : `<div class="empty-state"><div><strong>No departures</strong><br><span>Nothing scheduled in the next ${cfg.lookaheadHours}h.</span></div></div>`}
+            <footer class="board-footer">
+              <div class="ticker"><div class="ticker-inner">${tickerHtml}</div></div>
+              <div class="clock">${clockLabel(state.now, cfg.timezone)}</div>
+            </footer>
+          </section>
+        </main>`;
+      document.querySelector("[data-action=setup]")?.addEventListener("click", () => { saveConfig({ mode: "setup" }); render(); });
+    }
+
+    function renderTable(rows, cfg) {
+      return `<table class="dep-table"><thead><tr><th>Route</th><th>Destination</th><th>Status</th><th style="text-align:right">Due</th></tr></thead><tbody>${rows.map(r => {
+        const style = r.routeColor ? `style="background:#${escapeHtml(r.routeColor)};color:#${escapeHtml(r.routeTextColor||"FFF")};border-color:#${escapeHtml(r.routeColor)}"` : "";
+        const variance = varianceLabel(r);
+        return `<tr><td><span class="route-pill" ${style}>${escapeHtml(r.routeLabel)}</span></td><td><div class="dest-cell"><strong>${escapeHtml(r.destination)}</strong><span>${escapeHtml(r.stopName)}</span></div></td><td><span class="badge ${r.status}">${r.status === "live" ? "Live" : r.status === "cancelled" ? "Cancelled" : "Scheduled"}</span>${variance ? `<div class="variance">${escapeHtml(variance)}</div>` : ""}</td><td class="due-cell">${formatDue(r.effective, state.now.getTime(), cfg)}</td></tr>`;
+      }).join("")}</tbody></table>`;
+    }
+
+    function autoLoadSameFolderGtfs() {
+      if (state.autoGtfsAttempted || state.gtfs || state.bundle) return;
+      state.autoGtfsAttempted = true;
+      fetchGtfs({ quiet: true, candidates: gtfsFetchCandidates(DEFAULT_GTFS_FILE) });
+    }
+
+    // Runtime
+    function startRuntime() {
+      clearTimers();
+      timers.push(setInterval(() => { state.now = new Date(); if (state.config.mode === "board") renderBoard(); }, 1000));
+      timers.push(setInterval(() => { if (state.config.mode === "board") refreshRealtime().then(() => renderBoard()); }, Math.max(10, state.config.pollSeconds) * 1000));
+      timers.push(setInterval(() => { if (state.config.mode === "board") { state.page++; renderBoard(); } }, Math.max(3, state.config.rotateSeconds) * 1000));
+      refreshRealtime();
+    }
+
+    function render() {
+      clearTimers();
+      if (state.config.mode === "board" && state.bundle) { renderBoard(); startRuntime(); }
+      else { state.config.mode = "setup"; renderSetup(); autoLoadSameFolderGtfs(); }
+    }
+
+    window.addEventListener("error", e => { state.status = "Error: " + (e.message || "unknown"); try { render(); } catch {} });
+    window.addEventListener("unhandledrejection", e => { state.status = "Error: " + (e.reason?.message || e.reason || "unknown"); try { render(); } catch {} });
+    render();
+  </script>
+</body>
+</html>

@@ -1,0 +1,1101 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>AT Transit Realtime</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta content="script-src 'self' https://unpkg.com https://cdnjs.cloudflare.com https://www.googletagmanager.com;">
+    <link rel="shortcut icon" type="image/x-icon" href="docs/images/favicon.ico" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.5.1/dist/leaflet.css"
+        integrity="sha512-xwE/Az9zrjBIphAcBb3F6JVqxf46+CDLwfLMHloNu6KEQCAWi6HcDUbeOfBIptF7tcCzusKFjFw2yuvEpDL9wQ=="
+        crossorigin="" />
+    <script src="https://unpkg.com/leaflet@1.5.1/dist/leaflet.js"
+        integrity="sha512-GffPMF3RvMeYyc1LWMHtK8EbPv0iNZ8/oTtHPx9/cc2ILxQ+u905qIwdpULaqDkyBKgOaB57QTMg7ztg8Jm2Og=="
+        crossorigin=""></script>
+    <script src="https://unpkg.com/leaflet-providers@1.3.0/leaflet-providers.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.min.js"
+        integrity="sha256-FgpCb/KJQlLNfOu91ta32o/NMZxltwRo8QtmkMRdAu8=" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/spin.js/2.3.2/spin.min.js"></script>
+    <script src="https://unpkg.com/leaflet-spin@1.1.0/leaflet.spin.min.js"></script>
+    <script src="https://unpkg.com/leaflet-search@2.9.8/dist/leaflet-search.src.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/chroma-js/2.0.3/chroma.min.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-search@2.9.8/src/leaflet-search.css" />
+    <style>
+        body, html { width: 100%; height: 100%; margin: 0; padding: 0; }
+        #map { position: absolute; width: 100%; height: 100%; left: 0; top: 0; }
+.refresh-btn {
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 30px; height: 30px;
+            background: white;
+            border-radius: 2px;
+            cursor: pointer;
+            box-shadow: 0 1px 5px rgba(0,0,0,0.4);
+            border: 2px solid rgba(0,0,0,0.2);
+            transition: background 0.2s, transform 0.1s, box-shadow 0.2s;
+            user-select: none;
+            overflow: hidden;
+        }
+        .refresh-btn .refresh-icon {
+            width: 16px; height: 16px;
+            fill: none;
+            stroke: #555;
+            stroke-width: 2;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+            transition: stroke 0.3s, transform 0.3s;
+        }
+        .refresh-btn .refresh-check {
+            position: absolute;
+            width: 14px; height: 14px;
+            fill: none;
+            stroke: #2ecc71;
+            stroke-width: 2.5;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+            opacity: 0;
+            transform: scale(0);
+            transition: opacity 0.2s, transform 0.2s;
+        }
+        .refresh-btn .refresh-check.show {
+            opacity: 1;
+            transform: scale(1);
+            transition: opacity 0.15s, transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .refresh-btn .refresh-icon.hide { opacity: 0; transform: scale(0); }
+        .refresh-btn::after {
+            content: '';
+            position: absolute;
+            width: 100%; height: 100%;
+            background: radial-gradient(circle, rgba(0,120,168,0.15) 0%, transparent 70%);
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        .refresh-btn:active { transform: scale(0.9); }
+        #route-filter { position: relative; margin-top: 8px; }
+        #route-filter-label { font-weight: bold; margin-bottom: 4px; }
+        #route-input {
+            width: 100%; box-sizing: border-box; padding: 4px 6px;
+            border: 1px solid #aaa; border-radius: 3px; font-size: 13px;
+        }
+        #route-suggestions {
+            position: absolute; left: 0; right: 0; max-height: 180px;
+            overflow-y: auto; background: white; border: 1px solid #ccc;
+            border-top: none; border-radius: 0 0 3px 3px; z-index: 1000;
+            display: none; box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+        }
+        .route-suggestion {
+            padding: 5px 8px; cursor: pointer; font-size: 13px;
+            border-bottom: 1px solid #eee;
+        }
+        .route-suggestion:hover, .route-suggestion.active { background: #e8f0fe; }
+        .route-suggestion .route-num { font-weight: bold; }
+        #route-chips {
+            display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px;
+        }
+        .route-chip {
+            display: inline-flex; align-items: center; gap: 3px;
+            background: #e0e0e0; border-radius: 12px; padding: 2px 8px;
+            font-size: 12px; cursor: default; white-space: nowrap;
+        }
+        .route-chip-x {
+            cursor: pointer; font-weight: bold; color: #666;
+            margin-left: 2px; font-size: 14px; line-height: 1;
+        }
+        .route-chip-x:hover { color: #d00; }
+        #route-clear {
+            font-size: 11px; color: #1a73e8; cursor: pointer;
+            margin-top: 3px; display: none;
+        }
+        #route-clear:hover { text-decoration: underline; }
+        .kinetic-toggle {
+            font-size: 11px; color: #1a73e8; cursor: pointer;
+            margin-left: 20px; user-select: none;
+        }
+        .kinetic-toggle:hover { text-decoration: underline; }
+        .kinetic-sub {
+            margin-left: 28px; display: none; border-left: 2px solid #7b2d8b;
+            padding-left: 6px; margin-bottom: 2px;
+        }
+        .kinetic-sub.open { display: block; }
+        .refresh-btn:hover {
+            background: #f8fbff;
+            box-shadow: 0 1px 5px rgba(0,120,168,0.3);
+            border-color: rgba(0,120,168,0.3);
+        }
+        .refresh-btn:hover::after { opacity: 1; }
+        .refresh-btn:hover .refresh-icon { stroke: #0078A8; }
+        .refresh-btn.spinning .refresh-icon {
+            animation: refresh-spin 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+            stroke: #0078A8;
+        }
+        @keyframes refresh-spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .refresh-btn.done {
+            border-color: rgba(46,204,113,0.4);
+            box-shadow: 0 1px 8px rgba(46,204,113,0.3);
+        }
+        /* Fix search button icon: CDN CSS uses a relative path that fails to load */
+        .leaflet-control-search .search-button {
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Ccircle cx='10' cy='10' r='6' fill='none' stroke='%23333' stroke-width='2.5'/%3E%3Cline x1='14.5' y1='14.5' x2='20' y2='20' stroke='%23333' stroke-width='2.5' stroke-linecap='round'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: center;
+            background-size: 18px 18px;
+        }
+        .info {
+            background-color: white; padding: 15px; color: black;
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.2); border-radius: 5px;
+        }
+        /* Tooltip styling for all devices */
+        .leaflet-tooltip {
+            max-width: 280px;
+            white-space: normal;
+            word-wrap: break-word;
+            line-height: 1.4;
+        }
+        /* Touch-friendly controls for mobile / coarse pointer devices */
+        @media (pointer: coarse), (max-width: 600px) {
+            .leaflet-control-zoom a {
+                width: 44px !important;
+                height: 44px !important;
+                line-height: 44px !important;
+                font-size: 22px !important;
+            }
+            .leaflet-control-layers-toggle {
+                width: 44px !important;
+                height: 44px !important;
+            }
+            .leaflet-control-layers {
+                max-height: 70vh;
+                overflow-y: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+            .leaflet-control-layers label {
+                font-size: 16px;
+                padding: 6px 4px;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                min-height: 44px;
+            }
+            .leaflet-control-layers input[type="radio"],
+            .leaflet-control-layers input[type="checkbox"] {
+                width: 22px;
+                height: 22px;
+                flex-shrink: 0;
+            }
+            .leaflet-tooltip {
+                max-width: min(280px, 80vw);
+                font-size: 14px;
+                padding: 8px 10px;
+                line-height: 1.5;
+            }
+            .info {
+                padding: 10px 14px;
+                font-size: 15px;
+                max-width: calc(100vw - 80px);
+            }
+            .info legend, .info .legend {
+                font-size: 14px;
+            }
+            #colourscheme {
+                font-size: 16px;
+                min-height: 44px;
+                padding: 6px 8px;
+                touch-action: manipulation;
+                border-radius: 4px;
+            }
+            .leaflet-control-search {
+                touch-action: manipulation;
+            }
+            .leaflet-control-search .search-button {
+                width: 44px !important;
+                height: 44px !important;
+                background-size: 20px 20px;
+                background-position: center;
+                touch-action: manipulation;
+            }
+            .leaflet-control-search .search-input {
+                height: 44px !important;
+                font-size: 16px !important;
+                touch-action: manipulation;
+            }
+            .leaflet-control-search .search-cancel {
+                width: 44px !important;
+                height: 44px !important;
+                line-height: 44px !important;
+                font-size: 22px !important;
+            }
+.leaflet-control-attribution {
+                font-size: 10px;
+                max-width: 60vw;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+            .refresh-btn {
+                width: 40px !important;
+                height: 40px !important;
+            }
+            .refresh-btn svg {
+                width: 20px !important;
+                height: 20px !important;
+            }
+            #route-input {
+                font-size: 16px !important;
+                min-height: 44px;
+                padding: 8px 10px;
+            }
+            .route-suggestion {
+                padding: 10px 12px;
+                font-size: 15px;
+                min-height: 44px;
+                display: flex; align-items: center;
+            }
+            .route-chip { font-size: 14px; padding: 4px 10px; }
+            .route-chip-x { font-size: 16px; min-width: 22px; min-height: 22px; display: flex; align-items: center; justify-content: center; }
+            .leaflet-bottom.leaflet-right {
+                padding-bottom: env(safe-area-inset-bottom, 0px);
+                padding-right: env(safe-area-inset-right, 0px);
+            }
+            .leaflet-top.leaflet-left {
+                padding-top: env(safe-area-inset-top, 0px);
+                padding-left: env(safe-area-inset-left, 0px);
+            }
+            .leaflet-top.leaflet-right {
+                padding-top: env(safe-area-inset-top, 0px);
+                padding-right: env(safe-area-inset-right, 0px);
+            }
+        }
+    </style>
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-77710107-12"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'UA-77710107-12');
+    </script>
+</head>
+<body>
+<div id="map"></div>
+    <script>
+        var isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+        var map = L.map('map', {
+            center: [-36.8862, 174.7651],
+            zoom: 12,
+            worldCopyJump: true,
+            tap: true
+        });
+
+        // On mobile, tapping the map dismisses any open tooltip
+        if (isTouchDevice) {
+            map.on('click', function () {
+                map.eachLayer(function (layer) {
+                    if (layer.isTooltipOpen && layer.isTooltipOpen()) {
+                        layer.closeTooltip();
+                    }
+                });
+            });
+        }
+
+        var positron = L.tileLayer.provider('CartoDB.Positron').addTo(map);
+
+        var baseMaps = {
+            "OSM": L.tileLayer.provider("OpenStreetMap.Mapnik"),
+            "OSM Grayscale": L.tileLayer.provider("OpenStreetMap.BlackAndWhite"),
+            "CartoDB Positron": positron,
+            "CartoDB Dark Matter": L.tileLayer.provider("CartoDB.DarkMatter"),
+            "ESRI WorldImagery": L.tileLayer.provider("Esri.WorldImagery"),
+            "Google Hybrid": L.tileLayer('http://{s}.google.com/vt/lyrs=s,h&x={x}&y={y}&z={z}', {
+                maxZoom: 20,
+                subdomains: ['mt0', 'mt1', 'mt2', 'mt3']
+            }),
+            "Wikimedia": L.tileLayer.provider("Wikimedia")
+        };
+
+        map.attributionControl.addAttribution("© <a href='https://dev-portal.at.govt.nz/'>AT</a>");
+
+        var layers = {
+            2: L.layerGroup().addTo(map),
+            3: L.layerGroup().addTo(map),
+            4: L.layerGroup().addTo(map),
+            null: L.layerGroup().addTo(map),
+            "oos_bus":   L.layerGroup().addTo(map),
+            "oos_train": L.layerGroup().addTo(map),
+            "oos_ferry": L.layerGroup().addTo(map)
+        };
+
+        var search = L.control.search({
+            layer: L.layerGroup([layers[2], layers[3], layers[4], layers[null], layers["oos_bus"], layers["oos_train"], layers["oos_ferry"]]),
+            initial: false,
+            propertyName: 'desc'
+        });
+        map.addControl(search);
+
+        // Use event delegation for .search-input which is dynamically inserted by Leaflet Search
+        $(document).on("keyup", ".search-input", function () {
+            for (var i in markers) {
+                if (!markers.hasOwnProperty(i)) continue;
+                applyVisibilityFilters(markers[i]);
+            }
+        });
+
+        var overlayMaps = {
+            "AT Buses":              layers[3],
+            "AT Trains":             layers[2],
+            "AT Ferries":            layers[4],
+            "Out of Service Buses":  layers["oos_bus"],
+            "Out of Service Trains": layers["oos_train"],
+            "Out of Service Ferries": layers["oos_ferry"],
+            "Out of Service":        layers[null]
+        };
+
+        L.control.layers(baseMaps, overlayMaps).addTo(map);
+        map.removeLayer(layers[null]); // "Out of Service" off by default
+
+        var RefreshControl = L.Control.extend({
+            options: { position: 'topleft' },
+            onAdd: function () {
+                var btn = L.DomUtil.create('div', 'refresh-btn');
+                btn.title = 'Refresh vehicle data';
+                btn.innerHTML = '<svg class="refresh-icon" viewBox="0 0 24 24"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>'
+                    + '<svg class="refresh-check" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg>';
+                L.DomEvent.disableClickPropagation(btn);
+                L.DomEvent.on(btn, 'click', function () {
+                    if (!btn.classList.contains('spinning')) {
+                        btn.classList.add('spinning');
+                        loop();
+                        setTimeout(function () {
+                            btn.classList.remove('spinning');
+                            // Show checkmark
+                            var icon = btn.querySelector('.refresh-icon');
+                            var check = btn.querySelector('.refresh-check');
+                            icon.classList.add('hide');
+                            check.classList.add('show');
+                            btn.classList.add('done');
+                            setTimeout(function () {
+                                check.classList.remove('show');
+                                icon.classList.remove('hide');
+                                btn.classList.remove('done');
+                            }, 1200);
+                        }, 800);
+                    }
+                });
+                return btn;
+            }
+        });
+        new RefreshControl().addTo(map);
+
+        // Operator prefix mapping and colours
+        var operatorPrefixes = {
+            'NB': 'Kinetic', 'GB': 'Kinetic',
+            'HE': 'Howick and Eastern',
+            'BA': 'Bayes',
+            'RT': 'Ritchies',
+            'PC': 'Pavlovich',
+            'TR': 'Tranzurban',
+            'WB': 'Waiheke Bus Co'
+        };
+        var operatorColors = {
+            'Kinetic': '#7b2d8b',
+            'Howick and Eastern': '#d62828',
+            'Bayes': '#2a9d8f',
+            'Ritchies': '#e6b800',
+            'Pavlovich': '#e76f51',
+            'Tranzurban': '#48bfe3',
+            'Waiheke Bus Co': '#264653',
+            'Auckland One Rail': '#77BCA7',
+            'Unknown': '#888888'
+        };
+        var allOperatorNames = ['Kinetic', 'Howick and Eastern', 'Bayes', 'Ritchies', 'Pavlovich', 'Tranzurban', 'Waiheke Bus Co', 'Auckland One Rail', 'Unknown'];
+
+        // Kinetic sub-operators
+        var kineticSubs = {
+            'NB': { name: 'NZ Bus', color: '#9b59b6' },
+            'GB': { name: 'Go Bus', color: '#5b2c6f' }
+        };
+        // Which Kinetic sub-operators are active (both by default)
+        window.activeKineticSubs = new Set(['NB', 'GB']);
+
+        // All operators active by default
+        window.activeOperators = new Set(allOperatorNames);
+
+        function getOperator(label) {
+            if (!label) return 'Unknown';
+            var prefix = label.substring(0, 2).toUpperCase();
+            return operatorPrefixes[prefix] || 'Unknown';
+        }
+
+        function getLabelPrefix(label) {
+            if (!label) return null;
+            return label.substring(0, 2).toUpperCase();
+        }
+
+        function applyVisibilityFilters(marker) {
+            var searchInput = document.querySelector('.search-input');
+            var rawVal = searchInput ? searchInput.value.trim() : '';
+            var searchVal = (rawVal.toLowerCase() === 'search...') ? '' : rawVal.toLowerCase();
+            var matchesSearch = !searchVal || (marker.options.desc && marker.options.desc.toLowerCase().includes(searchVal));
+
+            var matchesOperator = true;
+            if (marker.operator) {
+                matchesOperator = window.activeOperators.has(marker.operator);
+                // Kinetic sub-operator filter
+                if (matchesOperator && marker.operator === 'Kinetic' && marker._labelPrefix) {
+                    matchesOperator = window.activeKineticSubs.has(marker._labelPrefix);
+                }
+            }
+
+            var matchesRoute = true;
+            if (window.activeRouteNames && window.activeRouteNames.size > 0) {
+                var markerRoute = marker.route_short_name || marker.route_long_name;
+                matchesRoute = markerRoute && window.activeRouteNames.has(markerRoute);
+            }
+
+            if (matchesSearch && matchesOperator && matchesRoute) {
+                marker.setStyle({ opacity: 1, fillOpacity: .2 });
+            } else {
+                marker.setStyle({ opacity: 0, fillOpacity: 0 });
+            }
+        }
+
+        var legend = L.control({ position: 'bottomright' });
+        legend.onAdd = function (map) {
+            var div = L.DomUtil.create('div', 'info legend');
+            div.innerHTML = 'Colour by: <select id="colourscheme"><option>Route</option><option>Type</option><option>Occupancy</option><option>Speed</option><option>Operator</option></select>'
+                + '<div id="route-filter">'
+                + '<div id="route-filter-label">Filter routes:</div>'
+                + '<input id="route-input" type="text" placeholder="Type route number..." autocomplete="off">'
+                + '<div id="route-suggestions"></div>'
+                + '<div id="route-chips"></div>'
+                + '<div id="route-clear">Clear all</div>'
+                + '</div>'
+                + '<div id="operator-section" style="margin-top:8px;">'
+                + '<span id="operator-toggle" style="font-weight:bold;cursor:pointer;user-select:none;">&#9654; Filter operators</span>'
+                + '<div id="operator-filters" style="display:none;max-height:200px;overflow-y:auto;margin-top:4px;"></div>'
+                + '</div>'
+                + '<div id="status"></div>';
+            L.DomEvent.disableClickPropagation(div);
+            L.DomEvent.disableScrollPropagation(div);
+            return div;
+        };
+        legend.addTo(map);
+
+        // Build operator filter checkboxes
+        function buildOperatorFilters() {
+            var container = document.getElementById('operator-filters');
+            if (!container) return;
+            var html = '';
+            html += '<label style="display:block;margin-bottom:2px;cursor:pointer;">'
+                + '<input type="checkbox" id="op-all" checked> <b>All</b></label>';
+            allOperatorNames.forEach(function(op) {
+                var c = operatorColors[op] || '#888';
+                html += '<label style="display:block;margin-bottom:2px;cursor:pointer;">'
+                    + '<input type="checkbox" class="op-cb" data-operator="' + op + '" checked> '
+                    + '<span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:' + c + ';vertical-align:middle;margin-right:4px;"></span>'
+                    + op + '</label>';
+                if (op === 'Kinetic') {
+                    html += '<span class="kinetic-toggle" id="kinetic-toggle">&#9654; NZ Bus / Go Bus</span>';
+                    html += '<div class="kinetic-sub" id="kinetic-sub">';
+                    for (var prefix in kineticSubs) {
+                        if (!kineticSubs.hasOwnProperty(prefix)) continue;
+                        var sub = kineticSubs[prefix];
+                        html += '<label style="display:block;margin-bottom:2px;cursor:pointer;">'
+                            + '<input type="checkbox" class="kinetic-sub-cb" data-prefix="' + prefix + '" checked> '
+                            + '<span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:' + sub.color + ';vertical-align:middle;margin-right:4px;"></span>'
+                            + sub.name + ' <span style="color:#888;font-size:11px;">(' + prefix + ')</span></label>';
+                    }
+                    html += '</div>';
+                }
+            });
+            container.innerHTML = html;
+
+            // "All" checkbox toggles all
+            document.getElementById('op-all').addEventListener('change', function() {
+                var checked = this.checked;
+                var cbs = document.querySelectorAll('.op-cb');
+                cbs.forEach(function(cb) { cb.checked = checked; });
+                if (checked) {
+                    window.activeOperators = new Set(allOperatorNames);
+                } else {
+                    window.activeOperators.clear();
+                }
+                for (var i in markers) {
+                    if (!markers.hasOwnProperty(i)) continue;
+                    applyVisibilityFilters(markers[i]);
+                }
+            });
+
+            // Individual operator checkboxes
+            document.querySelectorAll('.op-cb').forEach(function(cb) {
+                cb.addEventListener('change', function() {
+                    var op = this.getAttribute('data-operator');
+                    if (this.checked) {
+                        window.activeOperators.add(op);
+                    } else {
+                        window.activeOperators.delete(op);
+                    }
+                    // Update "All" checkbox state
+                    document.getElementById('op-all').checked = (window.activeOperators.size === allOperatorNames.length);
+                    for (var i in markers) {
+                        if (!markers.hasOwnProperty(i)) continue;
+                        applyVisibilityFilters(markers[i]);
+                    }
+                });
+            });
+            // Kinetic accordion toggle
+            document.getElementById('kinetic-toggle').addEventListener('click', function() {
+                var sub = document.getElementById('kinetic-sub');
+                var open = sub.classList.toggle('open');
+                this.innerHTML = (open ? '&#9660; ' : '&#9654; ') + 'NZ Bus / Go Bus';
+                // When accordion opens, recolor Kinetic markers to show sub-operator distinction
+                if (open) {
+                    for (var i in markers) {
+                        if (!markers.hasOwnProperty(i)) continue;
+                        if (markers[i].operator === 'Kinetic') updateMarkerColour(markers[i]);
+                    }
+                } else {
+                    for (var i in markers) {
+                        if (!markers.hasOwnProperty(i)) continue;
+                        if (markers[i].operator === 'Kinetic') updateMarkerColour(markers[i]);
+                    }
+                }
+            });
+
+            // Kinetic sub-operator checkboxes
+            document.querySelectorAll('.kinetic-sub-cb').forEach(function(cb) {
+                cb.addEventListener('change', function() {
+                    var prefix = this.getAttribute('data-prefix');
+                    if (this.checked) {
+                        window.activeKineticSubs.add(prefix);
+                    } else {
+                        window.activeKineticSubs.delete(prefix);
+                    }
+                    // Update parent Kinetic checkbox state
+                    var kineticCb = document.querySelector('.op-cb[data-operator="Kinetic"]');
+                    if (window.activeKineticSubs.size === 0) {
+                        if (kineticCb) kineticCb.checked = false;
+                        window.activeOperators.delete('Kinetic');
+                    } else {
+                        if (kineticCb) kineticCb.checked = true;
+                        window.activeOperators.add('Kinetic');
+                    }
+                    document.getElementById('op-all').checked = (window.activeOperators.size === allOperatorNames.length);
+                    for (var i in markers) {
+                        if (!markers.hasOwnProperty(i)) continue;
+                        applyVisibilityFilters(markers[i]);
+                    }
+                });
+            });
+        }
+        buildOperatorFilters();
+
+        // Operator section collapse/expand toggle
+        document.getElementById('operator-toggle').addEventListener('click', function() {
+            var filters = document.getElementById('operator-filters');
+            var open = filters.style.display !== 'none';
+            filters.style.display = open ? 'none' : 'block';
+            this.innerHTML = (open ? '&#9654; ' : '&#9660; ') + 'Filter operators';
+        });
+
+        // Route filter: empty set = show all, non-empty = show only these route names
+        window.activeRouteNames = new Set();
+
+        function getAllRouteNames() {
+            var names = new Set();
+            for (var id in routes) {
+                if (!routes.hasOwnProperty(id)) continue;
+                var name = routes[id].route_short_name || routes[id].route_long_name;
+                if (name) names.add(name);
+            }
+            var arr = Array.from(names);
+            arr.sort(function(a, b) {
+                var na = parseInt(a, 10), nb = parseInt(b, 10);
+                if (!isNaN(na) && !isNaN(nb)) return na - nb;
+                if (!isNaN(na)) return -1;
+                if (!isNaN(nb)) return 1;
+                return a.localeCompare(b);
+            });
+            return arr;
+        }
+
+        function applyAllVisibility() {
+            for (var i in markers) {
+                if (!markers.hasOwnProperty(i)) continue;
+                applyVisibilityFilters(markers[i]);
+            }
+        }
+
+        function renderRouteChips() {
+            var container = document.getElementById('route-chips');
+            var clearBtn = document.getElementById('route-clear');
+            if (!container) return;
+            if (window.activeRouteNames.size === 0) {
+                container.innerHTML = '';
+                if (clearBtn) clearBtn.style.display = 'none';
+                return;
+            }
+            if (clearBtn) clearBtn.style.display = 'block';
+            var html = '';
+            window.activeRouteNames.forEach(function(name) {
+                html += '<span class="route-chip">' + name
+                    + '<span class="route-chip-x" data-route="' + name + '">&times;</span></span>';
+            });
+            container.innerHTML = html;
+            container.querySelectorAll('.route-chip-x').forEach(function(x) {
+                x.addEventListener('click', function() {
+                    window.activeRouteNames.delete(this.getAttribute('data-route'));
+                    renderRouteChips();
+                    applyAllVisibility();
+                });
+            });
+        }
+
+        $(document).on('click', '#route-clear', function() {
+            window.activeRouteNames.clear();
+            renderRouteChips();
+            applyAllVisibility();
+        });
+
+        var routeSugHighlight = -1;
+        $(document).on('input', '#route-input', function() {
+            var val = this.value.trim().toLowerCase();
+            var sugBox = document.getElementById('route-suggestions');
+            routeSugHighlight = -1;
+            if (!val) { sugBox.style.display = 'none'; return; }
+            var allNames = getAllRouteNames();
+            // Prioritize starts-with matches, then contains
+            var starts = [], contains = [];
+            allNames.forEach(function(name) {
+                if (window.activeRouteNames.has(name)) return; // already selected
+                var lower = name.toLowerCase();
+                if (lower.indexOf(val) === 0) starts.push(name);
+                else if (lower.indexOf(val) > 0) contains.push(name);
+            });
+            var matches = starts.concat(contains).slice(0, 12);
+            if (matches.length === 0) {
+                sugBox.innerHTML = '<div class="route-suggestion" style="color:#888;">No matching routes</div>';
+                sugBox.style.display = 'block';
+                return;
+            }
+            sugBox.innerHTML = matches.map(function(name, idx) {
+                var highlighted = name.replace(new RegExp('(' + val.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')', 'i'),
+                    '<span class="route-num">$1</span>');
+                return '<div class="route-suggestion" data-route="' + name + '" data-idx="' + idx + '">' + highlighted + '</div>';
+            }).join('');
+            sugBox.style.display = 'block';
+
+            sugBox.querySelectorAll('.route-suggestion').forEach(function(el) {
+                el.addEventListener('click', function() {
+                    selectRouteSuggestion(this.getAttribute('data-route'));
+                });
+            });
+        });
+
+        function selectRouteSuggestion(name) {
+            if (!name) return;
+            window.activeRouteNames.add(name);
+            document.getElementById('route-input').value = '';
+            document.getElementById('route-suggestions').style.display = 'none';
+            routeSugHighlight = -1;
+            renderRouteChips();
+            applyAllVisibility();
+        }
+
+        $(document).on('keydown', '#route-input', function(e) {
+            var sugBox = document.getElementById('route-suggestions');
+            var items = sugBox.querySelectorAll('.route-suggestion[data-route]');
+            if (!items.length || sugBox.style.display === 'none') return;
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                routeSugHighlight = Math.min(routeSugHighlight + 1, items.length - 1);
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                routeSugHighlight = Math.max(routeSugHighlight - 1, 0);
+            } else if (e.key === 'Enter') {
+                e.preventDefault();
+                if (routeSugHighlight >= 0 && routeSugHighlight < items.length) {
+                    selectRouteSuggestion(items[routeSugHighlight].getAttribute('data-route'));
+                }
+                return;
+            } else if (e.key === 'Escape') {
+                sugBox.style.display = 'none';
+                routeSugHighlight = -1;
+                return;
+            } else { return; }
+            items.forEach(function(el, i) {
+                el.classList.toggle('active', i === routeSugHighlight);
+                if (i === routeSugHighlight) el.scrollIntoView({ block: 'nearest' });
+            });
+        });
+
+        // Close suggestions when clicking outside
+        $(document).on('click', function(e) {
+            if (!$(e.target).closest('#route-filter').length) {
+                var sugBox = document.getElementById('route-suggestions');
+                if (sugBox) sugBox.style.display = 'none';
+            }
+        });
+
+        $(document).on("change", "#colourscheme", function () {
+            window.colourscheme = this.value;
+            location.hash = this.value;
+            for (var i in markers) {
+                if (!markers.hasOwnProperty(i)) continue;
+                updateMarkerColour(markers[i]);
+            }
+        });
+
+        // Route colour map from Auckland Transit colour key
+        var routeColors = {
+            '101':'#00B0C1','105':'#7A599D','106':'#37628C','111':'#E6A400','112':'#ED6E9C',
+            '114':'#B75671','116':'#DE5227','11T':'#26B8EB','11W':'#26B8EB','12':'#00975F',
+            '122':'#F49EC4','123':'#F49EC4','125':'#9373B1','126':'#BCCF00','128':'#009A93',
+            '13':'#7CC8C5','132':'#C4816C','135':'#F26522','14':'#E4032E','143':'#946AAB',
+            '145':'#D8458E','147':'#ADA335','148':'#8D0055','149':'#F9A131','152':'#00A6DE',
+            '154':'#8EC89A','161':'#9F649A','162':'#D7AF00','170':'#919F3C','171':'#00664D',
+            '172':'#A22D63','18':'#0069B4','186':'#924F63','191':'#E77D95','195':'#718A7E',
+            '20':'#D7007F','209':'#15AF97','22N':'#AE7DA8','22R':'#AE7DA8','24B':'#0093C5',
+            '24R':'#0093C5','252':'#B45322','253':'#B45322','25B':'#B5511B','25L':'#B5511B',
+            '27H':'#3FA5BD','27T':'#3FA5BD','27W':'#3FA5BD','295':'#8C895F','298':'#4C7BBE',
+            '30':'#7482B0','309':'#573A66','309X':'#573A66','311':'#2596be','31':'#B55611',
+            '313':'#95C11F','314':'#78CAE1','32':'#E83C7A','321':'#951B81','323':'#3ABDDE',
+            '324':'#00887B','325':'#946AAB','326':'#8BADDC','33':'#0069B4','35':'#1E894F',
+            '351':'#B7A86C','352':'#00975F','353':'#AA026D','355':'#D6606F','36':'#A42523',
+            '361':'#EA5623','362':'#5C3E24','363':'#539326','365':'#D73E86','366':'#89CCCA',
+            '372':'#8EC89A','373':'#E74011','376':'#B75671','377':'#457B6E','378':'#F39200',
+            '38':'#009AC2','391':'#F39200','392':'#95C11F','393':'#00B1EB','394':'#A16D0B',
+            '395':'#946AAB','396':'#DC5054','399':'#007E6B','501':'#FDC100','502':'#E30613',
+            '503':'#009FE3','50A':'#164194','50B':'#27A737','64':'#EF7F97','65':'#8B588D',
+            '66':'#1B8941','67A':'#383882','67B':'#383882','68':'#925C8D','70':'#CF1619',
+            '70H':'#FDB913','711':'#51AEE2','712':'#6F4092','72C':'#005F9C','72M':'#005F9C',
+            '72X':'#005F9C','733':'#3D9B7D','734':'#ED6C77','735':'#FBBA00','738':'#2596be',
+            '739':'#7B9CCC','74':'#F59D24','744':'#6EB486','747':'#EF7E86','75':'#770F00',
+            '751':'#008788','755':'#71C8DC','76':'#9F4C97','774':'#C2A712','775':'#C2A712',
+            '781':'#F7A600','782':'#95C11F','783':'#E84250','801':'#007B77','802':'#B27A22',
+            '805':'#5C7DBF','806':'#94604C','807':'#EE7656','814':'#B0BA30','82':'#9D3A7F',
+            '83':'#CE1531','842':'#286FA3','843':'#F59C00','845':'#00A0DD','856':'#EE7566',
+            '861':'#966B45','865':'#64105B','866':'#FDC61E','871':'#00A79B','871A':'#00A79B',
+            '878':'#0095D4','883':'#D676AD','884':'#8E66AB','885':'#9662A5','888':'#9662A5',
+            '889':'#13A538','901':'#8BADDC','902':'#2596be','906':'#BBD043','907':'#5C3E24',
+            '917':'#406C95','923':'#0D9EA2','924':'#5E3668','926':'#677769','928':'#C89C2F',
+            '931':'#78363C','933':'#D0559A','939':'#29694A','94':'#FF0000','941':'#977EAF',
+            '95B':'#EE7323','95C':'#EE7323','966':'#67A65C','97B':'#00B3EC','97R':'#00B3EC',
+            '981':'#E63027','982':'#91273E','983':'#2581C4','984':'#95C11F','985':'#F2B420',
+            '986':'#EA5B0C','988':'#F18700','989':'#A84693','995':'#F18700','996':'#D51130',
+            '997':'#329248','998':'#7263A9','999':'#7263A9','AIR':'#F39200','CTY':'#E30613',
+            'INN':'#56AF31','N10':'#EE2E27','NX1':'#1F3685','NX2':'#007C34','OUT':'#F39200',
+            'TMK':'#0086C7','AT Local':'#89AD3F','WX1':'#00843C',
+            'EAST':'#fdb913','STH':'#ee2e27','ONE':'#00aaef','WEST':'#97c93d',
+            'HUIA':'#ff0000'
+        };
+
+        window.colourscheme = "Route";
+        if (location.hash) {
+            window.colourscheme = location.hash.slice(1);
+            $("#colourscheme").val(window.colourscheme);
+        }
+
+        function stringToColour(str) {
+            var hash = 0;
+            for (var i = 0; i < str.length; i++) {
+                hash = str.charCodeAt(i) + ((hash << 5) - hash);
+            }
+            var colour = '#';
+            for (var i = 0; i < 3; i++) {
+                var value = (hash >> (i * 8)) & 0xFF;
+                colour += ('00' + value.toString(16)).substr(-2);
+            }
+            return colour;
+        }
+
+        function updateMarkerColour(marker) {
+            var color = "black";
+            if (window.colourscheme == "Route") {
+                var rName = marker.route_short_name || '';
+                if (routeColors[rName]) {
+                    color = routeColors[rName];
+                } else if (marker.route_type == 4) {
+                    color = "blue";
+                } else if (marker.route_long_name) {
+                    color = stringToColour(marker.route_long_name);
+                }
+            } else if (window.colourscheme == "Type") {
+                if (marker.vehicle_type === 2) color = "orange";
+                else if (marker.vehicle_type === 3) color = "blue";
+                else if (marker.vehicle_type === 4) color = "green";
+            } else if (window.colourscheme == "Occupancy" && marker.occupancy_status !== undefined) {
+                color = occupancyColors[marker.occupancy_status];
+            } else if (window.colourscheme == "Speed") {
+                color = speedColors(marker.speed);
+            } else if (window.colourscheme == "Operator") {
+                color = operatorColors[marker.operator] || operatorColors['Unknown'];
+                // HUIA trains shown in bright red
+                if (marker.operator === 'Auckland One Rail' && marker.route_short_name === 'HUIA') {
+                    color = '#ff0000';
+                }
+                // Show sub-operator colors when Kinetic accordion is open
+                var kSub = document.getElementById('kinetic-sub');
+                if (marker.operator === 'Kinetic' && marker._labelPrefix && kSub && kSub.classList.contains('open')) {
+                    var subInfo = kineticSubs[marker._labelPrefix];
+                    if (subInfo) color = subInfo.color;
+                }
+            }
+            marker.setStyle({ color: color });
+        }
+
+        var markers = {};
+        var occupancy = ["empty", "many seats available", "few seats available", "standing room only", "limited standing room", "full", "not accepting passengers"];
+        var occupancyColors = ["#4575b4", "#91bfdb", "#e0f3f8", "#fee090", "#fc8d59", "#d73027", "black"];
+        var speedColors = chroma.scale([chroma.hsv(270, 1, 1), chroma.hsv(180, 1, 1), chroma.hsv(90, 1, 1), chroma.hsv(0, 1, 1)]).mode("hsv").domain([0, 100]);
+
+        var hasLoaded = false;
+        var routes = {};
+
+        // Helper: safe id for building per-marker DOM ids inside tooltip
+        function safeId(input) {
+            if (input === null || input === undefined) return "id";
+            return String(input).replace(/[^a-zA-Z0-9_\-]/g, "_");
+        }
+
+        // Display helper text for bike_allowed
+        function bikeText(val) {
+            // GTFS: 0 = unknown, 1 = allowed, 2 = not allowed
+            if (val === null || val === undefined) return "Unknown";
+            var n = parseInt(val, 10);
+            if (isNaN(n)) return String(val);
+            if (n === 1) return "Allowed";
+            if (n === 2) return "Not allowed";
+            return "Unknown";
+        }
+
+        // Display helper for wheelchair/accessibility
+        function accessibilityText(val) {
+            // GTFS: 0 = unknown, 1 = accessible, 2 = not accessible
+            if (val === null || val === undefined) return "Unknown";
+            var n = parseInt(val, 10);
+            if (isNaN(n)) return String(val);
+            if (n === 1) return "Accessible";
+            if (n === 2) return "Not accessible";
+            return "Unknown";
+        }
+
+        map.spin(true);
+        fetch('https://api.at.govt.nz/gtfs/v3/routes', {
+            method: 'GET',
+            headers: {
+                'Cache-Control': 'no-cache',
+                'Ocp-Apim-Subscription-Key': '6cb37daf7f5c4feda39bbf640e892074',
+            }
+        })
+        .then(response => response.json())
+        .then(response => {
+            map.spin(false);
+            if (response.message) {
+                console.error(response);
+                $("#status").text(`Error getting routes: ${response.message}`);
+            } else {
+                for (var r of response.data) {
+                    if (r.attributes.route_type == 712) r.attributes.route_type = 3;
+                    routes[r.id] = r.attributes;
+                }
+            }
+            loop();
+        })
+        .catch(err => {
+            map.spin(false);
+            console.error(err);
+            $("#status").text("Error loading routes.");
+        });
+
+        function loop() {
+            if (hasLoaded && !document.hasFocus()) {
+                console.log("tab unfocused, skipping");
+                return;
+            }
+            hasLoaded = true;
+
+            map.spin(true);
+            fetch('https://api.at.govt.nz/realtime/legacy/vehiclelocations', {
+                method: 'GET',
+                headers: {
+                    'Cache-Control': 'no-cache',
+                    'Ocp-Apim-Subscription-Key': '6cb37daf7f5c4feda39bbf640e892074',
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                map.spin(false);
+
+                // data.response.entity is expected; guard if not present
+                if (!data || !data.response || !Array.isArray(data.response.entity)) {
+                    console.error("Unexpected vehiclelocations response", data);
+                    $("#status").text("Unexpected vehicle data.");
+                    return;
+                }
+
+                for (var i in data.response.entity) {
+                    if (!data.response.entity.hasOwnProperty(i)) continue;
+                    var ent = data.response.entity[i];
+                    var id = ent.id;
+                    var v = ent.vehicle; // note: this object contains vehicle (info), position, trip, occupancy_status, etc.
+                    if (!v) continue;
+
+                    var vehicleInfo = v.vehicle || {}; // label, license_plate may be here
+                    var label = vehicleInfo.label || ("id " + id);
+                    var desc = `<b>${label}</b><br>`;
+                    var layer = layers[null];
+                    var marker = markers[id];
+
+                    // compute a safe id for DOM elements inside tooltip
+                    var sid = safeId(id);
+
+                    if (marker) {
+                        // update position
+                        if (v.position && typeof v.position.latitude === "number" && typeof v.position.longitude === "number") {
+                            marker.setLatLng([v.position.latitude, v.position.longitude]);
+                        }
+                        // update description so search works
+                        marker.options.desc = desc;
+                    } else {
+                        var markerRadius = isTouchDevice ? 80 : 60;
+                        marker = L.circle([v.position.latitude || 0, v.position.longitude || 0], { radius: markerRadius, desc: desc });
+                        marker._entityId = id;
+                        markers[id] = marker;
+
+                        // On touch/click (mobile), toggle the tooltip
+                        marker.on('click', function (e) {
+                            L.DomEvent.stopPropagation(e);
+                            if (this.isTooltipOpen()) {
+                                this.closeTooltip();
+                            } else {
+                                this.openTooltip();
+                            }
+                        });
+
+                        // tooltipopen fetches trip details (headsings, bike/accessibility) and updates the per-marker elements
+                        marker.on("tooltipopen", function (e) {
+                            var target = e.target;
+                            if (!target || !target.trip) return;
+                            var tripId = target.trip.trip_id;
+                            if (!tripId) return;
+
+                            fetch('https://api.at.govt.nz/gtfs/v3/trips/' + tripId, {
+                                method: 'GET',
+                                headers: {
+                                    'Cache-Control': 'no-cache',
+                                    'Ocp-Apim-Subscription-Key': '6cb37daf7f5c4feda39bbf640e892074',
+                                }
+                            })
+                            .then(resp => resp.json())
+                            .then(respJson => {
+                                if (respJson.message) {
+                                    console.error(respJson.message);
+                                    $("#status").text(`Error getting trip: ${respJson.message}`);
+                                } else if (respJson.data && respJson.data.attributes) {
+                                    var attrs = respJson.data.attributes;
+                                    var eid = safeId(target._entityId);
+                                    $("#headsign-" + eid).text(attrs.trip_headsign || "");
+                                    var bikeVal = attrs.bike_allowed ?? attrs.bikes_allowed ?? attrs.bikes_allowed;
+                                    $("#bike_allowed-" + eid).text(bikeText(bikeVal));
+                                    var accVal = attrs.wheelchair_accessible ?? attrs.accessibility ?? attrs.wheelchair_access;
+                                    $("#accessibility-" + eid).text(accessibilityText(accVal));
+                                }
+                            })
+                            .catch(err => console.error(err));
+                        });
+                    }
+
+                    // populate route/trip-derived info
+                    if (v.trip) {
+                        var r = routes[v.trip.route_id];
+                        marker.trip = v.trip;
+                        if (r) {
+                            desc += `Agency: ${r.agency_id}<br>Route: ${r.route_long_name}<br>Headsign: <div id="headsign-${sid}"></div>`;
+                            marker.options.desc = desc;
+                            marker.route_long_name = r.route_long_name;
+                            marker.route_short_name = r.route_short_name;
+                            marker.route_type = r.route_type;
+                            marker.vehicle_type = r.route_type;
+                            layer = layers[r.route_type] || layers[null];
+                        } else {
+                            layer = layers[null];
+                        }
+                    }
+
+                    // Classify generic OOS vehicles by label prefix (trains), callsign (ferries), or license plate (buses)
+                    if (layer === layers[null]) {
+                        if (/^(AMP|AMA|AMT)/i.test(label)) {
+                            layer = layers["oos_train"];
+                            marker.vehicle_type = 2;
+                        } else if (vehicleInfo.license_plate && /^ZM/i.test(vehicleInfo.license_plate)) {
+                            layer = layers["oos_ferry"];
+                            marker.vehicle_type = 4;
+                        } else if (vehicleInfo.license_plate) {
+                            layer = layers["oos_bus"];
+                            marker.vehicle_type = 3;
+                        }
+                    }
+
+                    layer.addLayer(marker);
+                    marker.speed = Math.round((v.position && v.position.speed) ? v.position.speed : 0);
+
+                    // Determine operator
+                    var operator;
+                    if (marker.vehicle_type === 2) {
+                        operator = 'Auckland One Rail';
+                    } else {
+                        operator = getOperator(label);
+                    }
+                    marker.operator = operator;
+                    marker._labelPrefix = getLabelPrefix(label);
+
+                    // Read bike allowed from multiple possible locations (vehicle-level, v-level, trip-level, attributes)
+                    var bikeAllowed =
+                        (v.bike_allowed ?? v.bikes_allowed) ??
+                        (v.vehicle && (v.vehicle.bike_allowed ?? v.vehicle.bikes_allowed)) ??
+                        (v.trip && (v.trip.bike_allowed ?? (v.trip.attributes && (v.trip.attributes.bike_allowed ?? v.trip.attributes.bikes_allowed))));
+
+                    // Read wheelchair/accessibility from multiple possible locations
+                    var accessibility =
+                        (v.wheelchair_accessible ?? v.accessibility) ??
+                        (v.vehicle && (v.vehicle.wheelchair_accessible ?? v.vehicle.accessibility)) ??
+                        (v.trip && (v.trip.wheelchair_accessible ?? (v.trip.attributes && (v.trip.attributes.wheelchair_accessible ?? v.trip.attributes.accessibility ?? v.trip.attributes.wheelchair_access))));
+
+                    marker.bikes_allowed = bikeAllowed;
+                    marker.accessibility = accessibility;
+
+                    // Bind tooltip with unique element ids per marker to allow updates when trip fetch returns
+                    var operatorDisplay = operator !== 'Unknown' ? ' <i>(' + operator + ')</i>' : '';
+                    var tooltipHtml = `${desc}${operatorDisplay}${operatorDisplay ? '<br>' : ''}
+                        Speed: ${marker.speed} km/h<br>
+                        Occupancy: ${occupancy[v.occupancy_status] || ""}<br>
+                        License plate: ${vehicleInfo.license_plate || ""}<br>
+                        Bike Enabled: <span id="bike_allowed-${sid}">${bikeText(marker.bikes_allowed)}</span><br>
+                        Accessibility: <span id="accessibility-${sid}">${accessibilityText(marker.accessibility)}</span>
+                    `;
+                    marker.bindTooltip(tooltipHtml, {
+                        direction: 'auto',
+                        sticky: !isTouchDevice,
+                        permanent: false
+                    });
+
+                    marker.occupancy_status = v.occupancy_status;
+                    updateMarkerColour(marker);
+                    applyVisibilityFilters(marker);
+                }
+            })
+            .catch(err => {
+                map.spin(false);
+                console.error(err);
+                $("#status").text("Error loading vehicle locations.");
+            });
+        }
+        setInterval(loop, 10000);
+    </script>
+</body>
+</html>
