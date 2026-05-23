@@ -444,7 +444,7 @@
     }
     function sanitizeConfig(cfg) {
       cfg.timezone = safeTimezone(cfg.timezone);
-      cfg.pollSeconds = clampNumber(cfg.pollSeconds, DEFAULT_CONFIG.pollSeconds, 10, 3600);
+      cfg.pollSeconds = clampNumber(cfg.pollSeconds, DEFAULT_CONFIG.pollSeconds, 5, 3600);
       cfg.pageSize = Math.round(clampNumber(cfg.pageSize, DEFAULT_CONFIG.pageSize, 1, 50));
       cfg.rotateSeconds = clampNumber(cfg.rotateSeconds, DEFAULT_CONFIG.rotateSeconds, 3, 3600);
       cfg.lookaheadHours = clampNumber(cfg.lookaheadHours, DEFAULT_CONFIG.lookaheadHours, 1, 48);
@@ -1109,7 +1109,7 @@
       if (v("realtimeUrl") !== undefined) cfg.realtimeUrl = v("realtimeUrl");
       if (v("alertsUrl") !== undefined) cfg.alertsUrl = v("alertsUrl");
       if (v("subscriptionKey") !== undefined) cfg.subscriptionKey = v("subscriptionKey");
-      if (v("pollSeconds") !== undefined) cfg.pollSeconds = clampNumber(v("pollSeconds"), 60, 10, 3600);
+      if (v("pollSeconds") !== undefined) cfg.pollSeconds = clampNumber(v("pollSeconds"), 60, 5, 3600);
       if (v("pageSize") !== undefined) cfg.pageSize = Math.round(clampNumber(v("pageSize"), 6, 1, 50));
       if (v("rotateSeconds") !== undefined) cfg.rotateSeconds = clampNumber(v("rotateSeconds"), 12, 3, 3600);
       if (v("lookaheadHours") !== undefined) cfg.lookaheadHours = clampNumber(v("lookaheadHours"), 6, 1, 48);
@@ -1181,7 +1181,7 @@
     function startRuntime() {
       clearTimers();
       timers.push(setInterval(() => { state.now = new Date(); if (state.config.mode === "board") renderBoard(); }, 1000));
-      timers.push(setInterval(() => { if (state.config.mode === "board") refreshRealtime().then(() => renderBoard()); }, Math.max(10, state.config.pollSeconds) * 1000));
+      timers.push(setInterval(() => { if (state.config.mode === "board") refreshRealtime().then(() => renderBoard()); }, Math.max(5, state.config.pollSeconds) * 1000));
       timers.push(setInterval(() => { if (state.config.mode === "board" && !state.pageLocked) { state.page++; renderBoard(); } }, Math.max(3, state.config.rotateSeconds) * 1000));
       refreshRealtime();
     }
