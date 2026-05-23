@@ -778,6 +778,7 @@
     }
     function formatDue(epoch, now, cfg) {
       const delta = epoch - now;
+      if (delta < -30000) return "Gone";
       if (delta <= 60000) return "Now";
       const mins = Math.round(delta / 60000);
       if (mins <= cfg.relativeCutoffMinutes) return mins + " min";
@@ -786,13 +787,23 @@
     function clockLabel(date, tz) {
       return new Intl.DateTimeFormat("en-NZ", { timeZone: tz, hour:"2-digit", minute:"2-digit", second:"2-digit", hourCycle:"h23" }).format(date);
     }
+    // Stop-level schedule_relationship values whose delay fields are not real predictions.
+    // SKIPPED = bus won't stop there; NO_DATA = AT has no prediction. Both publish junk delay.
+    const UNRELIABLE_STOP_REL = new Set(["SKIPPED", "NO_DATA"]);
+    // Past this many stop_sequence positions away, a per-stop prediction is too distant to
+    // trust over the trip-level delay (which reflects the bus's CURRENT global lateness).
+    const PROPAGATION_DISTANCE_LIMIT = 3;
+
     function propagatedStopUpdate(rtTrip, stopId, stopSequence) {
       if (!rtTrip || !rtTrip.updates) return null;
       const exact = rtTrip.updates[stopId] || rtTrip.updates["seq:" + stopSequence];
-      if (exact) return Object.assign({ propagated: false }, exact);
+      if (exact && !UNRELIABLE_STOP_REL.has(exact.scheduleRelationship)) {
+        return Object.assign({ propagated: false, source: "exact" }, exact);
+      }
       let nearest = null, nearestDist = Infinity;
       for (const update of rtTrip.orderedUpdates || []) {
         if (!update.stopSequence) continue;
+        if (UNRELIABLE_STOP_REL.has(update.scheduleRelationship)) continue;
         const d = Math.abs(update.stopSequence - stopSequence);
         // Prefer smaller distance; on ties prefer the upcoming stop (sequence > ours)
         if (d < nearestDist || (d === nearestDist && update.stopSequence > stopSequence)) {
@@ -800,9 +811,22 @@
           nearestDist = d;
         }
       }
-      const delay = nearest && (nearest.departureDelay ?? nearest.arrivalDelay);
-      if (Number.isFinite(delay)) return { propagated: true, departureDelay: delay, arrivalDelay: delay, scheduleRelationship: nearest.scheduleRelationship };
-      if (Number.isFinite(rtTrip.tripDelay)) return { propagated: true, departureDelay: rtTrip.tripDelay, arrivalDelay: rtTrip.tripDelay, scheduleRelationship: rtTrip.scheduleRelationship };
+      const propDelay = nearest && (nearest.departureDelay ?? nearest.arrivalDelay);
+      const tripDelay = rtTrip.tripDelay;
+      // When the nearest per-stop update is far from our stop, the trip-level delay is usually
+      // a better signal (it's the bus's current lateness, not a stale per-stop prediction).
+      // Only override if trip-level is meaningfully different (>=30s) to avoid noise.
+      if (Number.isFinite(propDelay) && Number.isFinite(tripDelay)
+          && nearestDist > PROPAGATION_DISTANCE_LIMIT
+          && Math.abs(tripDelay - propDelay) >= 30) {
+        return { propagated: true, source: "trip-pref-over-distant", departureDelay: tripDelay, arrivalDelay: tripDelay, scheduleRelationship: rtTrip.scheduleRelationship };
+      }
+      if (Number.isFinite(propDelay)) {
+        return { propagated: true, source: "nearest@seq" + nearest.stopSequence + "(d=" + nearestDist + ")", departureDelay: propDelay, arrivalDelay: propDelay, scheduleRelationship: nearest.scheduleRelationship };
+      }
+      if (Number.isFinite(tripDelay)) {
+        return { propagated: true, source: "trip-level", departureDelay: tripDelay, arrivalDelay: tripDelay, scheduleRelationship: rtTrip.scheduleRelationship };
+      }
       return null;
     }
     function varianceLabel(row) {
@@ -835,7 +859,24 @@
             const realtimeTime = stopUpdate && (stopUpdate.arrivalTime || stopUpdate.departureTime);
             const realtimeDelay = stopUpdate && (stopUpdate.arrivalDelay ?? stopUpdate.departureDelay);
             const predicted = realtimeTime || (Number.isFinite(realtimeDelay) ? scheduled + realtimeDelay * 1000 : undefined);
+            const effectiveMs = predicted || scheduled;
+            // Drop departures that have already left (predicted/scheduled more than 30s in the past).
+            // Without this we keep showing a bus until its SCHEDULED time + 2 min, even if realtime
+            // says it departed minutes ago (e.g. an "early" bus shown as "Now" long after gone).
+            if (effectiveMs < nowMs - 30000) continue;
             const cancelled = (rtTrip && ["CANCELED","CANCELLED"].includes(rtTrip.scheduleRelationship)) || (stopUpdate && ["CANCELED","CANCELLED","SKIPPED"].includes(stopUpdate.scheduleRelationship));
+            if (location.hash === "#debug" && predicted) {
+              const deltaSec = Math.round((predicted - scheduled) / 1000);
+              const dueMin = Math.round((predicted - nowMs) / 60000);
+              console.log(
+                "[predict]", route.shortName, "trip", st.tripId,
+                "stop", stopId, "seq", st.stopSequence,
+                "| due", dueMin + "min", "(" + (deltaSec >= 0 ? "+" : "") + deltaSec + "s vs sched)",
+                "| source:", stopUpdate ? stopUpdate.source : "scheduled-only",
+                "| tripDelay:", rtTrip && rtTrip.tripDelay,
+                "| updates:", rtTrip && rtTrip.orderedUpdates ? rtTrip.orderedUpdates.length : 0
+              );
+            }
             rows.push({
               key: st.tripId + ":" + serviceDate, tripId: st.tripId, routeId: route.routeId,
               stopId, serviceDate, routeLabel: route.shortName, routeColor: route.color,
@@ -843,6 +884,7 @@
               destination: st.headsign || trip.headsign || "",
               stopName: stop ? stop.name : stopId,
               scheduled, predicted, effective: predicted || scheduled,
+              predictedSource: stopUpdate ? stopUpdate.source : null,
               status: cancelled ? "cancelled" : predicted ? "live" : "scheduled"
             });
           }
@@ -1152,6 +1194,35 @@
 
     window.addEventListener("error", e => { state.status = "Error: " + (e.message || "unknown"); try { render(); } catch {} });
     window.addEventListener("unhandledrejection", e => { state.status = "Error: " + (e.reason?.message || e.reason || "unknown"); try { render(); } catch {} });
+
+    // Debug helpers exposed for console use.
+    // Usage: dumpTrip("1033-32504-...") to inspect raw realtime data for a trip.
+    //        dumpRows() to see every currently-rendered row with its predictedSource.
+    window.dumpTrip = function (tripId) {
+      const t = state.realtime && state.realtime.trips && state.realtime.trips[tripId];
+      if (!t) { console.log("no realtime trip for", tripId); return null; }
+      console.log("trip", tripId, "tripDelay:", t.tripDelay, "s, scheduleRel:", t.scheduleRelationship);
+      console.table((t.orderedUpdates || []).map(u => ({
+        seq: u.stopSequence, stopId: u.stopId, rel: u.scheduleRelationship,
+        arrDelay: u.arrivalDelay, depDelay: u.departureDelay,
+        arrTime: u.arrivalTime ? new Date(u.arrivalTime).toLocaleTimeString() : "",
+        depTime: u.departureTime ? new Date(u.departureTime).toLocaleTimeString() : ""
+      })));
+      return t;
+    };
+    window.dumpRows = function () {
+      const rows = deriveDepartures();
+      console.table(rows.slice(0, 20).map(r => ({
+        route: r.routeLabel, tripId: r.tripId, stopId: r.stopId,
+        sched: new Date(r.scheduled).toLocaleTimeString(),
+        pred: r.predicted ? new Date(r.predicted).toLocaleTimeString() : "",
+        dueMin: Math.round((r.effective - state.now.getTime()) / 60000),
+        deltaSec: r.predicted ? Math.round((r.predicted - r.scheduled) / 1000) : null,
+        source: r.predictedSource || "scheduled-only", status: r.status
+      })));
+      return rows;
+    };
+
     render();
   </script>
 </body>
