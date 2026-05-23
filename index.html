@@ -355,7 +355,7 @@
       realtimeUrl: "https://api.at.govt.nz/realtime/legacy/tripupdates",
       alertsUrl: "https://api.at.govt.nz/realtime/legacy/servicealerts",
       subscriptionKey: "",
-      pollSeconds: 60,
+      pollSeconds: 30,
       pageSize: 6,
       rotateSeconds: 12,
       lookaheadHours: 6,
@@ -660,6 +660,7 @@
         state.realtimeStatus = "No API key";
         state.status = "Enter an AT subscription key to fetch live data.";
         state.error = state.status;
+        console.info("[realtime] skipped - no AT subscription key configured");
         return;
       }
       try {
@@ -690,6 +691,7 @@
         saveJson("realtime", state.realtime);
         state.error = "";
       } catch (err) {
+        console.warn("[realtime] fetch failed:", err && err.message || err, "| URLs:", state.config.realtimeUrl, state.config.alertsUrl);
         state.status = friendlyError(err, "Realtime fetch");
         state.error = state.status;
         state.realtimeStatus = "Fetch failed";
@@ -788,13 +790,18 @@
       if (!rtTrip || !rtTrip.updates) return null;
       const exact = rtTrip.updates[stopId] || rtTrip.updates["seq:" + stopSequence];
       if (exact) return Object.assign({ propagated: false }, exact);
-      let latest = null;
+      let nearest = null, nearestDist = Infinity;
       for (const update of rtTrip.orderedUpdates || []) {
-        if (!update.stopSequence || update.stopSequence > stopSequence) break;
-        latest = update;
+        if (!update.stopSequence) continue;
+        const d = Math.abs(update.stopSequence - stopSequence);
+        // Prefer smaller distance; on ties prefer the upcoming stop (sequence > ours)
+        if (d < nearestDist || (d === nearestDist && update.stopSequence > stopSequence)) {
+          nearest = update;
+          nearestDist = d;
+        }
       }
-      const delay = latest && (latest.departureDelay ?? latest.arrivalDelay);
-      if (Number.isFinite(delay)) return { propagated: true, departureDelay: delay, arrivalDelay: delay, scheduleRelationship: latest.scheduleRelationship };
+      const delay = nearest && (nearest.departureDelay ?? nearest.arrivalDelay);
+      if (Number.isFinite(delay)) return { propagated: true, departureDelay: delay, arrivalDelay: delay, scheduleRelationship: nearest.scheduleRelationship };
       if (Number.isFinite(rtTrip.tripDelay)) return { propagated: true, departureDelay: rtTrip.tripDelay, arrivalDelay: rtTrip.tripDelay, scheduleRelationship: rtTrip.scheduleRelationship };
       return null;
     }
