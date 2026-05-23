@@ -11,7 +11,9 @@
       "Bash(Sort-Object FullName)",
       "Bash(where npx *)",
       "Bash(where node *)",
-      "Bash(where serve *)"
+      "Bash(where serve *)",
+      "PowerShell($env:PATH -split \";\" | Where-Object { $_ -match \"node|npm|nvm\" })",
+      "PowerShell(Test-Path \"C:\\\\Program Files\\\\nodejs\\\\npx.cmd\"; Test-Path \"$env:APPDATA\\\\npm\\\\npx.cmd\"; Get-ChildItem \"C:\\\\Program Files\\\\\" -Directory | Select-Object -First 20 Name)"
     ]
   }
 }
