@@ -204,17 +204,48 @@
       padding: 1.25rem;
       display: flex;
       flex-direction: column;
+      position: relative;
+    }
+    .board.frameless {
+      padding: 0;
+    }
+    .chrome-toggle {
+      position: absolute;
+      top: .2rem;
+      right: .25rem;
+      z-index: 20;
+      min-width: 1.6rem;
+      min-height: 1.6rem;
+      padding: 0;
+      border-radius: 999px;
+      background: rgba(43, 56, 75, .9);
+      border-color: rgba(185, 200, 216, .28);
+      color: #d9ecf7;
+      font-size: .72rem;
+      line-height: 1;
+    }
+    .chrome-toggle:hover {
+      background: rgba(54, 70, 95, .95);
+      border-color: rgba(98, 221, 244, .45);
     }
     .board-shell {
       flex: 1;
       background: var(--surface2);
       border: 1px solid #41516a;
       border-radius: var(--radius);
-      display: grid;
-      grid-template-rows: auto auto 1fr auto;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
       gap: .6rem;
       padding: .7rem;
       box-shadow: inset 0 0 0 1px rgba(255,255,255,.03);
+    }
+    .board-shell.frameless {
+      background: transparent;
+      border-color: transparent;
+      box-shadow: none;
+      padding: 0;
+      gap: 0;
     }
     .board-header {
       display: flex;
@@ -238,6 +269,34 @@
       align-items: flex-end;
       width: 100%;
     }
+    .board-meta-top {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: .7rem;
+      width: 100%;
+    }
+    .board-controls {
+      display: flex;
+      gap: .3rem;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+    .board-shell.frameless .board-header {
+      padding: 0;
+    }
+    .board-shell.frameless .board-controls {
+      display: none;
+    }
+    .board-shell.frameless .alert-banner {
+      display: none;
+    }
+    .board-body {
+      flex: 1;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+    }
     .alert-banner {
       padding: .6rem .8rem;
       border-radius: var(--radius);
@@ -248,29 +307,48 @@
     .alert-banner.bad { background: rgba(238, 76, 164, .14); border-color: rgba(238, 76, 164, .4); color: #ffd0e9; }
     .dep-table {
       width: 100%;
-      border-collapse: collapse;
+      flex: 1;
+      min-height: 0;
       background: var(--surface);
       border-radius: var(--radius);
       overflow: hidden;
-      table-layout: fixed;
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr);
     }
-    .dep-table th {
-      text-align: left;
+    .board.frameless .dep-table,
+    .board.frameless .empty-state {
+      border-radius: 0;
+    }
+    .dep-head,
+    .dep-row {
+      display: grid;
+      grid-template-columns: 18% 48% 16% 18%;
+      align-items: center;
+    }
+    .dep-head {
       padding: .85rem 1rem .7rem;
       font-size: clamp(.95rem, 1.05vw, 1.05rem);
       font-weight: 700;
       color: #f0fbff;
       background: rgba(255,255,255,.03);
     }
-    .dep-table th:last-child { text-align: right; }
-    .dep-table th:nth-child(1) { width: 18%; }
-    .dep-table th:nth-child(2) { width: 48%; }
-    .dep-table th:nth-child(3) { width: 16%; }
-    .dep-table th:nth-child(4) { width: 18%; }
-    .dep-table td {
+    .dep-head > div:last-child,
+    .dep-row > div:last-child {
+      text-align: right;
+    }
+    .dep-rows {
+      min-height: 0;
+      display: grid;
+      grid-template-rows: repeat(var(--row-count, 1), minmax(0, 1fr));
+    }
+    .dep-row {
       padding: .7rem 1rem;
       border-top: 1px solid rgba(185, 200, 216, .18);
-      vertical-align: middle;
+      min-height: 0;
+    }
+    .dep-row > div,
+    .dep-head > div {
+      min-width: 0;
     }
     .route-pill {
       display: inline-flex;
@@ -296,7 +374,7 @@
       line-height: 1.05;
     }
     .dest-cell {
-      min-height: 4.1rem;
+      min-height: 100%;
       display: flex;
       align-items: center;
     }
@@ -320,6 +398,7 @@
       line-height: 1;
     }
     .empty-state {
+      flex: 1;
       display: grid;
       place-content: center;
       text-align: center;
@@ -337,6 +416,15 @@
       padding: .75rem .9rem;
       overflow: hidden;
       border: 1px solid rgba(98, 221, 244, .18);
+    }
+    .board-shell.frameless .board-footer {
+      border-left-color: transparent;
+      border-right-color: transparent;
+      border-bottom-color: transparent;
+      border-radius: 0;
+      padding-left: .5rem;
+      padding-right: .5rem;
+      background: transparent;
     }
     .ticker {
       flex: 1;
@@ -364,11 +452,13 @@
       .board { padding: .5rem; }
       .board-header { flex-direction: column; gap: .5rem; }
       .board-meta { text-align: left; align-items: flex-start; }
+      .board-meta-top { justify-content: space-between; }
+      .board-controls { justify-content: flex-start; }
       .row { grid-template-columns: 1fr; }
-      .dep-table th { display: none; }
-      .dep-table, .dep-table tbody, .dep-table tr, .dep-table td { display: block; width: 100%; }
-      .dep-table tr { padding: .6rem 0; border-top: 1px solid rgba(185, 200, 216, .18); }
-      .dep-table td { border: 0; padding: .3rem .8rem; }
+      .dep-head { display: none; }
+      .dep-table, .dep-rows, .dep-row { display: block; width: 100%; }
+      .dep-row { padding: .6rem 0; border-top: 1px solid rgba(185, 200, 216, .18); }
+      .dep-row > div { padding: .3rem .8rem; text-align: left !important; }
       .route-pill { min-width: 5rem; min-height: 3.3rem; font-size: clamp(1.4rem, 7vw, 2.4rem); }
       .dest-cell { min-height: auto; }
       .dest-cell strong { font-size: clamp(1.4rem, 9vw, 2.3rem); }
@@ -398,6 +488,7 @@
       staleMultiplier: 2,
       routeAllowlist: "94, 95B, 95C, 97B, 97R, 931, 933, 939, 941, 966",
       stopIds: "3955-edf582eb, 3957-95f7701d, 3959-54a6c40a, 3961-695cebe3",
+      chromeHidden: false,
       mode: "setup"
     };
 
@@ -1177,39 +1268,46 @@
       const alerts = boardAlerts().map(a => a.header);
       const tickerItems = [state.bundle?.feedInfo?.feed_publisher_name || "Auckland Transport", ...(alerts.length ? alerts : ["No active alerts"])];
       const tickerHtml = tickerItems.concat(tickerItems).map(x => `<span>${escapeHtml(x)}</span>`).join("");
+      const frameless = Boolean(cfg.chromeHidden);
 
       app.innerHTML = `
-        <main class="board">
-          <section class="board-shell">
+        <main class="board ${frameless ? "frameless" : ""}">
+          <button class="ghost chrome-toggle" data-action="toggleChrome" title="${frameless ? "Show frame and controls" : "Hide frame and controls"}">${frameless ? "+" : "-"}</button>
+          <section class="board-shell ${frameless ? "frameless" : ""}">
             <header class="board-header">
               <div class="board-meta">
-                <span>${state.realtime ? "Live" : "Scheduled"}${pageLabel}</span>
-                <div style="display:flex;gap:.3rem;flex-wrap:wrap;justify-content:flex-end">
+                <div class="board-meta-top">
+                  <span>${state.realtime ? "Live" : "Scheduled"}${pageLabel}</span>
+                </div>
+                <div class="board-controls">
                   <button class="ghost small" data-action="refresh" title="Refresh now">Refresh</button>
                   <button class="${state.pageLocked ? "primary" : "ghost"} small" data-action="lockPage" title="${state.pageLocked ? "Resume rotation through pages" : "Stop on page 1 (no rotation)"}">${state.pageLocked ? "Locked to 1" : "Lock page"}</button>
                   <button class="ghost small" data-action="setup">Settings</button>
                 </div>
               </div>
             </header>
-            ${stale ? `<div class="alert-banner bad">Live data unavailable - showing scheduled times.</div>` : ""}
-            ${alerts.length ? `<div class="alert-banner warn">${escapeHtml(alerts[0])}</div>` : ""}
-            ${pageRows.length ? renderTable(pageRows, cfg) : `<div class="empty-state"><div><strong>No departures</strong><br><span>Nothing scheduled in the next ${cfg.lookaheadHours}h.</span></div></div>`}
+            ${!frameless && stale ? `<div class="alert-banner bad">Live data unavailable - showing scheduled times.</div>` : ""}
+            ${!frameless && alerts.length ? `<div class="alert-banner warn">${escapeHtml(alerts[0])}</div>` : ""}
+            <div class="board-body">
+              ${pageRows.length ? renderTable(pageRows, cfg) : `<div class="empty-state"><div><strong>No departures</strong><br><span>Nothing scheduled in the next ${cfg.lookaheadHours}h.</span></div></div>`}
+            </div>
             <footer class="board-footer">
               <div class="ticker"><div class="ticker-inner">${tickerHtml}</div></div>
               <div class="clock">${clockLabel(state.now, cfg.timezone)}</div>
             </footer>
           </section>
         </main>`;
+      document.querySelector("[data-action=toggleChrome]")?.addEventListener("click", () => { saveConfig({ chromeHidden: !state.config.chromeHidden }); renderBoard(); });
       document.querySelector("[data-action=setup]")?.addEventListener("click", () => { saveConfig({ mode: "setup" }); render(); });
       document.querySelector("[data-action=refresh]")?.addEventListener("click", () => { refreshRealtime().then(() => renderBoard()); });
       document.querySelector("[data-action=lockPage]")?.addEventListener("click", () => { state.pageLocked = !state.pageLocked; if (state.pageLocked) state.page = 0; renderBoard(); });
     }
 
     function renderTable(rows, cfg) {
-      return `<table class="dep-table"><thead><tr><th>Route</th><th>Destination</th><th>Status</th><th style="text-align:right">Due</th></tr></thead><tbody>${rows.map(r => {
+      return `<div class="dep-table"><div class="dep-head"><div>Route</div><div>Destination</div><div>Status</div><div>Due</div></div><div class="dep-rows" style="--row-count:${rows.length}">${rows.map(r => {
         const variance = varianceLabel(r);
-        return `<tr><td><span class="route-pill">${escapeHtml(r.routeLabel)}</span></td><td><div class="dest-cell"><strong>${escapeHtml(normalizeDestinationLabel(r.destination))}</strong></div></td><td><span class="badge ${r.status}">${r.status === "live" ? "Live" : r.status === "cancelled" ? "Cancelled" : "Scheduled"}</span>${variance ? `<div class="variance">${escapeHtml(variance)}</div>` : ""}</td><td class="due-cell">${formatDue(r.effective, state.now.getTime(), cfg)}</td></tr>`;
-      }).join("")}</tbody></table>`;
+        return `<div class="dep-row"><div><span class="route-pill">${escapeHtml(r.routeLabel)}</span></div><div><div class="dest-cell"><strong>${escapeHtml(normalizeDestinationLabel(r.destination))}</strong></div></div><div><span class="badge ${r.status}">${r.status === "live" ? "Live" : r.status === "cancelled" ? "Cancelled" : "Scheduled"}</span>${variance ? `<div class="variance">${escapeHtml(variance)}</div>` : ""}</div><div class="due-cell">${formatDue(r.effective, state.now.getTime(), cfg)}</div></div>`;
+      }).join("")}</div></div>`;
     }
 
     function autoLoadSameFolderGtfs() {
