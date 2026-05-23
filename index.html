@@ -378,6 +378,7 @@
       page: 0,
       stopSearch: "",
       autoGtfsAttempted: false,
+      pageLocked: false,
       expandedSections: (() => {
         try {
           const raw = localStorage.getItem(STORE_KEY + ":bundle");
@@ -819,13 +820,13 @@
           if (!trip || !route) continue;
           for (const serviceDate of dates) {
             if (!activeService(bundle, st.serviceId, serviceDate)) continue;
-            const scheduled = gtfsEpoch(serviceDate, st.departureTime || st.arrivalTime, cfg.timezone);
+            const scheduled = gtfsEpoch(serviceDate, st.arrivalTime || st.departureTime, cfg.timezone);
             if (scheduled < nowMs - 120000 || scheduled > maxMs) continue;
             const rtTrip = rt && rt.trips && rt.trips[st.tripId];
             if (rtTrip && rtTrip.startDate && rtTrip.startDate !== serviceDate) continue;
             const stopUpdate = propagatedStopUpdate(rtTrip, stopId, st.stopSequence);
-            const realtimeTime = stopUpdate && (stopUpdate.departureTime || stopUpdate.arrivalTime);
-            const realtimeDelay = stopUpdate && (stopUpdate.departureDelay ?? stopUpdate.arrivalDelay);
+            const realtimeTime = stopUpdate && (stopUpdate.arrivalTime || stopUpdate.departureTime);
+            const realtimeDelay = stopUpdate && (stopUpdate.arrivalDelay ?? stopUpdate.departureDelay);
             const predicted = realtimeTime || (Number.isFinite(realtimeDelay) ? scheduled + realtimeDelay * 1000 : undefined);
             const cancelled = (rtTrip && ["CANCELED","CANCELLED"].includes(rtTrip.scheduleRelationship)) || (stopUpdate && ["CANCELED","CANCELLED","SKIPPED"].includes(stopUpdate.scheduleRelationship));
             rows.push({
@@ -934,81 +935,81 @@
     function renderSetup() {
       const cfg = state.config;
       const results = state.gtfs && state.stopSearch.trim()
-        ? state.gtfs.stops.filter(s => (s.stop_id + “ “ + s.stop_name + “ “ + (s.stop_desc || “”)).toLowerCase().includes(state.stopSearch.toLowerCase())).slice(0, 30)
+        ? state.gtfs.stops.filter(s => (s.stop_id + " " + s.stop_name + " " + (s.stop_desc || "")).toLowerCase().includes(state.stopSearch.toLowerCase())).slice(0, 30)
         : [];
 
       const stopList = splitList(cfg.stopIds);
       const routeList = splitList(cfg.routeAllowlist);
       const gtfsStatus = state.gtfs
-        ? state.gtfs.stops.length.toLocaleString() + “ stops loaded”
-        : state.bundle ? “using saved bundle” : “not loaded”;
+        ? state.gtfs.stops.length.toLocaleString() + " stops loaded"
+        : state.bundle ? "using saved bundle" : "not loaded";
       const stopsStatus = stopList.length
-        ? stopList.length + “ stop” + (stopList.length !== 1 ? “s” : “”) + (routeList.length ? “ · “ + routeList.length + “ route filter” + (routeList.length !== 1 ? “s” : “”) : “ · all routes”)
-        : “not configured”;
-      const rtStatus = String(cfg.subscriptionKey || “”).trim() ? “API key set” : “no key — scheduled times only”;
-      const displayStatus = cfg.pageSize + “ rows · “ + cfg.pollSeconds + “s poll”;
+        ? stopList.length + " stop" + (stopList.length !== 1 ? "s" : "") + (routeList.length ? " · " + routeList.length + " route filter" + (routeList.length !== 1 ? "s" : "") : " · all routes")
+        : "not configured";
+      const rtStatus = String(cfg.subscriptionKey || "").trim() ? "API key set" : "no key — scheduled times only";
+      const displayStatus = cfg.pageSize + " rows · " + cfg.pollSeconds + "s poll";
 
       const html = `
-        <main class=”setup”>
-          <div class=”setup-header”>
+        <main class="setup">
+          <div class="setup-header">
             <h1>Auckland Live Departures</h1>
             <p>Load a GTFS zip → pick stops → build the board → open it.</p>
           </div>
-          <div class=”quick-actions”>
-            ${state.bundle ? `<button class=”primary” data-action=”board”>Open Board</button>` : “”}
-            ${state.gtfs ? `<button class=”${state.bundle ? “ghost small” : “primary”}” data-action=”build”>Build Board</button>` : “”}
-            <button class=”danger small” data-action=”reset”>Reset all</button>
+          <div class="quick-actions">
+            ${state.bundle ? `<button class="primary" data-action="board">Open Board</button>` : ""}
+            ${state.gtfs ? `<button class="${state.bundle ? "ghost small" : "primary"}" data-action="build">Build Board</button>` : ""}
+            <button class="danger small" data-action="reset">Reset all</button>
           </div>
-          <div class=”status-bar ${state.error ? “error” : “”}”>${escapeHtml(state.status || (state.bundle ? “Board data ready — click Open Board.” : “Load a GTFS zip to get started.”))}</div>
+          <div class="status-bar ${state.error ? "error" : ""}">${escapeHtml(state.status || (state.bundle ? "Board data ready — click Open Board." : "Load a GTFS zip to get started."))}</div>
           ${renderDiagnostics()}
 
-          <div class=”setup-layout”>
+          <div class="setup-layout">
           <div>
-          ${collapsible(“gtfs”, “1 · GTFS Data”, `
-            <div class=”field”><label>GTFS zip file path or URL</label><input name=”gtfsUrl” value=”${escapeHtml(cfg.gtfsUrl)}”><div class=”hint”>Default is <code>gtfs.zip</code> in the same folder as this HTML file. <code>gtfs (1).zip</code> is also tried as a fallback.</div></div>
-            <div class=”link-row”>
-              <button class=”ghost small” type=”button” data-action=”fetchGtfs”>Try URL fetch</button>
-              <a class=”link-button” href=”${escapeHtml(safeHref(cfg.gtfsUrl))}” target=”_blank” rel=”noopener”>Open zip URL</a>
-              <label style=”font-size:.85rem;color:var(--muted);cursor:pointer”>Upload zip: <input name=”gtfsFile” type=”file” accept=”.zip” style=”width:auto;max-width:14rem”></label>
+          ${collapsible("gtfs", "1 · GTFS Data", `
+            <div class="field"><label>GTFS zip file path or URL</label><input name="gtfsUrl" value="${escapeHtml(cfg.gtfsUrl)}"><div class="hint">Default is <code>gtfs.zip</code> in the same folder as this HTML file. <code>gtfs (1).zip</code> is also tried as a fallback.</div></div>
+            <div class="link-row">
+              <button class="ghost small" type="button" data-action="fetchGtfs">Try URL fetch</button>
+              <a class="link-button" href="${escapeHtml(safeHref(cfg.gtfsUrl))}" target="_blank" rel="noopener">Open zip URL</a>
+              <label style="font-size:.85rem;color:var(--muted);cursor:pointer">Upload zip: <input name="gtfsFile" type="file" accept=".zip" style="width:auto;max-width:14rem"></label>
             </div>
-            ${location.protocol === “file:” ? `<div class=”note”>Standalone file mode: some browsers block reading sibling files over file://. If same-folder loading fails, upload the zip above or serve this folder with a local web server.</div>` : “”}
+            ${location.protocol === "file:" ? `<div class="note">Standalone file mode: some browsers block reading sibling files over file://. If same-folder loading fails, upload the zip above or serve this folder with a local web server.</div>` : ""}
             ${state.gtfs
-              ? `<p style=”font-size:.85rem;color:var(--good);margin-top:.5rem”>${state.gtfs.stops.length.toLocaleString()} stops loaded from ${escapeHtml(state.gtfs.source)}</p>`
-              : `<p style=”font-size:.85rem;color:var(--muted);margin-top:.5rem”>Place the GTFS zip beside this HTML as <code>gtfs.zip</code> and open the page, or upload it above.</p>`}
+              ? `<p style="font-size:.85rem;color:var(--good);margin-top:.5rem">${state.gtfs.stops.length.toLocaleString()} stops loaded from ${escapeHtml(state.gtfs.source)}</p>`
+              : `<p style="font-size:.85rem;color:var(--muted);margin-top:.5rem">Place the GTFS zip beside this HTML as <code>gtfs.zip</code> and open the page, or upload it above.</p>`}
           `, gtfsStatus)}
 
-          ${collapsible(“stops”, “2 · Stops & Routes”, `
-            <div class=”field”><label>Route filter — comma-separated short names (blank = show all routes)</label><textarea name=”routeAllowlist”>${escapeHtml(cfg.routeAllowlist)}</textarea></div>
-            <div class=”field”><label>Stop IDs — comma-separated</label><textarea name=”stopIds”>${escapeHtml(cfg.stopIds)}</textarea></div>
-            <button class=”primary small” type=”button” data-action=”build”>Build Board</button>
+          ${collapsible("stops", "2 · Stops & Routes", `
+            <div class="field"><label>Route filter — comma-separated short names (blank = show all routes)</label><textarea name="routeAllowlist">${escapeHtml(cfg.routeAllowlist)}</textarea></div>
+            <div class="field"><label>Stop IDs — comma-separated</label><textarea name="stopIds">${escapeHtml(cfg.stopIds)}</textarea></div>
+            <button class="primary small" type="button" data-action="build">Build Board</button>
             ${state.gtfs ? `
-              <div class=”field” style=”margin-top:.75rem”><label>Search stops (GTFS loaded — click + to add)</label><input name=”stopSearch” placeholder=”Type stop name or ID…” value=”${escapeHtml(state.stopSearch)}”></div>
-              <div class=”stop-results”>${results.map(s => `<div class=”stop-item”><button class=”ghost small” type=”button” data-stop=”${escapeHtml(s.stop_id)}”>+</button><span class=”name”>${escapeHtml(s.stop_name || s.stop_id)}</span><span class=”id”>${escapeHtml(s.stop_id)}</span></div>`).join(“”)}</div>
-            ` : `<p class=”hint” style=”margin-top:.3rem”>Load GTFS data first to search and add stops.</p>`}
+              <div class="field" style="margin-top:.75rem"><label>Search stops (GTFS loaded — click + to add)</label><input name="stopSearch" placeholder="Type stop name or ID…" value="${escapeHtml(state.stopSearch)}"></div>
+              <div class="stop-results">${results.map(s => `<div class="stop-item"><button class="ghost small" type="button" data-stop="${escapeHtml(s.stop_id)}">+</button><span class="name">${escapeHtml(s.stop_name || s.stop_id)}</span><span class="id">${escapeHtml(s.stop_id)}</span></div>`).join("")}</div>
+            ` : `<p class="hint" style="margin-top:.3rem">Load GTFS data first to search and add stops.</p>`}
           `, stopsStatus)}
 
-          ${collapsible(“realtime”, “3 · Realtime API”, `
-            <div class=”field”><label>GTFS-RT trip updates URL</label><input name=”realtimeUrl” value=”${escapeHtml(cfg.realtimeUrl)}”></div>
-            <div class=”field”><label>Service alerts URL</label><input name=”alertsUrl” value=”${escapeHtml(cfg.alertsUrl)}”></div>
-            <div class=”field”><label>AT subscription key</label><input name=”subscriptionKey” type=”password” value=”${escapeHtml(cfg.subscriptionKey)}”><div class=”hint”>Get a key from the AT Developer Portal. Without it the board shows scheduled times only.</div></div>
-            <button class=”ghost small” type=”button” data-action=”fetchRealtime”>Test connection</button>
+          ${collapsible("realtime", "3 · Realtime API", `
+            <div class="field"><label>GTFS-RT trip updates URL</label><input name="realtimeUrl" value="${escapeHtml(cfg.realtimeUrl)}"></div>
+            <div class="field"><label>Service alerts URL</label><input name="alertsUrl" value="${escapeHtml(cfg.alertsUrl)}"></div>
+            <div class="field"><label>AT subscription key</label><input name="subscriptionKey" type="password" value="${escapeHtml(cfg.subscriptionKey)}"><div class="hint">Get a key from the AT Developer Portal. Without it the board shows scheduled times only.</div></div>
+            <button class="ghost small" type="button" data-action="fetchRealtime">Test connection</button>
           `, rtStatus)}
 
-          ${collapsible(“timing”, “Display Settings”, `
-            <div class=”row”>
-              <div class=”field”><label>Poll interval (sec)</label><input name=”pollSeconds” type=”number” value=”${cfg.pollSeconds}”><div class=”hint”>How often the board fetches live updates.</div></div>
-              <div class=”field”><label>Rows per page</label><input name=”pageSize” type=”number” value=”${cfg.pageSize}”><div class=”hint”>Departures shown per page before rotating.</div></div>
+          ${collapsible("timing", "Display Settings", `
+            <div class="row">
+              <div class="field"><label>Poll interval (sec)</label><input name="pollSeconds" type="number" value="${cfg.pollSeconds}"><div class="hint">How often the board fetches live updates.</div></div>
+              <div class="field"><label>Rows per page</label><input name="pageSize" type="number" value="${cfg.pageSize}"><div class="hint">Departures shown per page before rotating.</div></div>
             </div>
-            <div class=”row”>
-              <div class=”field”><label>Page rotation (sec)</label><input name=”rotateSeconds” type=”number” value=”${cfg.rotateSeconds}”><div class=”hint”>How long each page stays on screen.</div></div>
-              <div class=”field”><label>Lookahead (hours)</label><input name=”lookaheadHours” type=”number” value=”${cfg.lookaheadHours}”><div class=”hint”>How far ahead to show departures.</div></div>
+            <div class="row">
+              <div class="field"><label>Page rotation (sec)</label><input name="rotateSeconds" type="number" value="${cfg.rotateSeconds}"><div class="hint">How long each page stays on screen.</div></div>
+              <div class="field"><label>Lookahead (hours)</label><input name="lookaheadHours" type="number" value="${cfg.lookaheadHours}"><div class="hint">How far ahead to show departures.</div></div>
             </div>
-            <div class=”row”>
-              <div class=”field”><label>Relative time cutoff (min)</label><input name=”relativeCutoffMinutes” type=”number” value=”${cfg.relativeCutoffMinutes}”><div class=”hint”>Show “12 min” up to this threshold; beyond it show clock time like “14:35”. Set 0 to always use clock time.</div></div>
-              <div class=”field”><label>Stale after (× poll intervals)</label><input name=”staleMultiplier” type=”number” value=”${cfg.staleMultiplier}”><div class=”hint”>Board warns “data unavailable” if realtime hasn't refreshed in this many poll cycles.</div></div>
+            <div class="row">
+              <div class="field"><label>Relative time cutoff (min)</label><input name="relativeCutoffMinutes" type="number" value="${cfg.relativeCutoffMinutes}"><div class="hint">Show "12 min" up to this threshold; beyond it show clock time like "14:35". Set 0 to always use clock time.</div></div>
+              <div class="field"><label>Stale after (× poll intervals)</label><input name="staleMultiplier" type="number" value="${cfg.staleMultiplier}"><div class="hint">Board warns "data unavailable" if realtime hasn't refreshed in this many poll cycles.</div></div>
             </div>
-            <div class=”field”><label>Timezone</label><input name=”timezone” value=”${escapeHtml(cfg.timezone)}”><div class=”hint”>IANA timezone for service days and the board clock (e.g. Pacific/Auckland).</div></div>
-            <button class=”ghost small” type=”button” data-action=”save”>Save Settings</button>
+            <div class="field"><label>Timezone</label><input name="timezone" value="${escapeHtml(cfg.timezone)}"><div class="hint">IANA timezone for service days and the board clock (e.g. Pacific/Auckland).</div></div>
+            <button class="ghost small" type="button" data-action="save">Save Settings</button>
           `, displayStatus)}
           </div>
           </div>
@@ -1075,8 +1076,10 @@
       const pages = [];
       for (let i = 0; i < rows.length; i += cfg.pageSize) pages.push(rows.slice(i, i + cfg.pageSize));
       if (!pages.length) pages.push([]);
+      if (state.pageLocked) state.page = 0;
       state.page = state.page % pages.length;
       const pageRows = pages[state.page] || [];
+      const pageLabel = pages.length > 1 ? " " + (state.page + 1) + "/" + pages.length : "";
       const latest = state.realtime && (state.realtime.feedTimestamp || state.realtime.fetchedAt);
       const hasRT = Boolean(cfg.realtimeUrl || cfg.alertsUrl);
       const stale = hasRT && (!latest || Date.now() - latest > cfg.pollSeconds * cfg.staleMultiplier * 1000);
@@ -1089,8 +1092,12 @@
           <section class="board-shell">
             <header class="board-header">
               <div class="board-meta">
-                <span>${state.realtime ? "Live" : "Scheduled"}</span>
-                <button class="ghost small" data-action="setup">Settings</button>
+                <span>${state.realtime ? "Live" : "Scheduled"}${pageLabel}</span>
+                <div style="display:flex;gap:.3rem;flex-wrap:wrap;justify-content:flex-end">
+                  <button class="ghost small" data-action="refresh" title="Refresh now">Refresh</button>
+                  <button class="${state.pageLocked ? "primary" : "ghost"} small" data-action="lockPage" title="${state.pageLocked ? "Resume rotation through pages" : "Stop on page 1 (no rotation)"}">${state.pageLocked ? "Locked to 1" : "Lock page"}</button>
+                  <button class="ghost small" data-action="setup">Settings</button>
+                </div>
               </div>
             </header>
             ${stale ? `<div class="alert-banner bad">Live data unavailable - showing scheduled times.</div>` : ""}
@@ -1103,6 +1110,8 @@
           </section>
         </main>`;
       document.querySelector("[data-action=setup]")?.addEventListener("click", () => { saveConfig({ mode: "setup" }); render(); });
+      document.querySelector("[data-action=refresh]")?.addEventListener("click", () => { refreshRealtime().then(() => renderBoard()); });
+      document.querySelector("[data-action=lockPage]")?.addEventListener("click", () => { state.pageLocked = !state.pageLocked; if (state.pageLocked) state.page = 0; renderBoard(); });
     }
 
     function renderTable(rows, cfg) {
@@ -1124,7 +1133,7 @@
       clearTimers();
       timers.push(setInterval(() => { state.now = new Date(); if (state.config.mode === "board") renderBoard(); }, 1000));
       timers.push(setInterval(() => { if (state.config.mode === "board") refreshRealtime().then(() => renderBoard()); }, Math.max(10, state.config.pollSeconds) * 1000));
-      timers.push(setInterval(() => { if (state.config.mode === "board") { state.page++; renderBoard(); } }, Math.max(3, state.config.rotateSeconds) * 1000));
+      timers.push(setInterval(() => { if (state.config.mode === "board" && !state.pageLocked) { state.page++; renderBoard(); } }, Math.max(3, state.config.rotateSeconds) * 1000));
       refreshRealtime();
     }
 
