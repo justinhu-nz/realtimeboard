@@ -570,7 +570,7 @@
       pageSize: 6,
       rotateSeconds: 12,
       lookaheadHours: 6,
-      relativeCutoffMinutes: 20,
+      relativeCutoffMinutes: 60,
       staleMultiplier: 2,
       routeAllowlist: "94, 95B, 95C, 97B, 97R, 931, 933, 939, 941, 966",
       stopIds: "3955-edf582eb, 3957-95f7701d, 3959-54a6c40a, 3961-695cebe3",
@@ -605,6 +605,9 @@
       if (!saved.vehiclesUrl) delete saved.vehiclesUrl;
       if (!saved.departuresUrl) delete saved.departuresUrl;
       if (!saved.departuresKey) delete saved.departuresKey;
+      // Old default was 20; migrate to the new 60 (matches the AT website, which shows
+      // "45 min" rather than switching to clock time). Explicit other values are kept.
+      if (saved.relativeCutoffMinutes === 20) delete saved.relativeCutoffMinutes;
       return sanitizeConfig(Object.assign({}, DEFAULT_CONFIG, saved));
     }
     function loadBundle() {
@@ -699,7 +702,7 @@
 
     // ZIP reader
     async function readZipEntries(buffer, names) {
-      if (!("DecompressionStream" in window)) throw new Error("Browser needs DecompressionStream (Chrome/Edge).");
+      if (!("DecompressionStream" in globalThis)) throw new Error("Browser needs DecompressionStream (Chrome/Edge).");
       const bytes = new Uint8Array(buffer);
       const view = new DataView(buffer);
       let eocd = -1;
@@ -736,24 +739,107 @@
       return output;
     }
 
-    // GTFS ingestion
+    // GTFS ingestion. stop_times.txt in a full AT feed is ~80 MB / 1.7M rows; parsing it
+    // all into objects froze the page for minutes. Instead, work happens in an inline
+    // Web Worker, and stop_times is never fully parsed: the worker scans it line by line
+    // and returns only the rows for the configured stops (a few hundred).
+    function stopTimesFilterSource() {
+      // Serialized into the worker. NL/CR constants avoid template-escaping mistakes.
+      return `
+        const NL = String.fromCharCode(10), CR = String.fromCharCode(13);
+        function filterStopTimes(text, stopIds) {
+          const want = new Set(stopIds);
+          const headEnd = text.indexOf(NL);
+          const headerLine = text.slice(0, headEnd).split(CR).join("");
+          const header = headerLine.split(",");
+          const stopCol = header.indexOf("stop_id");
+          if (stopCol < 0) throw new Error("stop_times.txt missing stop_id column");
+          const rows = [];
+          let pos = headEnd + 1;
+          while (pos < text.length) {
+            let end = text.indexOf(NL, pos);
+            if (end < 0) end = text.length;
+            let line = text.slice(pos, end);
+            pos = end + 1;
+            if (line.endsWith(CR)) line = line.slice(0, -1);
+            if (!line) continue;
+            if (line.indexOf('"') >= 0) {
+              const parsed = csvParse(headerLine + NL + line)[0];
+              if (parsed && want.has(parsed.stop_id)) rows.push(parsed);
+              continue;
+            }
+            const cells = line.split(",");
+            if (!want.has(cells[stopCol])) continue;
+            rows.push(Object.fromEntries(header.map((h, i) => [h, cells[i] || ""])));
+          }
+          return rows;
+        }`;
+    }
+
+    function gtfsWorkerTask(message) {
+      return new Promise((resolve, reject) => {
+        const src = csvParse.toString() + "\n" + readZipEntries.toString() + "\n" + stopTimesFilterSource() + `
+          self.onmessage = async e => {
+            try {
+              const { kind, buffer, names, stopIds } = e.data;
+              const files = await readZipEntries(buffer, kind === "tables" ? names : ["stop_times.txt"]);
+              let out;
+              if (kind === "tables") {
+                out = {};
+                for (const k of Object.keys(files)) out[k] = csvParse(files[k]);
+              } else {
+                if (!files["stop_times.txt"]) throw new Error("GTFS zip missing stop_times.txt");
+                out = filterStopTimes(files["stop_times.txt"], stopIds);
+              }
+              self.postMessage({ ok: true, out });
+            } catch (err) { self.postMessage({ ok: false, error: String(err && err.message || err) }); }
+          };`;
+        const url = URL.createObjectURL(new Blob([src], { type: "text/javascript" }));
+        const w = new Worker(url);
+        const done = fn => v => { URL.revokeObjectURL(url); w.terminate(); fn(v); };
+        w.onmessage = e => (e.data.ok ? done(resolve)(e.data.out) : done(reject)(new Error(e.data.error)));
+        w.onerror = e => done(reject)(new Error((e && e.message) || "Worker failed"));
+        w.postMessage(message, [message.buffer]);
+      });
+    }
+
     async function ingestGtfs(buffer, source) {
-      const needed = ["stops.txt", "routes.txt", "trips.txt", "stop_times.txt", "calendar.txt", "calendar_dates.txt", "feed_info.txt"];
-      const files = await readZipEntries(buffer, needed);
-      for (const name of ["stops.txt", "routes.txt", "trips.txt", "stop_times.txt"]) {
-        if (!files[name]) throw new Error("GTFS zip missing " + name);
+      const tables = ["stops.txt", "routes.txt", "trips.txt", "calendar.txt", "calendar_dates.txt", "feed_info.txt"];
+      setStatus("Reading timetable data...");
+      let parsed;
+      try {
+        parsed = await gtfsWorkerTask({ kind: "tables", buffer: buffer.slice(0), names: tables });
+      } catch (err) {
+        console.warn("[gtfs] worker parse failed, parsing on main thread:", err && err.message || err);
+        const files = await readZipEntries(buffer, tables);
+        parsed = {};
+        for (const name of Object.keys(files)) parsed[name] = csvParse(files[name]);
+      }
+      for (const name of ["stops.txt", "routes.txt", "trips.txt"]) {
+        if (!parsed[name]) throw new Error("GTFS zip missing " + name);
       }
       state.gtfs = {
         source,
-        feedInfo: files["feed_info.txt"] ? csvParse(files["feed_info.txt"]) : [],
-        stops: csvParse(files["stops.txt"]),
-        routes: csvParse(files["routes.txt"]),
-        trips: csvParse(files["trips.txt"]),
-        stopTimes: csvParse(files["stop_times.txt"]),
-        calendars: files["calendar.txt"] ? csvParse(files["calendar.txt"]) : [],
-        calendarDates: files["calendar_dates.txt"] ? csvParse(files["calendar_dates.txt"]) : []
+        buffer, // kept so buildBundle can filter stop_times on demand
+        feedInfo: parsed["feed_info.txt"] || [],
+        stops: parsed["stops.txt"],
+        routes: parsed["routes.txt"],
+        trips: parsed["trips.txt"],
+        calendars: parsed["calendar.txt"] || [],
+        calendarDates: parsed["calendar_dates.txt"] || []
       };
       setStatus("Loaded " + state.gtfs.stops.length.toLocaleString() + " stops from GTFS.");
+    }
+
+    async function selectedStopTimesFor(stopIds) {
+      try {
+        return await gtfsWorkerTask({ kind: "stopTimes", buffer: state.gtfs.buffer.slice(0), stopIds: Array.from(stopIds) });
+      } catch (err) {
+        console.warn("[gtfs] worker stop_times filter failed, falling back to main thread:", err && err.message || err);
+        const files = await readZipEntries(state.gtfs.buffer, ["stop_times.txt"]);
+        if (!files["stop_times.txt"]) throw new Error("GTFS zip missing stop_times.txt");
+        return csvParse(files["stop_times.txt"]).filter(st => stopIds.has(st.stop_id));
+      }
     }
 
     async function fetchGtfs(options = {}) {
@@ -792,10 +878,26 @@
       return /^[0-9A-F]{6}$/.test(color) ? color : "";
     }
 
-    function buildBundle() {
+    async function buildBundle() {
       if (!state.gtfs) { setStatus("Load GTFS data first.", true); return; }
-      const stopIds = new Set(splitList(state.config.stopIds));
+      // AT rotates the hash suffix of stop ids ("3955-edf582eb") with GTFS releases.
+      // If a configured id no longer exists, re-resolve it by its stop code prefix.
+      const gtfsStopIds = new Set(state.gtfs.stops.map(s => s.stop_id));
+      const resolveStop = id => {
+        if (gtfsStopIds.has(id)) return id;
+        const code = id.split("-")[0];
+        const match = state.gtfs.stops.find(s => s.stop_code === code || s.stop_id.split("-")[0] === code);
+        return match ? match.stop_id : id;
+      };
+      const resolved = splitList(state.config.stopIds).map(resolveStop);
+      const resolvedText = resolved.join(", ");
+      if (resolvedText !== splitList(state.config.stopIds).join(", ")) saveConfig({ stopIds: resolvedText });
+      const stopIds = new Set(resolved);
       if (!stopIds.size) { setStatus("Add at least one stop.", true); return; }
+      setStatus("Building board...");
+      let candidateStopTimes;
+      try { candidateStopTimes = await selectedStopTimesFor(stopIds); }
+      catch (err) { setStatus(friendlyError(err, "Board build"), true); return; }
       const routeAllow = new Set(splitList(state.config.routeAllowlist).map(normLabel));
       const routesById = new Map(state.gtfs.routes.map(r => [r.route_id, r]));
       const tripsById = new Map(state.gtfs.trips.map(t => [t.trip_id, t]));
@@ -803,7 +905,7 @@
       const calendarsByService = new Map(state.gtfs.calendars.map(c => [c.service_id, c]));
       const selectedStopTimes = [];
       const tripIds = new Set(), routeIds = new Set(), serviceIds = new Set();
-      for (const st of state.gtfs.stopTimes) {
+      for (const st of candidateStopTimes) {
         if (!stopIds.has(st.stop_id)) continue;
         const trip = tripsById.get(st.trip_id);
         const route = trip && routesById.get(trip.route_id);
@@ -1454,6 +1556,16 @@
       if (v("stopIds") !== undefined) cfg.stopIds = v("stopIds");
     }
 
+    // True when AT is publishing live predictions for our stops but none of them matched
+    // a trip in the bundle — the signature of a board built from an outdated GTFS zip.
+    function timetableOutdated(rows) {
+      const movements = state.realtime && state.realtime.movements;
+      if (!movements || !state.bundle) return false;
+      const liveMovements = Object.values(movements).filter(m => m.expected).length;
+      if (liveMovements < 2) return false;
+      return !rows.some(r => r.predictedSource === "at-api");
+    }
+
     function renderBoard() {
       const cfg = state.config;
       const rows = deriveDepartures();
@@ -1487,6 +1599,7 @@
               </div>
             </header>
             ${!frameless && stale ? `<div class="alert-banner bad">Live data unavailable - showing scheduled times.</div>` : ""}
+            ${!frameless && !stale && timetableOutdated(rows) ? `<div class="alert-banner warn">Timetable data looks outdated - live times can't be matched. Refreshing it automatically; if this persists, update gtfs.zip and rebuild in Settings.</div>` : ""}
             ${!frameless && alerts.length ? `<div class="alert-banner warn">${escapeHtml(alerts[0])}</div>` : ""}
             <div class="board-body">
               ${pageRows.length ? renderTable(pageRows, cfg) : `<div class="empty-state"><div><strong>No departures</strong><br><span>Nothing scheduled in the next ${cfg.lookaheadHours}h.</span></div></div>`}
@@ -1516,6 +1629,21 @@
       }).join("")}</div></div>`;
     }
 
+    // A board built from an old GTFS zip is useless with today's realtime: AT rotates
+    // trip ids every release, so nothing matches and every row silently degrades to the
+    // stale schedule. Rebuild automatically from the current zip when the bundle ages.
+    const BUNDLE_MAX_AGE_MS = 3 * 24 * 3600000;
+    let bundleRefreshAttempted = false;
+    async function maybeRebuildStaleBundle() {
+      if (bundleRefreshAttempted || !state.bundle) return;
+      const builtAt = Date.parse(state.bundle.generatedAt || "") || 0;
+      if (Date.now() - builtAt < BUNDLE_MAX_AGE_MS) return;
+      bundleRefreshAttempted = true;
+      console.info("[bundle] saved board is " + Math.round((Date.now() - builtAt) / 86400000) + " days old - refreshing from GTFS zip");
+      if (await fetchGtfs({ quiet: true })) buildBundle();
+      else console.warn("[bundle] automatic refresh failed - keeping the old board");
+    }
+
     function autoLoadSameFolderGtfs() {
       if (state.autoGtfsAttempted || state.gtfs) return;
       state.autoGtfsAttempted = true;
@@ -1533,7 +1661,7 @@
 
     function render() {
       clearTimers();
-      if (state.config.mode === "board" && state.bundle) { renderBoard(); startRuntime(); }
+      if (state.config.mode === "board" && state.bundle) { renderBoard(); startRuntime(); maybeRebuildStaleBundle(); }
       else { state.config.mode = "setup"; renderSetup(); autoLoadSameFolderGtfs(); }
     }
 
