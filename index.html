@@ -197,6 +197,35 @@
     }
     .stop-item .name { flex: 1; font-weight: 600; }
     .stop-item .id { color: var(--muted); font-size: .78rem; }
+    .step {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: .55rem .65rem;
+      margin-bottom: .45rem;
+      display: grid;
+      gap: .45rem;
+    }
+    .step h2 { font-size: .98rem; font-weight: 700; }
+    .step-status { font-size: .75rem; font-weight: 400; color: var(--muted); margin-left: .4rem; }
+    .ok { color: var(--good); }
+    .chips { display: flex; flex-wrap: wrap; gap: .35rem; }
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: .15rem;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: .2rem .25rem .2rem .6rem;
+      font-size: .82rem;
+      font-weight: 600;
+    }
+    .chip .chip-id { color: var(--muted); font-weight: 400; font-size: .74rem; margin-left: .3rem; }
+    .chip button { padding: 0 .45rem; background: transparent; border: none; color: var(--muted); font-size: .95rem; line-height: 1.3; }
+    .chip button:hover { color: #ffd0e9; opacity: 1; }
+    .cta-row { display: flex; align-items: center; gap: .6rem; margin: .55rem 0; }
+    .cta-row .primary { font-size: 1.02rem; padding: .62rem 1.2rem; }
 
     /* Board */
     .board {
@@ -386,6 +415,12 @@
       overflow: hidden;
       text-overflow: ellipsis;
     }
+    .route-pill.outline {
+      background: transparent;
+      color: var(--text);
+      border: 2px solid rgba(222, 236, 248, .75);
+      box-shadow: none;
+    }
     .dest-cell strong {
       display: block;
       font-size: 1.95rem;
@@ -404,10 +439,17 @@
       font-weight: 600;
       font-size: .84rem;
     }
-    .badge.live { color: var(--accent-text); background: var(--accent); border: 1px solid transparent; }
-    .badge.scheduled { color: #e5f7ff; background: transparent; border: 1px solid rgba(185, 200, 216, .35); }
-    .badge.cancelled { color: #fff3fb; background: var(--bad); border: 1px solid transparent; }
-    .variance { color: #b6c9da; font-size: .78rem; margin-top: .22rem; }
+    .badge.cancelled { color: #fff3fb; background: var(--bad); border: 1px solid transparent; font-size: 1.05rem; font-weight: 700; padding: .3rem .85rem; }
+    .occ-cell {
+      display: flex;
+      align-items: flex-end;
+      gap: .22rem;
+      color: rgba(222, 236, 248, .9);
+    }
+    .occ-cell svg { display: block; fill: currentColor; }
+    .occ-cell .occ-lead svg { width: 1.35rem; height: 1.8rem; }
+    .occ-cell .occ-rest svg { width: 1.05rem; height: 1.4rem; }
+    .occ-cell .dim { color: rgba(185, 200, 216, .38); }
     .due-cell {
       text-align: right;
       font-size: clamp(1.9rem, 2.8vw, 3rem);
@@ -445,17 +487,31 @@
       padding-right: .5rem;
       background: transparent;
     }
-    .ticker {
-      flex: 1;
-      overflow: hidden;
+    .legend {
+      display: flex;
+      align-items: center;
+      gap: .55rem;
       white-space: nowrap;
       color: #e9fbff;
       font-size: clamp(1rem, 1.4vw, 1.25rem);
       font-weight: 600;
     }
-    .ticker-inner {
-      display: inline-flex;
-      gap: 1.5rem;
+    .legend-swatch {
+      width: 1.05em;
+      height: 1.05em;
+      border-radius: .28em;
+      background: linear-gradient(180deg, #73e8fa 0%, #57d9f2 100%);
+      flex: none;
+    }
+    .ticker {
+      flex: 1;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+      color: #ffe2a2;
+      font-size: clamp(.95rem, 1.3vw, 1.15rem);
+      font-weight: 600;
+      text-align: center;
     }
     .clock {
       font-weight: 700;
@@ -502,6 +558,13 @@
       gtfsUrl: DEFAULT_GTFS_FILE,
       realtimeUrl: "https://api.at.govt.nz/realtime/legacy/tripupdates",
       alertsUrl: "https://api.at.govt.nz/realtime/legacy/servicealerts",
+      vehiclesUrl: "https://api.at.govt.nz/realtime/legacy/vehiclelocations",
+      departuresUrl: "https://api.at.govt.nz/serviceinfo/v1/departures",
+      // Public key embedded in AT's own live-departures web page. Their departures API
+      // (SIRI-style per-stop predictions) is what the official board shows — the most
+      // accurate ETA source available. A personal key does not include this product.
+      departuresKey: "0526f69dcb074a4b8df741eef46121fc",
+      frequentRoutes: "",
       subscriptionKey: "",
       pollSeconds: 30,
       pageSize: 6,
@@ -528,13 +591,7 @@
       stopSearch: "",
       autoGtfsAttempted: false,
       pageLocked: false,
-      expandedSections: (() => {
-        try {
-          const raw = localStorage.getItem(STORE_KEY + ":bundle");
-          const hasBuild = raw && JSON.parse(raw)?.source !== "demo";
-          return { gtfs: !hasBuild, stops: !hasBuild, realtime: false, timing: false };
-        } catch { return { gtfs: true, stops: true, realtime: false, timing: false }; }
-      })()
+      expandedSections: { advanced: false }
     };
     let timers = [];
 
@@ -545,6 +602,9 @@
       if (saved.gtfsUrl === LEGACY_GTFS_URL) delete saved.gtfsUrl;
       if (!saved.realtimeUrl) delete saved.realtimeUrl;
       if (!saved.alertsUrl) delete saved.alertsUrl;
+      if (!saved.vehiclesUrl) delete saved.vehiclesUrl;
+      if (!saved.departuresUrl) delete saved.departuresUrl;
+      if (!saved.departuresKey) delete saved.departuresKey;
       return sanitizeConfig(Object.assign({}, DEFAULT_CONFIG, saved));
     }
     function loadBundle() {
@@ -802,45 +862,93 @@
     }
 
     // Realtime
+    function departureStopCodes() {
+      // AT stop codes (the number on the sign, used by the departures API) are the
+      // leading segment of GTFS stop ids like "3955-edf582eb".
+      return Array.from(new Set(splitList(state.config.stopIds).map(id => id.split("-")[0]).filter(Boolean)));
+    }
+
+    // Per-stop predictions from AT's departures API — the same engine behind the official
+    // live departures board, so these are the most accurate ETAs available.
+    async function fetchMovements(codes, key) {
+      const base = String(state.config.departuresUrl || "").replace(/\/+$/, "");
+      const movements = {};
+      const errors = [];
+      await Promise.all(codes.map(async code => {
+        try {
+          const res = await fetch(base + "/" + encodeURIComponent(code) + "?scope=tripsData", {
+            headers: { "Ocp-Apim-Subscription-Key": key, "Cache-Control": "no-cache" }
+          });
+          const payload = await res.json();
+          if (!res.ok || payload.message) throw new Error((payload.message || "fetch failed") + " (" + res.status + ")");
+          const feed = payload.response || payload;
+          for (const m of gtfsRtArray(feed.movements)) {
+            if (!m || !m.trip_id) continue;
+            // The AT website prefers the arrival prediction for its "Due" display — match it.
+            const expected = Date.parse(m.expectedArrivalTime || m.expectedDepartureTime || "");
+            movements[m.trip_id + ":" + code] = {
+              expected: Number.isFinite(expected) ? expected : undefined,
+              cancelled: /cancel/i.test(String(m.arrivalStatus || "")) || /cancel/i.test(String(m.departureStatus || "")),
+              monitored: Boolean(m.monitored)
+            };
+          }
+        } catch (err) { errors.push(code + " (" + (err && err.message || err) + ")"); }
+      }));
+      if (errors.length && errors.length === codes.length) throw new Error("Departures API: " + errors.join("; "));
+      return movements;
+    }
+
     async function refreshRealtime() {
-      if (!state.config.realtimeUrl && !state.config.alertsUrl) return;
-      const key = String(state.config.subscriptionKey || "").trim();
-      if (!key) {
+      const cfg = state.config;
+      const key = String(cfg.subscriptionKey || "").trim();
+      const depKey = String(cfg.departuresKey || "").trim() || key;
+      const gtfsRtUrls = key ? [cfg.realtimeUrl, cfg.alertsUrl, cfg.vehiclesUrl].filter(Boolean) : [];
+      const depCodes = cfg.departuresUrl && depKey ? departureStopCodes() : [];
+      if (!gtfsRtUrls.length && !depCodes.length) {
         state.realtimeStatus = "No API key";
-        state.status = "Enter an AT subscription key to fetch live data.";
+        state.status = "Configure the departures API or an AT subscription key to fetch live data.";
         state.error = state.status;
-        console.info("[realtime] skipped - no AT subscription key configured");
         return;
       }
       try {
-        const urls = [state.config.realtimeUrl, state.config.alertsUrl].filter(Boolean);
-        const headers = {
-          "Cache-Control": "no-cache",
-          "Ocp-Apim-Subscription-Key": key
-        };
-        const feeds = await Promise.all(urls.map(async url => {
-          const res = await fetch(url, { method: "GET", headers });
-          let payload;
-          try { payload = await res.json(); }
-          catch { throw new Error("Realtime response from " + url + " is not JSON."); }
-          if (!res.ok || payload.message) {
-            throw new Error((payload.message || "Realtime fetch failed") + " (" + res.status + ")");
-          }
-          return normalizeRealtime(payload, url);
-        }));
+        const headers = { "Cache-Control": "no-cache", "Ocp-Apim-Subscription-Key": key };
+        const work = [
+          depCodes.length ? fetchMovements(depCodes, depKey) : Promise.resolve({}),
+          ...gtfsRtUrls.map(async url => {
+            const res = await fetch(url, { method: "GET", headers });
+            let payload;
+            try { payload = await res.json(); }
+            catch { throw new Error("Realtime response from " + url + " is not JSON."); }
+            if (!res.ok || payload.message) {
+              throw new Error((payload.message || "Realtime fetch failed") + " (" + res.status + ")");
+            }
+            return normalizeRealtime(payload, url);
+          })
+        ];
+        const settled = await Promise.allSettled(work);
+        const failures = settled.filter(s => s.status === "rejected").map(s => s.reason);
+        if (failures.length === settled.length) throw failures[0];
+        const movements = settled[0].status === "fulfilled" ? settled[0].value : {};
+        const feeds = settled.slice(1).filter(s => s.status === "fulfilled").map(s => s.value);
         state.realtime = feeds.reduce((a, f) => ({
           fetchedAt: Math.max(a.fetchedAt || 0, f.fetchedAt || 0),
           feedTimestamp: Math.max(a.feedTimestamp || 0, f.feedTimestamp || 0),
           sourceUrl: a.sourceUrl || f.sourceUrl,
           trips: Object.assign(a.trips || {}, f.trips || {}),
-          alerts: (a.alerts || []).concat(f.alerts || [])
-        }), { trips: {}, alerts: [] });
-        state.realtimeStatus = Object.keys(state.realtime.trips || {}).length.toLocaleString() + " trips, " + (state.realtime.alerts || []).length.toLocaleString() + " alerts";
+          vehicles: Object.assign(a.vehicles || {}, f.vehicles || {}),
+          alerts: (a.alerts || []).concat(f.alerts || []),
+          movements: a.movements
+        }), { fetchedAt: Date.now(), trips: {}, vehicles: {}, alerts: [], movements });
+        const parts = [];
+        const liveCount = Object.values(movements).filter(m => m.expected).length;
+        if (depCodes.length) parts.push(liveCount.toLocaleString() + " stop predictions");
+        if (feeds.length) parts.push(Object.keys(state.realtime.trips).length.toLocaleString() + " trips, " + state.realtime.alerts.length.toLocaleString() + " alerts");
+        state.realtimeStatus = parts.join(" · ") || "No data";
         state.status = "Realtime loaded: " + state.realtimeStatus + ".";
         saveJson("realtime", state.realtime);
-        state.error = "";
+        state.error = failures.length ? friendlyError(failures[0], "Partial realtime fetch") : "";
       } catch (err) {
-        console.warn("[realtime] fetch failed:", err && err.message || err, "| URLs:", state.config.realtimeUrl, state.config.alertsUrl);
+        console.warn("[realtime] fetch failed:", err && err.message || err);
         state.status = friendlyError(err, "Realtime fetch");
         state.error = state.status;
         state.realtimeStatus = "Fetch failed";
@@ -850,7 +958,7 @@
     function normalizeRealtime(payload, sourceUrl) {
       const feed = payload.response || payload;
       const entities = gtfsRtArray(feed.entity || payload.entity);
-      const rt = { fetchedAt: Date.now(), sourceUrl, feedTimestamp: secToMs(feed.header && feed.header.timestamp), trips: {}, alerts: [] };
+      const rt = { fetchedAt: Date.now(), sourceUrl, feedTimestamp: secToMs(feed.header && feed.header.timestamp), trips: {}, vehicles: {}, alerts: [] };
       for (const e of entities) {
         const tu = e.trip_update || e.tripUpdate;
         const tripRef = tu && tu.trip;
@@ -878,6 +986,13 @@
           orderedUpdates.sort((a, b) => (a.stopSequence || 0) - (b.stopSequence || 0));
           rt.trips[tripId] = { tripId, routeId: tripRef.route_id || tripRef.routeId || "", startDate: tripRef.start_date || tripRef.startDate || "", timestamp: secToMs(tu.timestamp), tripDelay: secValue(tu.delay), scheduleRelationship: schedName(tripRef.schedule_relationship || tripRef.scheduleRelationship || tu.schedule_relationship || tu.scheduleRelationship, "trip"), updates, orderedUpdates };
         }
+        const vp = e.vehicle;
+        const vpTrip = vp && vp.trip;
+        const vpTripId = vpTrip && (vpTrip.trip_id || vpTrip.tripId);
+        if (vp && vpTripId) {
+          const level = occupancyLevel(vp.occupancy_status ?? vp.occupancyStatus);
+          if (level) rt.vehicles[vpTripId] = { occupancy: level };
+        }
         if (e.alert) {
           const header = translated(e.alert.header_text || e.alert.headerText);
           const informed = gtfsRtArray(e.alert.informed_entity || e.alert.informedEntity);
@@ -887,6 +1002,14 @@
       return rt;
     }
     function translated(v) { const t = v && v.translation && v.translation[0]; return t && t.text; }
+    // GTFS-RT OccupancyStatus → 1..4 (how many of the four person icons light up). 0 = unknown.
+    function occupancyLevel(v) {
+      const byName = { EMPTY: 1, MANY_SEATS_AVAILABLE: 1, FEW_SEATS_AVAILABLE: 2, STANDING_ROOM_ONLY: 3, CRUSHED_STANDING_ROOM_ONLY: 4, FULL: 4, NOT_ACCEPTING_PASSENGERS: 4 };
+      if (typeof v === "string" && v in byName) return byName[v];
+      const n = Number(v);
+      if (!Number.isFinite(n)) return 0;
+      return [1, 1, 2, 3, 4, 4, 4][n] || 0;
+    }
     function secToMs(v) { const n = Number(v); return Number.isFinite(n) ? n * 1000 : undefined; }
     function secValue(v) { const n = Number(v); return Number.isFinite(n) ? n : undefined; }
     function schedName(v, kind) {
@@ -929,7 +1052,8 @@
       const delta = epoch - now;
       if (delta < -30000) return "Gone";
       if (delta <= 60000) return "Now";
-      const mins = Math.round(delta / 60000);
+      // Floor, not round: a bus 4m40s away reads "4", like the real PID and AT website.
+      const mins = Math.floor(delta / 60000);
       if (mins <= cfg.relativeCutoffMinutes) return String(mins);
       return new Intl.DateTimeFormat("en-NZ", { timeZone: cfg.timezone, hour:"2-digit", minute:"2-digit", hourCycle:"h23" }).format(new Date(epoch));
     }
@@ -939,9 +1063,10 @@
     // Stop-level schedule_relationship values whose delay fields are not real predictions.
     // SKIPPED = bus won't stop there; NO_DATA = AT has no prediction. Both publish junk delay.
     const UNRELIABLE_STOP_REL = new Set(["SKIPPED", "NO_DATA"]);
-    // Past this many stop_sequence positions away, a per-stop prediction is too distant to
-    // trust over the trip-level delay (which reflects the bus's CURRENT global lateness).
-    const PROPAGATION_DISTANCE_LIMIT = 3;
+    // A trip update older than this is treated as no realtime at all: AT keeps a vehicle's
+    // last report in the feed for hours after it finishes, and an active bus reports every
+    // ~20-30s, so anything this old means the vehicle has stopped reporting.
+    const REALTIME_MAX_AGE_MS = 10 * 60000;
 
     function propagatedStopUpdate(rtTrip, stopId, stopSequence) {
       if (!rtTrip || !rtTrip.updates) return null;
@@ -949,40 +1074,37 @@
       if (exact && !UNRELIABLE_STOP_REL.has(exact.scheduleRelationship)) {
         return Object.assign({ propagated: false, source: "exact" }, exact);
       }
-      let nearest = null, nearestDist = Infinity;
+      // Per GTFS-RT spec, a delay propagates FORWARD from the most recent update at or
+      // before our stop; updates for later stops must not propagate backwards. AT's legacy
+      // feed has a single update (the stop the bus just reached), so this picks it up
+      // whenever the bus hasn't passed us yet.
+      let latestPrior = null;
       for (const update of rtTrip.orderedUpdates || []) {
-        if (!update.stopSequence) continue;
+        if (!update.stopSequence || update.stopSequence > stopSequence) continue;
         if (UNRELIABLE_STOP_REL.has(update.scheduleRelationship)) continue;
-        const d = Math.abs(update.stopSequence - stopSequence);
-        // Prefer smaller distance; on ties prefer the upcoming stop (sequence > ours)
-        if (d < nearestDist || (d === nearestDist && update.stopSequence > stopSequence)) {
-          nearest = update;
-          nearestDist = d;
-        }
+        if (!Number.isFinite(update.departureDelay ?? update.arrivalDelay)) continue;
+        latestPrior = update; // orderedUpdates is sorted by stopSequence
       }
-      const propDelay = nearest && (nearest.departureDelay ?? nearest.arrivalDelay);
-      const tripDelay = rtTrip.tripDelay;
-      // When the nearest per-stop update is far from our stop, the trip-level delay is usually
-      // a better signal (it's the bus's current lateness, not a stale per-stop prediction).
-      // Only override if trip-level is meaningfully different (>=30s) to avoid noise.
-      if (Number.isFinite(propDelay) && Number.isFinite(tripDelay)
-          && nearestDist > PROPAGATION_DISTANCE_LIMIT
-          && Math.abs(tripDelay - propDelay) >= 30) {
-        return { propagated: true, source: "trip-pref-over-distant", departureDelay: tripDelay, arrivalDelay: tripDelay, scheduleRelationship: rtTrip.scheduleRelationship };
+      if (latestPrior) {
+        const delay = latestPrior.departureDelay ?? latestPrior.arrivalDelay;
+        return { propagated: true, source: "prior@seq" + latestPrior.stopSequence, departureDelay: delay, arrivalDelay: delay, scheduleRelationship: latestPrior.scheduleRelationship };
       }
-      if (Number.isFinite(propDelay)) {
-        return { propagated: true, source: "nearest@seq" + nearest.stopSequence + "(d=" + nearestDist + ")", departureDelay: propDelay, arrivalDelay: propDelay, scheduleRelationship: nearest.scheduleRelationship };
-      }
-      if (Number.isFinite(tripDelay)) {
-        return { propagated: true, source: "trip-level", departureDelay: tripDelay, arrivalDelay: tripDelay, scheduleRelationship: rtTrip.scheduleRelationship };
+      if (Number.isFinite(rtTrip.tripDelay)) {
+        return { propagated: true, source: "trip-level", departureDelay: rtTrip.tripDelay, arrivalDelay: rtTrip.tripDelay, scheduleRelationship: rtTrip.scheduleRelationship };
       }
       return null;
     }
-    function varianceLabel(row) {
-      if (!row.predicted || row.status !== "live") return "";
-      const mins = Math.round((row.predicted - row.scheduled) / 60000);
-      if (mins === 0) return "on time";
-      return Math.abs(mins) + " min " + (mins > 0 ? "late" : "early");
+    function timeLabel(epoch, tz) {
+      return new Intl.DateTimeFormat("en-NZ", { timeZone: tz, hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(new Date(epoch));
+    }
+    const PERSON_SVG = `<svg viewBox="0 0 24 32" aria-hidden="true"><circle cx="12" cy="5.5" r="4.4"/><path d="M12 11.5c-4.4 0-7.2 2.9-7.2 7.4V32h14.4V18.9c0-4.5-2.8-7.4-7.2-7.4z"/></svg>`;
+    function occupancyIcons(level) {
+      if (!level) return "";
+      const icons = [];
+      for (let i = 0; i < 4; i++) {
+        icons.push(`<span class="${i === 0 ? "occ-lead" : "occ-rest"} ${i < level ? "" : "dim"}">${PERSON_SVG}</span>`);
+      }
+      return `<span class="occ-cell" title="Occupancy">${icons.join("")}</span>`;
     }
     function normalizeDestinationLabel(value) {
       const text = String(value || "").trim();
@@ -1007,20 +1129,34 @@
           if (!trip || !route) continue;
           for (const serviceDate of dates) {
             if (!activeService(bundle, st.serviceId, serviceDate)) continue;
-            const scheduled = gtfsEpoch(serviceDate, st.arrivalTime || st.departureTime, cfg.timezone);
+            // Departures board: what matters is when the bus LEAVES this stop.
+            const scheduled = gtfsEpoch(serviceDate, st.departureTime || st.arrivalTime, cfg.timezone);
             if (scheduled < nowMs - 120000 || scheduled > maxMs) continue;
-            const rtTrip = rt && rt.trips && rt.trips[st.tripId];
-            if (rtTrip && rtTrip.startDate && rtTrip.startDate !== serviceDate) continue;
+            let rtTrip = rt && rt.trips && rt.trips[st.tripId];
+            // A realtime update for another service date (same trip_id runs daily) says
+            // nothing about this row — ignore it but keep the scheduled departure.
+            if (rtTrip && rtTrip.startDate && rtTrip.startDate !== serviceDate) rtTrip = null;
+            const cancelledTrip = rtTrip && ["CANCELED", "CANCELLED"].includes(rtTrip.scheduleRelationship);
+            // Ignore predictions from vehicles that stopped reporting (AT leaves hours-old
+            // updates in the feed). Cancellations stay valid — they are schedule facts.
+            if (rtTrip && !cancelledTrip && rtTrip.timestamp && nowMs - rtTrip.timestamp > REALTIME_MAX_AGE_MS) rtTrip = null;
+            // Primary ETA: AT's departures API (same prediction engine as the official
+            // live board). Guard against a movement from another service day of the same
+            // trip_id by requiring the prediction to sit near this row's scheduled time.
+            const mv = rt && rt.movements && rt.movements[st.tripId + ":" + stopId.split("-")[0]];
+            const mvValid = mv && (!mv.expected || Math.abs(mv.expected - scheduled) < 3 * 3600000);
+            // Fallback ETA: GTFS-RT delay propagation.
             const stopUpdate = propagatedStopUpdate(rtTrip, stopId, st.stopSequence);
-            const realtimeTime = stopUpdate && (stopUpdate.arrivalTime || stopUpdate.departureTime);
-            const realtimeDelay = stopUpdate && (stopUpdate.arrivalDelay ?? stopUpdate.departureDelay);
-            const predicted = realtimeTime || (Number.isFinite(realtimeDelay) ? scheduled + realtimeDelay * 1000 : undefined);
+            const realtimeTime = stopUpdate && (stopUpdate.departureTime || stopUpdate.arrivalTime);
+            const realtimeDelay = stopUpdate && (stopUpdate.departureDelay ?? stopUpdate.arrivalDelay);
+            const mvPredicted = mvValid ? mv.expected : undefined;
+            const predicted = mvPredicted || realtimeTime || (Number.isFinite(realtimeDelay) ? scheduled + realtimeDelay * 1000 : undefined);
             const effectiveMs = predicted || scheduled;
             // Drop departures that have already left (predicted/scheduled more than 30s in the past).
             // Without this we keep showing a bus until its SCHEDULED time + 2 min, even if realtime
             // says it departed minutes ago (e.g. an "early" bus shown as "Now" long after gone).
             if (effectiveMs < nowMs - 30000) continue;
-            const cancelled = (rtTrip && ["CANCELED","CANCELLED"].includes(rtTrip.scheduleRelationship)) || (stopUpdate && ["CANCELED","CANCELLED","SKIPPED"].includes(stopUpdate.scheduleRelationship));
+            const cancelled = cancelledTrip || (mvValid && mv.cancelled) || (stopUpdate && ["CANCELED","CANCELLED","SKIPPED"].includes(stopUpdate.scheduleRelationship));
             if (location.hash === "#debug" && predicted) {
               const deltaSec = Math.round((predicted - scheduled) / 1000);
               const dueMin = Math.round((predicted - nowMs) / 60000);
@@ -1040,7 +1176,8 @@
               destination: st.headsign || trip.headsign || "",
               stopName: stop ? stop.name : stopId,
               scheduled, predicted, effective: predicted || scheduled,
-              predictedSource: stopUpdate ? stopUpdate.source : null,
+              predictedSource: mvPredicted ? "at-api" : stopUpdate ? stopUpdate.source : null,
+              occupancy: (rt && rt.vehicles && rt.vehicles[st.tripId] && rt.vehicles[st.tripId].occupancy) || 0,
               status: cancelled ? "cancelled" : predicted ? "live" : "scheduled"
             });
           }
@@ -1092,7 +1229,6 @@
 
     function realtimeSummary() {
       if (state.realtimeStatus) return state.realtimeStatus;
-      if (!String(state.config.subscriptionKey || "").trim()) return "No API key";
       if (!state.realtime) return "Not fetched";
       return Object.keys(state.realtime.trips || {}).length.toLocaleString() + " trips, " + (state.realtime.alerts || []).length.toLocaleString() + " alerts";
     }
@@ -1137,87 +1273,106 @@
     }
 
     // Rendering
+    function stopDisplayName(stopId) {
+      if (state.gtfs) {
+        const s = state.gtfs.stops.find(s => s.stop_id === stopId);
+        if (s && s.stop_name) return s.stop_name;
+      }
+      const b = state.bundle && state.bundle.stops && state.bundle.stops[stopId];
+      return (b && b.name) || stopId;
+    }
+
     function renderSetup() {
       const cfg = state.config;
       const results = state.gtfs && state.stopSearch.trim()
         ? state.gtfs.stops.filter(s => (s.stop_id + " " + s.stop_name + " " + (s.stop_desc || "")).toLowerCase().includes(state.stopSearch.toLowerCase())).slice(0, 30)
         : [];
-
       const stopList = splitList(cfg.stopIds);
-      const routeList = splitList(cfg.routeAllowlist);
-      const gtfsStatus = state.gtfs
-        ? state.gtfs.stops.length.toLocaleString() + " stops loaded"
-        : state.bundle ? "using saved bundle" : "not loaded";
-      const stopsStatus = stopList.length
-        ? stopList.length + " stop" + (stopList.length !== 1 ? "s" : "") + (routeList.length ? " · " + routeList.length + " route filter" + (routeList.length !== 1 ? "s" : "") : " · all routes")
-        : "not configured";
-      const rtStatus = String(cfg.subscriptionKey || "").trim() ? "API key set" : "no key — scheduled times only";
-      const displayStatus = cfg.pageSize + " rows · " + cfg.pollSeconds + "s poll";
+      const gtfsReady = Boolean(state.gtfs);
+      const keySet = Boolean(String(cfg.subscriptionKey || "").trim());
+      const canGo = gtfsReady || Boolean(state.bundle);
+      const defaultStatus = state.bundle
+        ? "Board ready — open it below, or adjust stops and rebuild."
+        : gtfsReady ? "Timetable loaded — pick your stops, then build the board."
+        : "Waiting for timetable data (gtfs.zip)...";
 
       const html = `
         <main class="setup">
           <div class="setup-header">
             <h1>Auckland Live Departures</h1>
-            <p>Load a GTFS zip → pick stops → build the board → open it.</p>
+            <p>Pick your stops, build the board. Everything else has sensible defaults.</p>
           </div>
-          <div class="quick-actions">
-            ${state.bundle ? `<button class="primary" data-action="board">Open Board</button>` : ""}
-            ${state.gtfs ? `<button class="${state.bundle ? "ghost small" : "primary"}" data-action="build">Build Board</button>` : ""}
-            <button class="danger small" data-action="reset">Reset all</button>
-          </div>
-          <div class="status-bar ${state.error ? "error" : ""}">${escapeHtml(state.status || (state.bundle ? "Board data ready — click Open Board." : "Load a GTFS zip to get started."))}</div>
-          ${renderDiagnostics()}
+          <div class="status-bar ${state.error ? "error" : ""}">${escapeHtml(state.status || defaultStatus)}</div>
 
-          <div class="setup-layout">
-          <div>
-          ${collapsible("gtfs", "1 · GTFS Data", `
-            <div class="field"><label>GTFS zip file path or URL</label><input name="gtfsUrl" value="${escapeHtml(cfg.gtfsUrl)}"><div class="hint">Default is <code>gtfs.zip</code> in the same folder as this HTML file. <code>gtfs (1).zip</code> is also tried as a fallback.</div></div>
+          <div class="step">
+            <h2>1 · Timetable data<span class="step-status">${gtfsReady ? "ready" : state.bundle ? "using saved board" : "needed"}</span></h2>
+            ${gtfsReady
+              ? `<p class="hint"><span class="ok">&#10003; ${state.gtfs.stops.length.toLocaleString()} stops loaded</span> from ${escapeHtml(state.gtfs.source)}</p>`
+              : `<p class="hint">Put the GTFS zip beside this HTML file as <code>gtfs.zip</code> (it loads automatically), or upload it here.</p>`}
             <div class="link-row">
-              <button class="ghost small" type="button" data-action="fetchGtfs">Try URL fetch</button>
-              <a class="link-button" href="${escapeHtml(safeHref(cfg.gtfsUrl))}" target="_blank" rel="noopener">Open zip URL</a>
-              <label style="font-size:.85rem;color:var(--muted);cursor:pointer">Upload zip: <input name="gtfsFile" type="file" accept=".zip" style="width:auto;max-width:14rem"></label>
+              <label class="link-button" style="cursor:pointer">Upload GTFS zip<input name="gtfsFile" type="file" accept=".zip" hidden></label>
+              ${gtfsReady ? "" : `<button class="ghost small" type="button" data-action="fetchGtfs">Retry auto-load</button>`}
             </div>
-            ${location.protocol === "file:" ? `<div class="note">Standalone file mode: some browsers block reading sibling files over file://. If same-folder loading fails, upload the zip above or serve this folder with a local web server.</div>` : ""}
-            ${state.gtfs
-              ? `<p style="font-size:.85rem;color:var(--good);margin-top:.5rem">${state.gtfs.stops.length.toLocaleString()} stops loaded from ${escapeHtml(state.gtfs.source)}</p>`
-              : `<p style="font-size:.85rem;color:var(--muted);margin-top:.5rem">Place the GTFS zip beside this HTML as <code>gtfs.zip</code> and open the page, or upload it above.</p>`}
-          `, gtfsStatus)}
+            ${!gtfsReady && location.protocol === "file:" ? `<div class="note">Standalone file mode: some browsers block reading sibling files over file://. If auto-load fails, upload the zip above.</div>` : ""}
+          </div>
 
-          ${collapsible("stops", "2 · Stops & Routes", `
-            <div class="field"><label>Route filter — comma-separated short names (blank = show all routes)</label><textarea name="routeAllowlist">${escapeHtml(cfg.routeAllowlist)}</textarea></div>
-            <div class="field"><label>Stop IDs — comma-separated</label><textarea name="stopIds">${escapeHtml(cfg.stopIds)}</textarea></div>
-            <button class="primary small" type="button" data-action="build">Build Board</button>
-            ${state.gtfs ? `
-              <div class="field" style="margin-top:.75rem"><label>Search stops (GTFS loaded — click + to add)</label><input name="stopSearch" placeholder="Type stop name or ID…" value="${escapeHtml(state.stopSearch)}"></div>
-              <div class="stop-results">${results.map(s => `<div class="stop-item"><button class="ghost small" type="button" data-stop="${escapeHtml(s.stop_id)}">+</button><span class="name">${escapeHtml(s.stop_name || s.stop_id)}</span><span class="id">${escapeHtml(s.stop_id)}</span></div>`).join("")}</div>
-            ` : `<p class="hint" style="margin-top:.3rem">Load GTFS data first to search and add stops.</p>`}
-          `, stopsStatus)}
+          <div class="step">
+            <h2>2 · Stops &amp; routes<span class="step-status">${stopList.length ? stopList.length + " stop" + (stopList.length !== 1 ? "s" : "") + " selected" : "pick at least one stop"}</span></h2>
+            ${gtfsReady
+              ? `<div class="field"><input name="stopSearch" placeholder="Search stop name or number, then click + to add…" value="${escapeHtml(state.stopSearch)}"></div>
+                 <div class="stop-results">${results.map(s => `<div class="stop-item"><button class="ghost small" type="button" data-stop="${escapeHtml(s.stop_id)}">+</button><span class="name">${escapeHtml(s.stop_name || s.stop_id)}</span><span class="id">${escapeHtml(s.stop_id)}</span></div>`).join("")}</div>`
+              : `<p class="hint">Load timetable data first to search stops by name.</p>`}
+            <div class="chips">${stopList.length
+              ? stopList.map(id => `<span class="chip">${escapeHtml(stopDisplayName(id))}<span class="chip-id">${escapeHtml(id)}</span><button type="button" data-removestop="${escapeHtml(id)}" title="Remove stop">&times;</button></span>`).join("")
+              : `<span class="hint">No stops selected yet.</span>`}</div>
+            <div class="row">
+              <div class="field"><label>Only show these routes (comma-separated, blank = all)</label><input name="routeAllowlist" value="${escapeHtml(cfg.routeAllowlist)}"></div>
+              <div class="field"><label>Frequent routes — solid cyan pill (blank = all)</label><input name="frequentRoutes" value="${escapeHtml(cfg.frequentRoutes)}"></div>
+            </div>
+          </div>
 
-          ${collapsible("realtime", "3 · Realtime API", `
+          <div class="step">
+            <h2>3 · Live data<span class="step-status">${keySet ? "key set" : "optional — live ETAs work without it"}</span></h2>
+            <p class="hint">Live departure times come from AT's own departures service and work out of the box.</p>
+            <div class="field">
+              <label>AT subscription key — free from the <a href="https://dev-portal.at.govt.nz/" target="_blank" rel="noopener" style="color:var(--accent)">AT Developer Portal</a>. Adds service alerts and bus occupancy.</label>
+              <div class="link-row" style="flex-wrap:nowrap"><input name="subscriptionKey" type="password" value="${escapeHtml(cfg.subscriptionKey)}"><button class="ghost small" type="button" data-action="fetchRealtime" style="flex:none">Test</button></div>
+            </div>
+          </div>
+
+          <div class="cta-row">
+            <button class="primary" data-action="go" ${canGo ? "" : "disabled"}>${gtfsReady ? (state.bundle ? "Rebuild &amp; open board" : "Build &amp; open board") : state.bundle ? "Open board" : "Build &amp; open board"}</button>
+            ${state.bundle && gtfsReady ? `<button class="ghost" data-action="openOnly">Open without rebuilding</button>` : ""}
+          </div>
+
+          ${collapsible("advanced", "Advanced", `
+            <div class="field"><label>GTFS zip file path or URL</label><input name="gtfsUrl" value="${escapeHtml(cfg.gtfsUrl)}"><div class="hint">Default is <code>gtfs.zip</code> next to this HTML file; <code>gtfs (1).zip</code> is tried as a fallback.</div></div>
+            <div class="row">
+              <div class="field"><label>Departures API URL (primary ETAs)</label><input name="departuresUrl" value="${escapeHtml(cfg.departuresUrl)}"></div>
+              <div class="field"><label>Departures API key</label><input name="departuresKey" value="${escapeHtml(cfg.departuresKey)}"></div>
+            </div>
             <div class="field"><label>GTFS-RT trip updates URL</label><input name="realtimeUrl" value="${escapeHtml(cfg.realtimeUrl)}"></div>
-            <div class="field"><label>Service alerts URL</label><input name="alertsUrl" value="${escapeHtml(cfg.alertsUrl)}"></div>
-            <div class="field"><label>AT subscription key</label><input name="subscriptionKey" type="password" value="${escapeHtml(cfg.subscriptionKey)}"><div class="hint">Get a key from the AT Developer Portal. Without it the board shows scheduled times only.</div></div>
-            <button class="ghost small" type="button" data-action="fetchRealtime">Test connection</button>
-          `, rtStatus)}
-
-          ${collapsible("timing", "Display Settings", `
             <div class="row">
-              <div class="field"><label>Poll interval (sec)</label><input name="pollSeconds" type="number" value="${cfg.pollSeconds}"><div class="hint">How often the board fetches live updates.</div></div>
-              <div class="field"><label>Rows per page</label><input name="pageSize" type="number" value="${cfg.pageSize}"><div class="hint">Departures shown per page before rotating.</div></div>
+              <div class="field"><label>Service alerts URL</label><input name="alertsUrl" value="${escapeHtml(cfg.alertsUrl)}"></div>
+              <div class="field"><label>Vehicle positions URL (occupancy)</label><input name="vehiclesUrl" value="${escapeHtml(cfg.vehiclesUrl)}"></div>
+            </div>
+            <div class="field"><label>Stop IDs (raw, comma-separated)</label><textarea name="stopIds">${escapeHtml(cfg.stopIds)}</textarea></div>
+            <div class="row">
+              <div class="field"><label>Poll interval (sec)</label><input name="pollSeconds" type="number" value="${cfg.pollSeconds}"></div>
+              <div class="field"><label>Rows per page</label><input name="pageSize" type="number" value="${cfg.pageSize}"></div>
             </div>
             <div class="row">
-              <div class="field"><label>Page rotation (sec)</label><input name="rotateSeconds" type="number" value="${cfg.rotateSeconds}"><div class="hint">How long each page stays on screen.</div></div>
-              <div class="field"><label>Lookahead (hours)</label><input name="lookaheadHours" type="number" value="${cfg.lookaheadHours}"><div class="hint">How far ahead to show departures.</div></div>
+              <div class="field"><label>Page rotation (sec)</label><input name="rotateSeconds" type="number" value="${cfg.rotateSeconds}"></div>
+              <div class="field"><label>Lookahead (hours)</label><input name="lookaheadHours" type="number" value="${cfg.lookaheadHours}"></div>
             </div>
             <div class="row">
-              <div class="field"><label>Relative time cutoff (min)</label><input name="relativeCutoffMinutes" type="number" value="${cfg.relativeCutoffMinutes}"><div class="hint">Show "12 min" up to this threshold; beyond it show clock time like "14:35". Set 0 to always use clock time.</div></div>
-              <div class="field"><label>Stale after (× poll intervals)</label><input name="staleMultiplier" type="number" value="${cfg.staleMultiplier}"><div class="hint">Board warns "data unavailable" if realtime hasn't refreshed in this many poll cycles.</div></div>
+              <div class="field"><label>Relative time cutoff (min)</label><input name="relativeCutoffMinutes" type="number" value="${cfg.relativeCutoffMinutes}"><div class="hint">Show "12" up to this many minutes out; beyond it show clock time like "14:35".</div></div>
+              <div class="field"><label>Stale after (× poll intervals)</label><input name="staleMultiplier" type="number" value="${cfg.staleMultiplier}"></div>
             </div>
-            <div class="field"><label>Timezone</label><input name="timezone" value="${escapeHtml(cfg.timezone)}"><div class="hint">IANA timezone for service days and the board clock (e.g. Pacific/Auckland).</div></div>
-            <button class="ghost small" type="button" data-action="save">Save Settings</button>
-          `, displayStatus)}
-          </div>
-          </div>
+            <div class="field"><label>Timezone (IANA)</label><input name="timezone" value="${escapeHtml(cfg.timezone)}"></div>
+            ${renderDiagnostics()}
+            <div><button class="danger small" type="button" data-action="reset">Reset everything</button></div>
+          `, "endpoints · timing · diagnostics")}
         </main>`;
       app.innerHTML = html;
       wireSetup();
@@ -1237,23 +1392,43 @@
         });
       });
       const q = s => document.querySelector(s);
-      q("[data-action=board]")?.addEventListener("click", () => { readFormIntoConfig(); saveConfig({ mode: "board" }); render(); });
+      const setStops = ids => {
+        readFormIntoConfig();
+        state.config.stopIds = Array.from(ids).join(", ");
+        saveConfig();
+        renderSetup();
+      };
+      q("[data-action=go]")?.addEventListener("click", () => {
+        readFormIntoConfig();
+        saveConfig();
+        if (state.gtfs) buildBundle();
+        else if (state.bundle) { saveConfig({ mode: "board" }); render(); }
+      });
+      q("[data-action=openOnly]")?.addEventListener("click", () => { readFormIntoConfig(); saveConfig({ mode: "board" }); render(); });
       q("[data-action=reset]")?.addEventListener("click", resetAll);
       q("[data-action=fetchGtfs]")?.addEventListener("click", () => { readFormIntoConfig(); saveConfig(); fetchGtfs(); });
       q("[data-action=fetchRealtime]")?.addEventListener("click", () => { readFormIntoConfig(); saveConfig(); refreshRealtime().then(() => renderSetup()); });
-      document.querySelectorAll("[data-action=build]").forEach(btn => btn.addEventListener("click", () => { readFormIntoConfig(); saveConfig(); buildBundle(); }));
-      q("[data-action=save]")?.addEventListener("click", () => { readFormIntoConfig(); saveConfig(); setStatus("Settings saved."); });
       q("[name=gtfsFile]")?.addEventListener("change", e => { readFormIntoConfig(); saveConfig(); uploadGtfs(e.target.files[0]); });
-      q("[name=stopSearch]")?.addEventListener("input", e => { state.stopSearch = e.target.value; renderSetup(); });
-      document.querySelectorAll("[data-stop]").forEach(btn => btn.addEventListener("click", () => {
-        const ta = document.querySelector("[name=stopIds]");
-        const ids = new Set(splitList(ta.value));
-        ids.add(btn.dataset.stop);
-        ta.value = Array.from(ids).join(", ");
-        readFormIntoConfig();
-        saveConfig();
+      q("[name=stopSearch]")?.addEventListener("input", e => {
+        state.stopSearch = e.target.value;
         renderSetup();
+        const el = document.querySelector("[name=stopSearch]");
+        if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); }
+      });
+      document.querySelectorAll("[data-stop]").forEach(btn => btn.addEventListener("click", () => {
+        const ids = new Set(splitList(state.config.stopIds));
+        ids.add(btn.dataset.stop);
+        setStops(ids);
       }));
+      document.querySelectorAll("[data-removestop]").forEach(btn => btn.addEventListener("click", () => {
+        const ids = new Set(splitList(state.config.stopIds));
+        ids.delete(btn.dataset.removestop);
+        setStops(ids);
+      }));
+      // Fields save themselves — no separate "Save Settings" button.
+      document.querySelectorAll(".setup input[name]:not([name=gtfsFile]):not([name=stopSearch]), .setup textarea[name]").forEach(el => {
+        el.addEventListener("change", () => { readFormIntoConfig(); saveConfig(); });
+      });
     }
 
     function readFormIntoConfig() {
@@ -1264,6 +1439,10 @@
       if (v("gtfsUrl") !== undefined) cfg.gtfsUrl = v("gtfsUrl");
       if (v("realtimeUrl") !== undefined) cfg.realtimeUrl = v("realtimeUrl");
       if (v("alertsUrl") !== undefined) cfg.alertsUrl = v("alertsUrl");
+      if (v("vehiclesUrl") !== undefined) cfg.vehiclesUrl = v("vehiclesUrl");
+      if (v("departuresUrl") !== undefined) cfg.departuresUrl = v("departuresUrl");
+      if (v("departuresKey") !== undefined) cfg.departuresKey = v("departuresKey");
+      if (v("frequentRoutes") !== undefined) cfg.frequentRoutes = v("frequentRoutes");
       if (v("subscriptionKey") !== undefined) cfg.subscriptionKey = v("subscriptionKey");
       if (v("pollSeconds") !== undefined) cfg.pollSeconds = clampNumber(v("pollSeconds"), 60, 5, 3600);
       if (v("pageSize") !== undefined) cfg.pageSize = Math.round(clampNumber(v("pageSize"), 6, 1, 50));
@@ -1286,11 +1465,9 @@
       const pageRows = pages[state.page] || [];
       const pageLabel = pages.length > 1 ? " " + (state.page + 1) + "/" + pages.length : "";
       const latest = state.realtime && (state.realtime.feedTimestamp || state.realtime.fetchedAt);
-      const hasRT = Boolean(cfg.realtimeUrl || cfg.alertsUrl);
+      const hasRT = Boolean(cfg.departuresUrl || (String(cfg.subscriptionKey || "").trim() && (cfg.realtimeUrl || cfg.alertsUrl)));
       const stale = hasRT && (!latest || Date.now() - latest > cfg.pollSeconds * cfg.staleMultiplier * 1000);
-      const alerts = boardAlerts().map(a => a.header);
-      const tickerItems = [state.bundle?.feedInfo?.feed_publisher_name || "Auckland Transport", ...(alerts.length ? alerts : ["No active alerts"])];
-      const tickerHtml = tickerItems.concat(tickerItems).map(x => `<span>${escapeHtml(x)}</span>`).join("");
+      const alerts = Array.from(new Set(boardAlerts().map(a => a.header)));
       const frameless = Boolean(cfg.chromeHidden);
 
       app.innerHTML = `
@@ -1315,7 +1492,8 @@
               ${pageRows.length ? renderTable(pageRows, cfg) : `<div class="empty-state"><div><strong>No departures</strong><br><span>Nothing scheduled in the next ${cfg.lookaheadHours}h.</span></div></div>`}
             </div>
             <footer class="board-footer">
-              <div class="ticker"><div class="ticker-inner">${tickerHtml}</div></div>
+              <div class="legend"><span class="legend-swatch"></span>Frequent services</div>
+              <div class="ticker">${alerts.length ? escapeHtml(alerts.join(" · ")) : ""}</div>
               <div class="clock">${clockLabel(state.now, cfg.timezone)}</div>
             </footer>
           </section>
@@ -1327,16 +1505,21 @@
     }
 
     function renderTable(rows, cfg) {
-      return `<div class="dep-table"><div class="dep-head"><div>Route</div><div>Destination</div><div>Status</div><div>Due</div></div><div class="dep-rows" style="--row-count:${rows.length}">${rows.map(r => {
-        const variance = varianceLabel(r);
-        return `<div class="dep-row"><div><span class="route-pill">${escapeHtml(r.routeLabel)}</span></div><div><div class="dest-cell"><strong>${escapeHtml(normalizeDestinationLabel(r.destination))}</strong></div></div><div><span class="badge ${r.status}">${r.status === "live" ? "Live" : r.status === "cancelled" ? "Cancelled" : "Scheduled"}</span>${variance ? `<div class="variance">${escapeHtml(variance)}</div>` : ""}</div><div class="due-cell">${formatDue(r.effective, state.now.getTime(), cfg)}</div></div>`;
+      const frequent = new Set(splitList(cfg.frequentRoutes).map(normLabel));
+      return `<div class="dep-table"><div class="dep-head"><div>Route</div><div>Destination</div><div>Occupancy</div><div>Due</div></div><div class="dep-rows" style="--row-count:${rows.length}">${rows.map(r => {
+        // Blank frequent-routes list = every pill filled cyan; otherwise only listed routes are filled, the rest outlined (matches AT PID styling).
+        const pillClass = !frequent.size || frequent.has(normLabel(r.routeLabel)) ? "" : " outline";
+        const cancelled = r.status === "cancelled";
+        const middle = cancelled ? `<span class="badge cancelled">Cancelled</span>` : occupancyIcons(r.occupancy);
+        const due = cancelled ? timeLabel(r.scheduled, cfg.timezone) : formatDue(r.effective, state.now.getTime(), cfg);
+        return `<div class="dep-row"><div><span class="route-pill${pillClass}">${escapeHtml(r.routeLabel)}</span></div><div><div class="dest-cell"><strong>${escapeHtml(normalizeDestinationLabel(r.destination))}</strong></div></div><div>${middle}</div><div class="due-cell">${due}</div></div>`;
       }).join("")}</div></div>`;
     }
 
     function autoLoadSameFolderGtfs() {
-      if (state.autoGtfsAttempted || state.gtfs || state.bundle) return;
+      if (state.autoGtfsAttempted || state.gtfs) return;
       state.autoGtfsAttempted = true;
-      fetchGtfs({ quiet: true, candidates: gtfsFetchCandidates(DEFAULT_GTFS_FILE) });
+      fetchGtfs({ quiet: true }).then(ok => { if (ok && state.config.mode === "setup") renderSetup(); });
     }
 
     // Runtime
