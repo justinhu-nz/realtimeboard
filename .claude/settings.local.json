@@ -16,7 +16,9 @@
       "PowerShell(Test-Path \"C:\\\\Program Files\\\\nodejs\\\\npx.cmd\"; Test-Path \"$env:APPDATA\\\\npm\\\\npx.cmd\"; Get-ChildItem \"C:\\\\Program Files\\\\\" -Directory | Select-Object -First 20 Name)",
       "Bash(ls -la \"C:\\\\Users\\\\VibeForge\\\\Documents\\\\Vibes\\\\realtimeboard\\\\\")",
       "PowerShell($bytes = [System.IO.File]::ReadAllBytes\\(\"C:\\\\Users\\\\VibeForge\\\\Documents\\\\Vibes\\\\realtimeboard\\\\index.html\"\\); \"Total bytes: $\\($bytes.Length\\)\"; \"First 3 bytes: $\\($bytes[0..2] -join ','\\)\"; $text = [System.IO.File]::ReadAllText\\(\"C:\\\\Users\\\\VibeForge\\\\Documents\\\\Vibes\\\\realtimeboard\\\\index.html\"\\); \"Total chars: $\\($text.Length\\)\")",
-      "PowerShell($path = \"C:\\\\Users\\\\VibeForge\\\\Documents\\\\Vibes\\\\realtimeboard\\\\index.html\"; $text = [System.IO.File]::ReadAllText\\($path\\); $text = $text -replace [char]0x201C, '\"' -replace [char]0x201D, '\"' -replace [char]0x2018, \"'\" -replace [char]0x2019, \"'\"; [System.IO.File]::WriteAllText\\($path, $text, \\(New-Object System.Text.UTF8Encoding\\($false\\)\\)\\); \"Done. New size: $\\(\\(Get-Item $path\\).Length\\) bytes\")"
+      "PowerShell($path = \"C:\\\\Users\\\\VibeForge\\\\Documents\\\\Vibes\\\\realtimeboard\\\\index.html\"; $text = [System.IO.File]::ReadAllText\\($path\\); $text = $text -replace [char]0x201C, '\"' -replace [char]0x201D, '\"' -replace [char]0x2018, \"'\" -replace [char]0x2019, \"'\"; [System.IO.File]::WriteAllText\\($path, $text, \\(New-Object System.Text.UTF8Encoding\\($false\\)\\)\\); \"Done. New size: $\\(\\(Get-Item $path\\).Length\\) bytes\")",
+      "Bash(curl -s -w '\\\\nHTTP %{http_code}\\\\n' -H \"Ocp-Apim-Subscription-Key: 0526f69dcb074a4b8df741eef46121fc\" \"https://api.at.govt.nz/serviceinfo/v1/departures/7151?scope=tripsData\")",
+      "Bash(curl -s -w '\\\\nHTTP %{http_code}\\\\n' -H \"Ocp-Apim-Subscription-Key: ab715d9ad4f54f12a751ef8e98782db5\" \"https://api.at.govt.nz/serviceinfo/v1/departures/7151?scope=tripsData\")"
     ]
   }
 }

@@ -569,6 +569,7 @@
       pollSeconds: 30,
       pageSize: 6,
       rotateSeconds: 12,
+      lockFirstPage: false,
       lookaheadHours: 6,
       relativeCutoffMinutes: 60,
       staleMultiplier: 2,
@@ -594,6 +595,7 @@
       expandedSections: { advanced: false }
     };
     let timers = [];
+    state.pageLocked = Boolean(state.config.lockFirstPage);
 
     function loadConfig() {
       const saved = loadJson("config") || {};
@@ -1173,6 +1175,11 @@
     function propagatedStopUpdate(rtTrip, stopId, stopSequence) {
       if (!rtTrip || !rtTrip.updates) return null;
       const exact = rtTrip.updates[stopId] || rtTrip.updates["seq:" + stopSequence];
+      // SKIPPED at our stop means the bus won't stop here — surface it as a cancellation,
+      // but without its time/delay fields (they're junk, see UNRELIABLE_STOP_REL).
+      if (exact && exact.scheduleRelationship === "SKIPPED") {
+        return { propagated: false, source: "exact-skipped", scheduleRelationship: "SKIPPED" };
+      }
       if (exact && !UNRELIABLE_STOP_REL.has(exact.scheduleRelationship)) {
         return Object.assign({ propagated: false, source: "exact" }, exact);
       }
@@ -1216,10 +1223,22 @@
         .replace(/\b([a-z])([a-z']*)/g, (_, first, rest) => first.toUpperCase() + rest);
     }
 
+    // Shared by the board's "Live data unavailable" banner and deriveDepartures, so the
+    // rows always match what the banner claims: once the last successful fetch is too
+    // old (network outage, laptop asleep), predictions are dropped and every row falls
+    // back to its schedule. Movements have no per-item timestamp, so this global check
+    // is their only staleness guard.
+    function realtimeFresh(rt, cfg, nowMs) {
+      if (!rt) return false;
+      const latest = rt.feedTimestamp || rt.fetchedAt;
+      return Boolean(latest) && nowMs - latest <= cfg.pollSeconds * cfg.staleMultiplier * 1000;
+    }
+
     function deriveDepartures() {
-      const bundle = state.bundle, cfg = state.config, rt = state.realtime;
+      const bundle = state.bundle, cfg = state.config;
       if (!bundle) return [];
       const nowMs = state.now.getTime();
+      const rt = realtimeFresh(state.realtime, cfg, nowMs) ? state.realtime : null;
       const maxMs = nowMs + cfg.lookaheadHours * 3600000;
       const today = dateKeyFor(state.now, cfg.timezone);
       const dates = [shiftDateKey(today, -1), today, shiftDateKey(today, 1)];
@@ -1233,7 +1252,10 @@
             if (!activeService(bundle, st.serviceId, serviceDate)) continue;
             // Departures board: what matters is when the bus LEAVES this stop.
             const scheduled = gtfsEpoch(serviceDate, st.departureTime || st.arrivalTime, cfg.timezone);
-            if (scheduled < nowMs - 120000 || scheduled > maxMs) continue;
+            // Keep rows up to an hour past their scheduled time: a late-running bus must
+            // survive long enough for its live prediction to be applied. Rows actually
+            // gone are dropped below by the effectiveMs check.
+            if (scheduled < nowMs - 3600000 || scheduled > maxMs) continue;
             let rtTrip = rt && rt.trips && rt.trips[st.tripId];
             // A realtime update for another service date (same trip_id runs daily) says
             // nothing about this row — ignore it but keep the scheduled departure.
@@ -1467,6 +1489,7 @@
               <div class="field"><label>Page rotation (sec)</label><input name="rotateSeconds" type="number" value="${cfg.rotateSeconds}"></div>
               <div class="field"><label>Lookahead (hours)</label><input name="lookaheadHours" type="number" value="${cfg.lookaheadHours}"></div>
             </div>
+            <div class="field"><label style="display:flex;align-items:center;gap:.45rem;cursor:pointer"><input name="lockFirstPage" type="checkbox" ${cfg.lockFirstPage ? "checked" : ""} style="width:auto;margin:0"> Lock board to page 1 (never rotate pages)</label></div>
             <div class="row">
               <div class="field"><label>Relative time cutoff (min)</label><input name="relativeCutoffMinutes" type="number" value="${cfg.relativeCutoffMinutes}"><div class="hint">Show "12" up to this many minutes out; beyond it show clock time like "14:35".</div></div>
               <div class="field"><label>Stale after (× poll intervals)</label><input name="staleMultiplier" type="number" value="${cfg.staleMultiplier}"></div>
@@ -1549,6 +1572,8 @@
       if (v("pollSeconds") !== undefined) cfg.pollSeconds = clampNumber(v("pollSeconds"), 60, 5, 3600);
       if (v("pageSize") !== undefined) cfg.pageSize = Math.round(clampNumber(v("pageSize"), 6, 1, 50));
       if (v("rotateSeconds") !== undefined) cfg.rotateSeconds = clampNumber(v("rotateSeconds"), 12, 3, 3600);
+      const lockEl = document.querySelector('[name="lockFirstPage"]');
+      if (lockEl) { cfg.lockFirstPage = lockEl.checked; state.pageLocked = lockEl.checked; }
       if (v("lookaheadHours") !== undefined) cfg.lookaheadHours = clampNumber(v("lookaheadHours"), 6, 1, 48);
       if (v("relativeCutoffMinutes") !== undefined) cfg.relativeCutoffMinutes = clampNumber(v("relativeCutoffMinutes"), 20, 0, 180);
       if (v("staleMultiplier") !== undefined) cfg.staleMultiplier = clampNumber(v("staleMultiplier"), 2, 1, 20);
@@ -1576,9 +1601,8 @@
       state.page = state.page % pages.length;
       const pageRows = pages[state.page] || [];
       const pageLabel = pages.length > 1 ? " " + (state.page + 1) + "/" + pages.length : "";
-      const latest = state.realtime && (state.realtime.feedTimestamp || state.realtime.fetchedAt);
       const hasRT = Boolean(cfg.departuresUrl || (String(cfg.subscriptionKey || "").trim() && (cfg.realtimeUrl || cfg.alertsUrl)));
-      const stale = hasRT && (!latest || Date.now() - latest > cfg.pollSeconds * cfg.staleMultiplier * 1000);
+      const stale = hasRT && !realtimeFresh(state.realtime, cfg, Date.now());
       const alerts = Array.from(new Set(boardAlerts().map(a => a.header)));
       const frameless = Boolean(cfg.chromeHidden);
 
@@ -1614,7 +1638,7 @@
       document.querySelector("[data-action=toggleChrome]")?.addEventListener("click", () => { saveConfig({ chromeHidden: !state.config.chromeHidden }); renderBoard(); });
       document.querySelector("[data-action=setup]")?.addEventListener("click", () => { saveConfig({ mode: "setup" }); render(); });
       document.querySelector("[data-action=refresh]")?.addEventListener("click", () => { refreshRealtime().then(() => renderBoard()); });
-      document.querySelector("[data-action=lockPage]")?.addEventListener("click", () => { state.pageLocked = !state.pageLocked; if (state.pageLocked) state.page = 0; renderBoard(); });
+      document.querySelector("[data-action=lockPage]")?.addEventListener("click", () => { state.pageLocked = !state.pageLocked; saveConfig({ lockFirstPage: state.pageLocked }); if (state.pageLocked) state.page = 0; renderBoard(); });
     }
 
     function renderTable(rows, cfg) {
