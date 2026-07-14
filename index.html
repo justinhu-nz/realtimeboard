@@ -371,7 +371,7 @@
       align-items: center;
     }
     .dep-head {
-      padding: .72rem .9rem .58rem;
+      padding: .32rem .9rem .28rem;
       font-size: clamp(.88rem, .95vw, .98rem);
       font-weight: 700;
       color: #f0fbff;
@@ -380,6 +380,10 @@
     .dep-head > div:last-child,
     .dep-row > div:last-child {
       text-align: right;
+    }
+    .dep-head > div:nth-child(3),
+    .dep-row > div:nth-child(3) {
+      text-align: center;
     }
     .dep-rows {
       min-height: 0;
@@ -399,8 +403,8 @@
       display: inline-flex;
       justify-content: center;
       align-items: center;
-      width: 6.35rem;
-      height: 3.15rem;
+      width: 6.65rem;
+      height: 2.85rem;
       padding: 0 .45rem;
       border-radius: 8px;
       font-weight: 700;
@@ -443,12 +447,11 @@
     .occ-cell {
       display: flex;
       align-items: flex-end;
+      justify-content: center;
       gap: .22rem;
       color: rgba(222, 236, 248, .9);
     }
-    .occ-cell svg { display: block; fill: currentColor; }
-    .occ-cell .occ-lead svg { width: 1.35rem; height: 1.8rem; }
-    .occ-cell .occ-rest svg { width: 1.05rem; height: 1.4rem; }
+    .occ-cell svg { display: block; fill: currentColor; width: 0.62rem; height: 1.8rem; }
     .occ-cell .dim { color: rgba(185, 200, 216, .38); }
     .due-cell {
       text-align: right;
@@ -1206,7 +1209,7 @@
     function timeLabel(epoch, tz) {
       return new Intl.DateTimeFormat("en-NZ", { timeZone: tz, hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(new Date(epoch));
     }
-    const PERSON_SVG = `<svg viewBox="0 0 24 32" aria-hidden="true"><circle cx="12" cy="5.5" r="4.4"/><path d="M12 11.5c-4.4 0-7.2 2.9-7.2 7.4V32h14.4V18.9c0-4.5-2.8-7.4-7.2-7.4z"/></svg>`;
+    const PERSON_SVG = `<svg viewBox="0 0 140 405" aria-hidden="true"><circle cx="70" cy="42" r="42"/><rect height="124" rx="25" width="140" y="94"/><path d="m33 218h74v168a19 19 0 0 1 -19 19h-36a19 19 0 0 1 -19-19z"/></svg>`;
     function occupancyIcons(level) {
       if (!level) return "";
       const icons = [];
@@ -1414,7 +1417,7 @@
       const stopList = splitList(cfg.stopIds);
       const gtfsReady = Boolean(state.gtfs);
       const keySet = Boolean(String(cfg.subscriptionKey || "").trim());
-      const canGo = gtfsReady || Boolean(state.bundle);
+      const canGo = keySet && (gtfsReady || Boolean(state.bundle));
       const defaultStatus = state.bundle
         ? "Board ready — open it below, or adjust stops and rebuild."
         : gtfsReady ? "Timetable loaded — pick your stops, then build the board."
@@ -1456,17 +1459,17 @@
           </div>
 
           <div class="step">
-            <h2>3 · Live data<span class="step-status">${keySet ? "key set" : "optional — live ETAs work without it"}</span></h2>
-            <p class="hint">Live departure times come from AT's own departures service and work out of the box.</p>
+            <h2>3 · Live data<span class="step-status">${keySet ? "key set" : "API key required"}</span></h2>
+            <p class="hint">Enter an AT subscription key before building or opening the board.</p>
             <div class="field">
-              <label>AT subscription key — free from the <a href="https://dev-portal.at.govt.nz/" target="_blank" rel="noopener" style="color:var(--accent)">AT Developer Portal</a>. Adds service alerts and bus occupancy.</label>
-              <div class="link-row" style="flex-wrap:nowrap"><input name="subscriptionKey" type="password" value="${escapeHtml(cfg.subscriptionKey)}"><button class="ghost small" type="button" data-action="fetchRealtime" style="flex:none">Test</button></div>
+              <label>AT subscription key — required; available free from the <a href="https://dev-portal.at.govt.nz/" target="_blank" rel="noopener" style="color:var(--accent)">AT Developer Portal</a>.</label>
+              <div class="link-row" style="flex-wrap:nowrap"><input name="subscriptionKey" type="password" value="${escapeHtml(cfg.subscriptionKey)}" required aria-required="true"><button class="ghost small" type="button" data-action="fetchRealtime" style="flex:none">Test</button></div>
             </div>
           </div>
 
           <div class="cta-row">
             <button class="primary" data-action="go" ${canGo ? "" : "disabled"}>${gtfsReady ? (state.bundle ? "Rebuild &amp; open board" : "Build &amp; open board") : state.bundle ? "Open board" : "Build &amp; open board"}</button>
-            ${state.bundle && gtfsReady ? `<button class="ghost" data-action="openOnly">Open without rebuilding</button>` : ""}
+            ${state.bundle && gtfsReady ? `<button class="ghost" data-action="openOnly" ${keySet ? "" : "disabled"}>Open without rebuilding</button>` : ""}
           </div>
 
           ${collapsible("advanced", "Advanced", `
@@ -1533,6 +1536,12 @@
       q("[data-action=reset]")?.addEventListener("click", resetAll);
       q("[data-action=fetchGtfs]")?.addEventListener("click", () => { readFormIntoConfig(); saveConfig(); fetchGtfs(); });
       q("[data-action=fetchRealtime]")?.addEventListener("click", () => { readFormIntoConfig(); saveConfig(); refreshRealtime().then(() => renderSetup()); });
+      q("[name=subscriptionKey]")?.addEventListener("input", e => {
+        state.config.subscriptionKey = e.target.value;
+        const enabled = Boolean(e.target.value.trim());
+        q("[data-action=go]").disabled = !enabled || !(state.gtfs || state.bundle);
+        if (q("[data-action=openOnly]")) q("[data-action=openOnly]").disabled = !enabled;
+      });
       q("[name=gtfsFile]")?.addEventListener("change", e => { readFormIntoConfig(); saveConfig(); uploadGtfs(e.target.files[0]); });
       q("[name=stopSearch]")?.addEventListener("input", e => {
         state.stopSearch = e.target.value;
@@ -1685,7 +1694,8 @@
 
     function render() {
       clearTimers();
-      if (state.config.mode === "board" && state.bundle) { renderBoard(); startRuntime(); maybeRebuildStaleBundle(); }
+      const keySet = Boolean(String(state.config.subscriptionKey || "").trim());
+      if (state.config.mode === "board" && state.bundle && keySet) { renderBoard(); startRuntime(); maybeRebuildStaleBundle(); }
       else { state.config.mode = "setup"; renderSetup(); autoLoadSameFolderGtfs(); }
     }
 
