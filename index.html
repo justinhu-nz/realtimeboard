@@ -227,6 +227,83 @@
     .cta-row { display: flex; align-items: center; gap: .6rem; margin: .55rem 0; }
     .cta-row .primary { font-size: 1.02rem; padding: .62rem 1.2rem; }
 
+    /* Connect strip (timetable + API key) */
+    .connect { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem; margin: .5rem 0; }
+    .connect-pill {
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--surface2);
+      padding: .5rem .6rem;
+      display: grid;
+      gap: .4rem;
+      align-content: start;
+    }
+    .connect-pill.done { background: rgba(98, 221, 244, .08); border-color: rgba(98, 221, 244, .4); }
+    .connect-pill.bad { background: rgba(238, 76, 164, .1); border-color: var(--bad); }
+    .pill-head { display: flex; justify-content: space-between; align-items: center; gap: .5rem; }
+    .pill-title { font-weight: 700; font-size: .86rem; }
+    .pill-title .req {
+      font-weight: 600; font-size: .64rem; text-transform: uppercase; letter-spacing: .04em;
+      color: #ffd0e9; border: 1px solid rgba(238, 76, 164, .5); border-radius: 999px;
+      padding: .02rem .34rem; margin-left: .35rem; vertical-align: middle;
+    }
+    .pill-state { font-size: .76rem; color: var(--muted); white-space: nowrap; }
+    .pill-state.ok { color: var(--good); font-weight: 700; }
+    .pill-state.bad { color: #ffd0e9; font-weight: 700; }
+    .pill-sub { font-size: .75rem; color: var(--muted); }
+    .pill-sub a { color: var(--accent); }
+    .pill-actions { display: flex; gap: .4rem; align-items: center; }
+    .pill-actions input[name=subscriptionKey] { flex: 1; }
+    .pill-actions .link-button, .pill-actions button { flex: none; }
+    input.key-bad { border-color: var(--bad); }
+    .mode-explainer {
+      display: flex;
+      align-items: flex-start;
+      gap: .55rem;
+      margin: -.05rem 0 .55rem;
+      padding: .55rem .65rem;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--surface2);
+      color: var(--muted);
+      font-size: .78rem;
+      line-height: 1.35;
+    }
+    .mode-explainer strong { color: var(--text); white-space: nowrap; }
+    .mode-dot {
+      width: .62rem;
+      height: .62rem;
+      margin-top: .22rem;
+      border-radius: 999px;
+      background: var(--muted);
+      flex: none;
+    }
+    .mode-dot.full { background: var(--good); }
+    .mode-dot.limited { background: var(--warn); }
+    .mode-dot.degraded, .mode-dot.scheduled { background: var(--bad); }
+    button.linkish {
+      background: none; border: none; padding: 0; color: var(--accent);
+      font-size: inherit; font-weight: 600; text-decoration: underline; cursor: pointer;
+    }
+    button.linkish:hover { opacity: .85; }
+
+    /* Focused step + stop result meta + inline preview */
+    .step.focus { border-color: rgba(98, 221, 244, .45); box-shadow: inset 0 0 0 1px rgba(98, 221, 244, .12); }
+    .stop-item .name { flex: 1; font-weight: 600; display: flex; flex-direction: column; }
+    .stop-item .name .meta { font-weight: 400; color: var(--muted); font-size: .72rem; }
+    .preview { border: 1px dashed var(--border); border-radius: var(--radius); padding: .45rem .55rem; display: grid; gap: .35rem; background: var(--surface); }
+    .preview-title { font-size: .7rem; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+    .preview-row { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: .55rem; font-size: .92rem; }
+    .preview-row .pv-pill {
+      display: inline-flex; justify-content: center; align-items: center;
+      min-width: 2.7rem; height: 1.55rem; padding: 0 .42rem; border-radius: 6px;
+      background: linear-gradient(180deg, #73e8fa 0%, #57d9f2 100%);
+      color: var(--accent-text); font-weight: 700; font-size: .85rem;
+    }
+    .preview-row .pv-due { font-weight: 700; white-space: nowrap; }
+    .preview-empty { font-size: .78rem; color: var(--muted); }
+    @media (max-width: 700px) { .connect { grid-template-columns: 1fr; } }
+
     /* Board */
     .board {
       min-height: 100vh;
@@ -516,6 +593,41 @@
       font-weight: 600;
       text-align: center;
     }
+    .mode-indicator {
+      display: inline-flex;
+      align-items: center;
+      gap: .42rem;
+      flex: none;
+      max-width: 42%;
+      padding: .3rem .62rem;
+      border: 1px solid rgba(185, 200, 216, .28);
+      border-radius: 999px;
+      color: #e9fbff;
+      background: rgba(185, 200, 216, .08);
+      font-size: clamp(.78rem, 1.05vw, .98rem);
+      font-weight: 700;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .mode-indicator.full { border-color: rgba(91, 214, 143, .45); background: rgba(91, 214, 143, .12); }
+    .mode-indicator.limited { border-color: rgba(241, 198, 102, .5); background: rgba(241, 198, 102, .12); color: #ffe2a2; }
+    .mode-indicator.degraded,
+    .mode-indicator.scheduled { border-color: rgba(238, 76, 164, .45); background: rgba(238, 76, 164, .12); color: #ffd0e9; }
+    .mode-indicator .mode-dot { margin-top: 0; }
+    .ambient-status {
+      display: none;
+      width: .68rem;
+      height: .68rem;
+      border-radius: 999px;
+      flex: none;
+      opacity: .88;
+    }
+    .ambient-status.good { background: var(--good); box-shadow: 0 0 .72rem rgba(91, 214, 143, .72); }
+    .ambient-status.warn { background: var(--warn); box-shadow: 0 0 .72rem rgba(241, 198, 102, .68); }
+    .ambient-status.bad { background: var(--bad); box-shadow: 0 0 .72rem rgba(238, 76, 164, .68); }
+    .board-shell.frameless .mode-indicator { display: none; }
+    .board-shell.frameless .ambient-status { display: inline-block; }
     .clock {
       font-weight: 700;
       font-size: clamp(1.4rem, 2vw, 2.2rem);
@@ -546,6 +658,8 @@
       .dest-cell strong { font-size: 1.7rem; }
       .due-cell { font-size: clamp(1.6rem, 9vw, 2.7rem); }
       .due-cell { text-align: left; }
+      .board-footer { flex-wrap: wrap; }
+      .mode-indicator { max-width: 100%; order: 3; }
     }
   </style>
 </head>
@@ -553,6 +667,10 @@
   <div id="app"></div>
   <script>
     const STORE_KEY = "akl-pid-v2";
+    // Credential embedded in AT's live-departures web page. It provides limited per-stop
+    // predictions without a personal key, but does not replace the comprehensive GTFS-RT
+    // feeds. Kept as a fallback if config migration removes departuresKey.
+    const DEPARTURES_KEY = "0526f69dcb074a4b8df741eef46121fc";
     const LEGACY_GTFS_URL = "https://gtfs.at.govt.nz/gtfs.zip";
     const DEFAULT_GTFS_FILE = "gtfs.zip";
     const SAME_FOLDER_GTFS_CANDIDATES = [DEFAULT_GTFS_FILE, "gtfs (1).zip"];
@@ -563,16 +681,14 @@
       alertsUrl: "https://api.at.govt.nz/realtime/legacy/servicealerts",
       vehiclesUrl: "https://api.at.govt.nz/realtime/legacy/vehiclelocations",
       departuresUrl: "https://api.at.govt.nz/serviceinfo/v1/departures",
-      // Public key embedded in AT's own live-departures web page. Their departures API
-      // (SIRI-style per-stop predictions) is what the official board shows — the most
-      // accurate ETA source available. A personal key does not include this product.
-      departuresKey: "0526f69dcb074a4b8df741eef46121fc",
+      departuresKey: DEPARTURES_KEY,
       frequentRoutes: "",
       subscriptionKey: "",
       pollSeconds: 30,
       pageSize: 6,
       rotateSeconds: 12,
       lockFirstPage: false,
+      requireSubscriptionKey: true,
       lookaheadHours: 6,
       relativeCutoffMinutes: 60,
       staleMultiplier: 2,
@@ -595,9 +711,13 @@
       stopSearch: "",
       autoGtfsAttempted: false,
       pageLocked: false,
+      refreshing: false,
+      refreshFailed: false,
+      keyTest: null, // null | "testing" | "ok" | "fail"
       expandedSections: { advanced: false }
     };
     let timers = [];
+    let realtimeRequestSeq = 0;
     state.pageLocked = Boolean(state.config.lockFirstPage);
 
     function loadConfig() {
@@ -975,13 +1095,12 @@
       return Array.from(new Set(splitList(state.config.stopIds).map(id => id.split("-")[0]).filter(Boolean)));
     }
 
-    // Per-stop predictions from AT's departures API — the same engine behind the official
-    // live departures board, so these are the most accurate ETAs available.
+    // Per-stop predictions from AT's departures API. Coverage is intentionally treated as
+    // partial: unmonitored and omitted trips remain scheduled on the board.
     async function fetchMovements(codes, key) {
       const base = String(state.config.departuresUrl || "").replace(/\/+$/, "");
       const movements = {};
-      const errors = [];
-      await Promise.all(codes.map(async code => {
+      const results = await Promise.all(codes.map(async code => {
         try {
           const res = await fetch(base + "/" + encodeURIComponent(code) + "?scope=tripsData", {
             headers: { "Ocp-Apim-Subscription-Key": key, "Cache-Control": "no-cache" }
@@ -999,44 +1118,88 @@
               monitored: Boolean(m.monitored)
             };
           }
-        } catch (err) { errors.push(code + " (" + (err && err.message || err) + ")"); }
+          return { code, ok: true };
+        } catch (err) {
+          return { code, ok: false, error: code + " (" + (err && err.message || err) + ")" };
+        }
       }));
-      if (errors.length && errors.length === codes.length) throw new Error("Departures API: " + errors.join("; "));
-      return movements;
+      const errors = results.filter(r => !r.ok).map(r => r.error);
+      const succeeded = results.length - errors.length;
+      if (!succeeded) throw new Error("Departures API: " + errors.join("; "));
+      return { movements, requested: codes.length, succeeded, errors };
     }
 
     async function refreshRealtime() {
+      const requestId = ++realtimeRequestSeq;
       const cfg = state.config;
       const key = String(cfg.subscriptionKey || "").trim();
-      const depKey = String(cfg.departuresKey || "").trim() || key;
-      const gtfsRtUrls = key ? [cfg.realtimeUrl, cfg.alertsUrl, cfg.vehiclesUrl].filter(Boolean) : [];
+      const depKey = String(cfg.departuresKey || "").trim() || DEPARTURES_KEY || key;
+      // Did the feeds that authenticate with the USER's subscription key work? null = not
+      // tested this run. Drives the setup "Test" verdict, so it validates their key
+      // specifically (the departures API uses a different embedded key and always works).
+      state.subKeyOk = null;
+      state.refreshing = true;
+      const userFeeds = key ? [
+        { kind: "tripUpdates", label: "trip updates", url: cfg.realtimeUrl },
+        { kind: "alerts", label: "service alerts", url: cfg.alertsUrl },
+        { kind: "vehicles", label: "vehicle positions", url: cfg.vehiclesUrl }
+      ].filter(feed => feed.url) : [];
       const depCodes = cfg.departuresUrl && depKey ? departureStopCodes() : [];
-      if (!gtfsRtUrls.length && !depCodes.length) {
+      if (!userFeeds.length && !depCodes.length) {
         state.realtimeStatus = "No API key";
         state.status = "Configure the departures API or an AT subscription key to fetch live data.";
         state.error = state.status;
+        state.refreshing = false;
+        state.refreshFailed = true;
         return;
       }
       try {
         const headers = { "Cache-Control": "no-cache", "Ocp-Apim-Subscription-Key": key };
-        const work = [
-          depCodes.length ? fetchMovements(depCodes, depKey) : Promise.resolve({}),
-          ...gtfsRtUrls.map(async url => {
-            const res = await fetch(url, { method: "GET", headers });
-            let payload;
-            try { payload = await res.json(); }
-            catch { throw new Error("Realtime response from " + url + " is not JSON."); }
-            if (!res.ok || payload.message) {
-              throw new Error((payload.message || "Realtime fetch failed") + " (" + res.status + ")");
-            }
-            return normalizeRealtime(payload, url);
-          })
+        const tasks = [
+          {
+            kind: "departures",
+            label: "stop predictions",
+            run: depCodes.length
+              ? fetchMovements(depCodes, depKey)
+              : Promise.resolve({ movements: {}, requested: 0, succeeded: 0, errors: [] })
+          },
+          ...userFeeds.map(feed => ({
+            kind: feed.kind,
+            label: feed.label,
+            run: (async () => {
+              const res = await fetch(feed.url, { method: "GET", headers });
+              let payload;
+              try { payload = await res.json(); }
+              catch { throw new Error("Realtime response from " + feed.url + " is not JSON."); }
+              if (!res.ok || payload.message) {
+                throw new Error((payload.message || "Realtime fetch failed") + " (" + res.status + ")");
+              }
+              return normalizeRealtime(payload, feed.url);
+            })()
+          }))
         ];
-        const settled = await Promise.allSettled(work);
-        const failures = settled.filter(s => s.status === "rejected").map(s => s.reason);
+        const settled = await Promise.allSettled(tasks.map(task => task.run));
+        if (requestId !== realtimeRequestSeq) return;
+        const failures = settled
+          .map((result, index) => result.status === "rejected" ? new Error(tasks[index].label + ": " + (result.reason && result.reason.message || result.reason)) : null)
+          .filter(Boolean);
         if (failures.length === settled.length) throw failures[0];
-        const movements = settled[0].status === "fulfilled" ? settled[0].value : {};
+        const departuresResult = settled[0].status === "fulfilled"
+          ? settled[0].value
+          : { movements: {}, requested: depCodes.length, succeeded: 0, errors: [failures[0] && failures[0].message] };
+        const movements = departuresResult.movements || {};
         const feeds = settled.slice(1).filter(s => s.status === "fulfilled").map(s => s.value);
+        // A valid key authenticates all its feeds; if even one succeeds the key is good.
+        // AT's alerts/vehicles feeds are flaky, so requiring ALL of them wrongly fails good keys.
+        if (userFeeds.length) state.subKeyOk = settled.slice(1).some(s => s.status === "fulfilled");
+        const feedHealth = Object.fromEntries(tasks.map((task, index) => [task.kind, {
+          configured: task.kind === "departures" ? Boolean(depCodes.length) : true,
+          ok: settled[index].status === "fulfilled",
+          error: settled[index].status === "rejected" ? String(settled[index].reason && settled[index].reason.message || settled[index].reason) : ""
+        }]));
+        feedHealth.departures.requested = departuresResult.requested || 0;
+        feedHealth.departures.succeeded = departuresResult.succeeded || 0;
+        feedHealth.departures.errors = departuresResult.errors || [];
         state.realtime = feeds.reduce((a, f) => ({
           fetchedAt: Math.max(a.fetchedAt || 0, f.fetchedAt || 0),
           feedTimestamp: Math.max(a.feedTimestamp || 0, f.feedTimestamp || 0),
@@ -1044,21 +1207,32 @@
           trips: Object.assign(a.trips || {}, f.trips || {}),
           vehicles: Object.assign(a.vehicles || {}, f.vehicles || {}),
           alerts: (a.alerts || []).concat(f.alerts || []),
-          movements: a.movements
-        }), { fetchedAt: Date.now(), trips: {}, vehicles: {}, alerts: [], movements });
+          movements: a.movements,
+          feedHealth: a.feedHealth
+        }), { fetchedAt: Date.now(), trips: {}, vehicles: {}, alerts: [], movements, feedHealth });
         const parts = [];
         const liveCount = Object.values(movements).filter(m => m.expected).length;
-        if (depCodes.length) parts.push(liveCount.toLocaleString() + " stop predictions");
-        if (feeds.length) parts.push(Object.keys(state.realtime.trips).length.toLocaleString() + " trips, " + state.realtime.alerts.length.toLocaleString() + " alerts");
+        if (depCodes.length) parts.push(liveCount.toLocaleString() + " stop predictions from " + departuresResult.succeeded + "/" + departuresResult.requested + " stops");
+        if (feedHealth.tripUpdates && feedHealth.tripUpdates.ok) parts.push(Object.keys(state.realtime.trips).length.toLocaleString() + " trip updates");
+        if (feedHealth.vehicles && feedHealth.vehicles.ok) parts.push(Object.keys(state.realtime.vehicles).length.toLocaleString() + " vehicle reports");
+        if (feedHealth.alerts && feedHealth.alerts.ok) parts.push(state.realtime.alerts.length.toLocaleString() + " alerts");
         state.realtimeStatus = parts.join(" · ") || "No data";
         state.status = "Realtime loaded: " + state.realtimeStatus + ".";
+        state.refreshFailed = false;
         saveJson("realtime", state.realtime);
-        state.error = failures.length ? friendlyError(failures[0], "Partial realtime fetch") : "";
+        const partialStopError = departuresResult.errors && departuresResult.errors[0];
+        state.error = failures.length
+          ? friendlyError(failures[0], "Partial realtime fetch")
+          : partialStopError ? "Some stops could not fetch predictions: " + partialStopError : "";
       } catch (err) {
+        if (requestId !== realtimeRequestSeq) return;
         console.warn("[realtime] fetch failed:", err && err.message || err);
         state.status = friendlyError(err, "Realtime fetch");
         state.error = state.status;
         state.realtimeStatus = "Fetch failed";
+        state.refreshFailed = true;
+      } finally {
+        if (requestId === realtimeRequestSeq) state.refreshing = false;
       }
     }
 
@@ -1234,7 +1408,39 @@
     function realtimeFresh(rt, cfg, nowMs) {
       if (!rt) return false;
       const latest = rt.feedTimestamp || rt.fetchedAt;
-      return Boolean(latest) && nowMs - latest <= cfg.pollSeconds * cfg.staleMultiplier * 1000;
+      const age = nowMs - latest;
+      return Boolean(latest) && age >= -5 * 60000 && age <= cfg.pollSeconds * cfg.staleMultiplier * 1000;
+    }
+
+    function operatingMode(rows = [], nowMs = Date.now()) {
+      const cfg = state.config;
+      const keySet = Boolean(String(cfg.subscriptionKey || "").trim());
+      const fresh = realtimeFresh(state.realtime, cfg, nowMs);
+      const health = state.realtime && state.realtime.feedHealth || {};
+      const tripUpdatesOk = Boolean(
+        health.tripUpdates && health.tripUpdates.ok ||
+        keySet && state.realtime && Object.keys(state.realtime.trips || {}).length
+      );
+      const predicted = rows.filter(row => row.status === "live").length;
+      const total = rows.filter(row => row.status !== "cancelled").length;
+      const coverage = total ? predicted + "/" + total + " live ETA" + (total === 1 ? "" : "s") : "no upcoming rows";
+
+      if (state.refreshing && !fresh) {
+        return { id: "scheduled", label: "Connecting", coverage, detail: "Fetching the latest available live data." };
+      }
+      if (!fresh) {
+        return { id: "scheduled", label: "Scheduled", coverage, detail: "Live data is unavailable or stale; every time shown is from the timetable." };
+      }
+      if (state.refreshFailed) {
+        return { id: "degraded", label: "Degraded", coverage, detail: "The latest refresh failed. Recently cached predictions remain visible until they become stale, then the board switches to scheduled times." };
+      }
+      if (keySet && tripUpdatesOk) {
+        return { id: "full", label: "Full live", coverage, detail: "Personal-key trip updates are connected; unmatched trips still fall back to the timetable." };
+      }
+      if (keySet) {
+        return { id: "degraded", label: "Degraded", coverage, detail: "A personal key is configured, but trip updates are unavailable. Using limited stop predictions and timetable fallbacks." };
+      }
+      return { id: "limited", label: "Limited live", coverage, detail: "No personal key: only AT stop predictions are live; unmatched trips use scheduled times." };
     }
 
     function deriveDepartures() {
@@ -1259,7 +1465,8 @@
             // survive long enough for its live prediction to be applied. Rows actually
             // gone are dropped below by the effectiveMs check.
             if (scheduled < nowMs - 3600000 || scheduled > maxMs) continue;
-            let rtTrip = rt && rt.trips && rt.trips[st.tripId];
+            const personalKeySet = Boolean(String(cfg.subscriptionKey || "").trim());
+            let rtTrip = personalKeySet && rt && rt.trips && rt.trips[st.tripId];
             // A realtime update for another service date (same trip_id runs daily) says
             // nothing about this row — ignore it but keep the scheduled departure.
             if (rtTrip && rtTrip.startDate && rtTrip.startDate !== serviceDate) rtTrip = null;
@@ -1304,7 +1511,7 @@
               stopName: stop ? stop.name : stopId,
               scheduled, predicted, effective: predicted || scheduled,
               predictedSource: mvPredicted ? "at-api" : stopUpdate ? stopUpdate.source : null,
-              occupancy: (rt && rt.vehicles && rt.vehicles[st.tripId] && rt.vehicles[st.tripId].occupancy) || 0,
+              occupancy: (personalKeySet && rt && rt.vehicles && rt.vehicles[st.tripId] && rt.vehicles[st.tripId].occupancy) || 0,
               status: cancelled ? "cancelled" : predicted ? "live" : "scheduled"
             });
           }
@@ -1316,7 +1523,7 @@
     }
 
     function boardAlerts() {
-      if (!state.bundle || !state.realtime) return [];
+      if (!state.bundle || !state.realtime || !String(state.config.subscriptionKey || "").trim()) return [];
       const stops = new Set(splitList(state.config.stopIds));
       const routes = new Set(Object.keys(state.bundle.routes));
       return (state.realtime.alerts || []).filter(a => (a.stopIds || []).some(s => stops.has(s)) || (a.routeIds || []).some(r => routes.has(r)));
@@ -1362,12 +1569,25 @@
 
     function diagnostics() {
       const realtimeLatest = state.realtime && (state.realtime.feedTimestamp || state.realtime.fetchedAt);
+      let modeRows = [];
+      try { modeRows = deriveDepartures().slice(0, state.config.pageSize); } catch {}
+      const mode = operatingMode(modeRows);
+      const health = state.realtime && state.realtime.feedHealth || {};
+      const healthHasFailure = Object.values(health).some(feed => feed && feed.configured !== false && !feed.ok);
+      const tripHealth = health.tripUpdates ? (health.tripUpdates.ok ? "Connected" : "Failed") : "Not requested";
+      const depHealth = health.departures
+        ? (health.departures.ok ? (health.departures.succeeded || 0) + "/" + (health.departures.requested || 0) + " stops connected" : "Failed")
+        : "Not fetched";
       return [
         ["Run mode", runMode()],
+        ["Board mode", mode.label + " · " + mode.coverage],
         ["GTFS unzip support", ("DecompressionStream" in window) ? "Ready" : "Missing"],
         ["Saved board", state.bundle ? bundleDepartureCount().toLocaleString() + " departures" : "Not built"],
         ["Loaded GTFS", state.gtfs ? state.gtfs.stops.length.toLocaleString() + " stops" : "Not loaded"],
         ["Realtime feed", realtimeSummary()],
+        ["Latest refresh", state.refreshing ? "In progress" : state.refreshFailed ? "Failed" : healthHasFailure ? "Partial failure" : state.realtime ? "OK" : "Not run"],
+        ["Trip updates", tripHealth],
+        ["Stop predictions", depHealth],
         ["Realtime age", relativeAge(realtimeLatest)],
         ["Storage keys", storageKeys().length.toString()]
       ];
@@ -1392,9 +1612,10 @@
     }
     function resetAll() {
       try { Object.keys(localStorage).filter(k => k.startsWith(STORE_KEY)).forEach(k => localStorage.removeItem(k)); } catch {}
+      realtimeRequestSeq++;
       state.config = Object.assign({}, DEFAULT_CONFIG);
       state.bundle = null; state.gtfs = null; state.realtime = null;
-      state.status = ""; state.error = "";
+      state.status = ""; state.error = ""; state.refreshing = false; state.refreshFailed = false;
       state.autoGtfsAttempted = false;
       render();
     }
@@ -1409,6 +1630,18 @@
       return (b && b.name) || stopId;
     }
 
+    // Tiny live sample of the current board, shown inline under the stop picker so users
+    // see it working before committing to fullscreen. Reflects the last-built bundle.
+    function renderPreview() {
+      if (!state.bundle) return "";
+      let rows = [];
+      try { rows = deriveDepartures().slice(0, 2); } catch { rows = []; }
+      const body = rows.length
+        ? rows.map(r => `<div class="preview-row"><span class="pv-pill">${escapeHtml(r.routeLabel)}</span><span class="pv-dest">${escapeHtml(normalizeDestinationLabel(r.destination))}</span><span class="pv-due">${r.status === "cancelled" ? "Cancelled" : r.status === "scheduled" ? timeLabel(r.scheduled, state.config.timezone) : formatDue(r.effective, state.now.getTime(), state.config)}</span></div>`).join("")
+        : `<div class="preview-empty">No upcoming departures for the current board.</div>`;
+      return `<div class="preview"><div class="preview-title">Current board preview</div>${body}</div>`;
+    }
+
     function renderSetup() {
       const cfg = state.config;
       const results = state.gtfs && state.stopSearch.trim()
@@ -1417,37 +1650,81 @@
       const stopList = splitList(cfg.stopIds);
       const gtfsReady = Boolean(state.gtfs);
       const keySet = Boolean(String(cfg.subscriptionKey || "").trim());
-      const canGo = keySet && (gtfsReady || Boolean(state.bundle));
+      const keyRequired = cfg.requireSubscriptionKey !== false;
+      const keyUsable = keySet || !keyRequired;
+      const canGo = keyUsable && (gtfsReady || Boolean(state.bundle));
       const defaultStatus = state.bundle
         ? "Board ready — open it below, or adjust stops and rebuild."
         : gtfsReady ? "Timetable loaded — pick your stops, then build the board."
         : "Waiting for timetable data (gtfs.zip)...";
 
+      const keyVal = String(cfg.subscriptionKey || "").trim();
+      const keyStatePill = state.keyTest === "ok" ? "done" : state.keyTest === "fail" ? "bad" : "";
+      const keyStateLabel = state.keyTest === "ok" ? "&#10003; valid"
+        : state.keyTest === "fail" ? "&#10007; failed"
+        : state.keyTest === "testing" ? "testing…"
+        : keyVal ? "untested" : (cfg.requireSubscriptionKey !== false ? "needed" : "optional");
+      const ctaBlocked = (keyRequired && !keySet) ? "Enter your AT API key first"
+        : !(gtfsReady || state.bundle) ? "Waiting for timetable data…"
+        : "";
+      const testedTripHealth = state.realtime && state.realtime.feedHealth && state.realtime.feedHealth.tripUpdates;
+      const fullLiveUnavailable = keySet && (state.keyTest === "fail" || (testedTripHealth && !testedTripHealth.ok));
+      const setupModeId = keySet ? (fullLiveUnavailable ? "degraded" : "full") : "limited";
+      const setupModeLabel = keySet ? (fullLiveUnavailable ? "Degraded until trip updates connect" : "Full live requested") : "Limited live";
+      const setupModeDetail = fullLiveUnavailable
+        ? "Your personal-key trip updates are not connected. The board will use limited stop predictions and scheduled fallbacks until they recover."
+        : keySet
+        ? "Trip updates, occupancy and service alerts will use your personal key. Any trip without a prediction still shows its scheduled time."
+        : "No personal key: only the limited per-stop prediction source is used. Missing predictions show fixed scheduled clock times; occupancy and alerts are unavailable.";
+
       const html = `
         <main class="setup">
           <div class="setup-header">
             <h1>Auckland Live Departures</h1>
-            <p>Pick your stops, build the board. Everything else has sensible defaults.</p>
+            <p>Connect once, pick your stops, open the board.</p>
           </div>
-          <div class="status-bar ${state.error ? "error" : ""}">${escapeHtml(state.status || defaultStatus)}</div>
+          <div class="status-bar ${state.error ? "error" : ""}">${escapeHtml(state.error || state.status || defaultStatus)}</div>
 
-          <div class="step">
-            <h2>1 · Timetable data<span class="step-status">${gtfsReady ? "ready" : state.bundle ? "using saved board" : "needed"}</span></h2>
-            ${gtfsReady
-              ? `<p class="hint"><span class="ok">&#10003; ${state.gtfs.stops.length.toLocaleString()} stops loaded</span> from ${escapeHtml(state.gtfs.source)}</p>`
-              : `<p class="hint">Put the GTFS zip beside this HTML file as <code>gtfs.zip</code> (it loads automatically), or upload it here.</p>`}
-            <div class="link-row">
-              <label class="link-button" style="cursor:pointer">Upload GTFS zip<input name="gtfsFile" type="file" accept=".zip" hidden></label>
-              ${gtfsReady ? "" : `<button class="ghost small" type="button" data-action="fetchGtfs">Retry auto-load</button>`}
+          <div class="connect">
+            <div class="connect-pill ${gtfsReady ? "done" : ""}">
+              <div class="pill-head">
+                <span class="pill-title">Timetable</span>
+                <span class="pill-state ${gtfsReady ? "ok" : ""}">${gtfsReady ? "&#10003; loaded" : state.bundle ? "saved board" : "loading…"}</span>
+              </div>
+              ${gtfsReady
+                ? `<div class="pill-sub">${state.gtfs.stops.length.toLocaleString()} stops · ${escapeHtml(state.gtfs.source)}</div>`
+                : `<div class="pill-actions">
+                     <label class="link-button" style="cursor:pointer">Upload zip<input name="gtfsFile" type="file" accept=".zip" hidden></label>
+                     <button class="ghost small" type="button" data-action="fetchGtfs">Retry</button>
+                   </div>
+                   <div class="pill-sub">Auto-loads <code>gtfs.zip</code> beside this file.</div>`}
             </div>
-            ${!gtfsReady && location.protocol === "file:" ? `<div class="note">Standalone file mode: some browsers block reading sibling files over file://. If auto-load fails, upload the zip above.</div>` : ""}
-          </div>
 
-          <div class="step">
-            <h2>2 · Stops &amp; routes<span class="step-status">${stopList.length ? stopList.length + " stop" + (stopList.length !== 1 ? "s" : "") + " selected" : "pick at least one stop"}</span></h2>
+            <div class="connect-pill ${keyStatePill}">
+              <div class="pill-head">
+                <span class="pill-title">Your AT API key${state.keyTest === "ok" || !keyRequired ? (keyRequired ? "" : `<span class="req" style="color:var(--muted);border-color:var(--border)">optional</span>`) : `<span class="req">required</span>`}</span>
+                <span class="pill-state ${state.keyTest === "ok" ? "ok" : state.keyTest === "fail" ? "bad" : ""}">${keyStateLabel}</span>
+              </div>
+              ${state.keyTest === "ok"
+                ? `<div class="pill-sub">Key accepted${fullLiveUnavailable ? "; trip updates unavailable" : ""}. <button class="linkish" type="button" data-action="editKey">Change key</button></div>`
+                : `<div class="pill-actions">
+                     <input name="subscriptionKey" type="text" value="${escapeHtml(cfg.subscriptionKey)}" placeholder="Paste your key" class="${state.keyTest === "fail" ? "key-bad" : ""}" autocomplete="off" spellcheck="false" ${keyRequired ? `required aria-required="true"` : ""}>
+                     <button class="ghost small" type="button" data-action="fetchRealtime">Test</button>
+                   </div>
+                   <div class="pill-sub">Free from the <a href="https://dev-portal.at.govt.nz/" target="_blank" rel="noopener">AT Developer Portal &#8599;</a></div>`}
+            </div>
+          </div>
+          <div class="mode-explainer"><span class="mode-dot ${setupModeId}"></span><div><strong>${setupModeLabel}</strong><br>${setupModeDetail}${!keySet && keyRequired ? " Disable the key requirement in Advanced to open in this mode." : ""}</div></div>
+
+          <div class="step focus">
+            <h2>Stops &amp; routes<span class="step-status">${stopList.length ? stopList.length + " stop" + (stopList.length !== 1 ? "s" : "") + " selected" : "pick at least one stop"}</span></h2>
             ${gtfsReady
               ? `<div class="field"><input name="stopSearch" placeholder="Search stop name or number, then click + to add…" value="${escapeHtml(state.stopSearch)}"></div>
-                 <div class="stop-results">${results.map(s => `<div class="stop-item"><button class="ghost small" type="button" data-stop="${escapeHtml(s.stop_id)}">+</button><span class="name">${escapeHtml(s.stop_name || s.stop_id)}</span><span class="id">${escapeHtml(s.stop_id)}</span></div>`).join("")}</div>`
+                 <div class="stop-results">${results.map(s => {
+                   const code = s.stop_code && s.stop_code !== s.stop_id ? "Stop " + s.stop_code : "";
+                   const meta = [code, s.stop_desc || ""].filter(Boolean).join(" · ");
+                   return `<div class="stop-item"><button class="ghost small" type="button" data-stop="${escapeHtml(s.stop_id)}">+</button><span class="name">${escapeHtml(s.stop_name || s.stop_id)}${meta ? `<span class="meta">${escapeHtml(meta)}</span>` : ""}</span><span class="id">${escapeHtml(s.stop_id)}</span></div>`;
+                 }).join("")}</div>`
               : `<p class="hint">Load timetable data first to search stops by name.</p>`}
             <div class="chips">${stopList.length
               ? stopList.map(id => `<span class="chip">${escapeHtml(stopDisplayName(id))}<span class="chip-id">${escapeHtml(id)}</span><button type="button" data-removestop="${escapeHtml(id)}" title="Remove stop">&times;</button></span>`).join("")
@@ -1456,28 +1733,17 @@
               <div class="field"><label>Only show these routes (comma-separated, blank = all)</label><input name="routeAllowlist" value="${escapeHtml(cfg.routeAllowlist)}"></div>
               <div class="field"><label>Frequent routes — solid cyan pill (blank = all)</label><input name="frequentRoutes" value="${escapeHtml(cfg.frequentRoutes)}"></div>
             </div>
-          </div>
-
-          <div class="step">
-            <h2>3 · Live data<span class="step-status">${keySet ? "key set" : "API key required"}</span></h2>
-            <p class="hint">Enter an AT subscription key before building or opening the board.</p>
-            <div class="field">
-              <label>AT subscription key — required; available free from the <a href="https://dev-portal.at.govt.nz/" target="_blank" rel="noopener" style="color:var(--accent)">AT Developer Portal</a>.</label>
-              <div class="link-row" style="flex-wrap:nowrap"><input name="subscriptionKey" type="password" value="${escapeHtml(cfg.subscriptionKey)}" required aria-required="true"><button class="ghost small" type="button" data-action="fetchRealtime" style="flex:none">Test</button></div>
-            </div>
+            ${renderPreview()}
           </div>
 
           <div class="cta-row">
-            <button class="primary" data-action="go" ${canGo ? "" : "disabled"}>${gtfsReady ? (state.bundle ? "Rebuild &amp; open board" : "Build &amp; open board") : state.bundle ? "Open board" : "Build &amp; open board"}</button>
-            ${state.bundle && gtfsReady ? `<button class="ghost" data-action="openOnly" ${keySet ? "" : "disabled"}>Open without rebuilding</button>` : ""}
+            <button class="primary" data-action="go" ${canGo ? "" : "disabled"} title="${escapeHtml(ctaBlocked || "Open the board")}">${gtfsReady ? (state.bundle ? "Rebuild &amp; open board" : "Build &amp; open board") : state.bundle ? "Open board" : "Build &amp; open board"}</button>
+            ${state.bundle && gtfsReady ? `<button class="ghost" data-action="openOnly" ${keyUsable ? "" : "disabled"} title="${escapeHtml(keyUsable ? "Open the saved board without rebuilding" : ctaBlocked)}">Open without rebuilding</button>` : ""}
           </div>
 
           ${collapsible("advanced", "Advanced", `
             <div class="field"><label>GTFS zip file path or URL</label><input name="gtfsUrl" value="${escapeHtml(cfg.gtfsUrl)}"><div class="hint">Default is <code>gtfs.zip</code> next to this HTML file; <code>gtfs (1).zip</code> is tried as a fallback.</div></div>
-            <div class="row">
-              <div class="field"><label>Departures API URL (primary ETAs)</label><input name="departuresUrl" value="${escapeHtml(cfg.departuresUrl)}"></div>
-              <div class="field"><label>Departures API key</label><input name="departuresKey" value="${escapeHtml(cfg.departuresKey)}"></div>
-            </div>
+            <div class="field"><label>Departures API URL (limited per-stop predictions)</label><input name="departuresUrl" value="${escapeHtml(cfg.departuresUrl)}"><div class="hint">Uses the built-in departures credential. Coverage is incomplete; trips without an expected time remain scheduled.</div></div>
             <div class="field"><label>GTFS-RT trip updates URL</label><input name="realtimeUrl" value="${escapeHtml(cfg.realtimeUrl)}"></div>
             <div class="row">
               <div class="field"><label>Service alerts URL</label><input name="alertsUrl" value="${escapeHtml(cfg.alertsUrl)}"></div>
@@ -1493,6 +1759,7 @@
               <div class="field"><label>Lookahead (hours)</label><input name="lookaheadHours" type="number" value="${cfg.lookaheadHours}"></div>
             </div>
             <div class="field"><label style="display:flex;align-items:center;gap:.45rem;cursor:pointer"><input name="lockFirstPage" type="checkbox" ${cfg.lockFirstPage ? "checked" : ""} style="width:auto;margin:0"> Lock board to page 1 (never rotate pages)</label></div>
+            <div class="field"><label style="display:flex;align-items:center;gap:.45rem;cursor:pointer"><input name="requireSubscriptionKey" type="checkbox" ${cfg.requireSubscriptionKey !== false ? "checked" : ""} style="width:auto;margin:0"> Require a personal AT key before opening the board</label><div class="hint">On: a personal key is required and the board will request Full live mode; feed failures are still surfaced as Degraded. Off: the board can open in Limited live mode, where only some trips receive ETAs and all others show scheduled clock times.</div></div>
             <div class="row">
               <div class="field"><label>Relative time cutoff (min)</label><input name="relativeCutoffMinutes" type="number" value="${cfg.relativeCutoffMinutes}"><div class="hint">Show "12" up to this many minutes out; beyond it show clock time like "14:35".</div></div>
               <div class="field"><label>Stale after (× poll intervals)</label><input name="staleMultiplier" type="number" value="${cfg.staleMultiplier}"></div>
@@ -1535,13 +1802,28 @@
       q("[data-action=openOnly]")?.addEventListener("click", () => { readFormIntoConfig(); saveConfig({ mode: "board" }); render(); });
       q("[data-action=reset]")?.addEventListener("click", resetAll);
       q("[data-action=fetchGtfs]")?.addEventListener("click", () => { readFormIntoConfig(); saveConfig(); fetchGtfs(); });
-      q("[data-action=fetchRealtime]")?.addEventListener("click", () => { readFormIntoConfig(); saveConfig(); refreshRealtime().then(() => renderSetup()); });
+      q("[data-action=editKey]")?.addEventListener("click", () => { state.keyTest = null; renderSetup(); });
+      q("[data-action=fetchRealtime]")?.addEventListener("click", () => {
+        readFormIntoConfig();
+        saveConfig();
+        state.keyTest = "testing";
+        renderSetup();
+        refreshRealtime().then(() => {
+          // Judge the user's key by its own feeds, not by whether every feed (incl. AT's
+          // flaky alerts/vehicles endpoints) came back clean.
+          state.keyTest = state.subKeyOk ? "ok" : "fail";
+          renderSetup();
+        });
+      });
       q("[name=subscriptionKey]")?.addEventListener("input", e => {
         state.config.subscriptionKey = e.target.value;
-        const enabled = Boolean(e.target.value.trim());
-        q("[data-action=go]").disabled = !enabled || !(state.gtfs || state.bundle);
-        if (q("[data-action=openOnly]")) q("[data-action=openOnly]").disabled = !enabled;
+        state.keyTest = null;
+        e.target.classList.remove("key-bad");
+        const enabled = Boolean(e.target.value.trim()) || state.config.requireSubscriptionKey === false;
+        const go = q("[data-action=go]"); if (go) go.disabled = !enabled || !(state.gtfs || state.bundle);
+        const openOnly = q("[data-action=openOnly]"); if (openOnly) openOnly.disabled = !enabled;
       });
+      q("[name=requireSubscriptionKey]")?.addEventListener("change", () => { readFormIntoConfig(); saveConfig(); renderSetup(); });
       q("[name=gtfsFile]")?.addEventListener("change", e => { readFormIntoConfig(); saveConfig(); uploadGtfs(e.target.files[0]); });
       q("[name=stopSearch]")?.addEventListener("input", e => {
         state.stopSearch = e.target.value;
@@ -1575,7 +1857,6 @@
       if (v("alertsUrl") !== undefined) cfg.alertsUrl = v("alertsUrl");
       if (v("vehiclesUrl") !== undefined) cfg.vehiclesUrl = v("vehiclesUrl");
       if (v("departuresUrl") !== undefined) cfg.departuresUrl = v("departuresUrl");
-      if (v("departuresKey") !== undefined) cfg.departuresKey = v("departuresKey");
       if (v("frequentRoutes") !== undefined) cfg.frequentRoutes = v("frequentRoutes");
       if (v("subscriptionKey") !== undefined) cfg.subscriptionKey = v("subscriptionKey");
       if (v("pollSeconds") !== undefined) cfg.pollSeconds = clampNumber(v("pollSeconds"), 60, 5, 3600);
@@ -1583,6 +1864,8 @@
       if (v("rotateSeconds") !== undefined) cfg.rotateSeconds = clampNumber(v("rotateSeconds"), 12, 3, 3600);
       const lockEl = document.querySelector('[name="lockFirstPage"]');
       if (lockEl) { cfg.lockFirstPage = lockEl.checked; state.pageLocked = lockEl.checked; }
+      const reqKeyEl = document.querySelector('[name="requireSubscriptionKey"]');
+      if (reqKeyEl) cfg.requireSubscriptionKey = reqKeyEl.checked;
       if (v("lookaheadHours") !== undefined) cfg.lookaheadHours = clampNumber(v("lookaheadHours"), 6, 1, 48);
       if (v("relativeCutoffMinutes") !== undefined) cfg.relativeCutoffMinutes = clampNumber(v("relativeCutoffMinutes"), 20, 0, 180);
       if (v("staleMultiplier") !== undefined) cfg.staleMultiplier = clampNumber(v("staleMultiplier"), 2, 1, 20);
@@ -1612,6 +1895,8 @@
       const pageLabel = pages.length > 1 ? " " + (state.page + 1) + "/" + pages.length : "";
       const hasRT = Boolean(cfg.departuresUrl || (String(cfg.subscriptionKey || "").trim() && (cfg.realtimeUrl || cfg.alertsUrl)));
       const stale = hasRT && !realtimeFresh(state.realtime, cfg, Date.now());
+      const mode = operatingMode(pageRows);
+      const ambientStatus = mode.id === "full" ? "good" : mode.id === "limited" || mode.label === "Connecting" ? "warn" : "bad";
       const alerts = Array.from(new Set(boardAlerts().map(a => a.header)));
       const frameless = Boolean(cfg.chromeHidden);
 
@@ -1622,7 +1907,7 @@
             <header class="board-header">
               <div class="board-meta">
                 <div class="board-meta-top">
-                  <span>${state.realtime ? "Live" : "Scheduled"}${pageLabel}</span>
+                  <span>${escapeHtml(mode.label)}${pageLabel} · ${escapeHtml(mode.coverage)}</span>
                 </div>
                 <div class="board-controls">
                   <button class="ghost small" data-action="refresh" title="Refresh now">Refresh</button>
@@ -1632,6 +1917,7 @@
               </div>
             </header>
             ${!frameless && stale ? `<div class="alert-banner bad">Live data unavailable - showing scheduled times.</div>` : ""}
+            ${!frameless && !stale && (state.error || mode.id === "degraded") ? `<div class="alert-banner warn">${escapeHtml(state.error || mode.detail)}</div>` : ""}
             ${!frameless && !stale && timetableOutdated(rows) ? `<div class="alert-banner warn">Timetable data looks outdated - live times can't be matched. Refreshing it automatically; if this persists, update gtfs.zip and rebuild in Settings.</div>` : ""}
             ${!frameless && alerts.length ? `<div class="alert-banner warn">${escapeHtml(alerts[0])}</div>` : ""}
             <div class="board-body">
@@ -1640,6 +1926,8 @@
             <footer class="board-footer">
               <div class="legend"><span class="legend-swatch"></span>Frequent services</div>
               <div class="ticker">${alerts.length ? escapeHtml(alerts.join(" · ")) : ""}</div>
+              <div class="mode-indicator ${mode.id}" title="${escapeHtml(mode.detail)}"><span class="mode-dot ${mode.id}"></span>${escapeHtml(mode.label)} · ${escapeHtml(mode.coverage)}</div>
+              <span class="ambient-status ${ambientStatus}" role="status" aria-label="${escapeHtml(mode.label + ": " + mode.coverage)}" title="${escapeHtml(mode.label + ": " + mode.coverage)}"></span>
               <div class="clock">${clockLabel(state.now, cfg.timezone)}</div>
             </footer>
           </section>
@@ -1657,7 +1945,12 @@
         const pillClass = !frequent.size || frequent.has(normLabel(r.routeLabel)) ? "" : " outline";
         const cancelled = r.status === "cancelled";
         const middle = cancelled ? `<span class="badge cancelled">Cancelled</span>` : occupancyIcons(r.occupancy);
-        const due = cancelled ? timeLabel(r.scheduled, cfg.timezone) : formatDue(r.effective, state.now.getTime(), cfg);
+        // Live rows (a real prediction) show the moving countdown; rows with no ETA show
+        // their fixed scheduled clock time — so a glance tells live from scheduled, the way
+        // AT's PID boards do ("3 min" vs "23:15"). Cancelled rows keep their scheduled time.
+        const due = (cancelled || r.status === "scheduled")
+          ? timeLabel(r.scheduled, cfg.timezone)
+          : formatDue(r.effective, state.now.getTime(), cfg);
         return `<div class="dep-row"><div><span class="route-pill${pillClass}">${escapeHtml(r.routeLabel)}</span></div><div><div class="dest-cell"><strong>${escapeHtml(normalizeDestinationLabel(r.destination))}</strong></div></div><div>${middle}</div><div class="due-cell">${due}</div></div>`;
       }).join("")}</div></div>`;
     }
@@ -1689,13 +1982,14 @@
       timers.push(setInterval(() => { state.now = new Date(); if (state.config.mode === "board") renderBoard(); }, 1000));
       timers.push(setInterval(() => { if (state.config.mode === "board") refreshRealtime().then(() => renderBoard()); }, Math.max(5, state.config.pollSeconds) * 1000));
       timers.push(setInterval(() => { if (state.config.mode === "board" && !state.pageLocked) { state.page++; renderBoard(); } }, Math.max(3, state.config.rotateSeconds) * 1000));
-      refreshRealtime();
+      refreshRealtime().then(() => { if (state.config.mode === "board") renderBoard(); });
     }
 
     function render() {
       clearTimers();
       const keySet = Boolean(String(state.config.subscriptionKey || "").trim());
-      if (state.config.mode === "board" && state.bundle && keySet) { renderBoard(); startRuntime(); maybeRebuildStaleBundle(); }
+      const keyOk = keySet || state.config.requireSubscriptionKey === false;
+      if (state.config.mode === "board" && state.bundle && keyOk) { renderBoard(); startRuntime(); maybeRebuildStaleBundle(); }
       else { state.config.mode = "setup"; renderSetup(); autoLoadSameFolderGtfs(); }
     }
 
