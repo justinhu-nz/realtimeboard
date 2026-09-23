@@ -231,6 +231,8 @@
     /* Connect strip (timetable + API key) */
     .connect { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem; margin: .5rem 0; }
     .connect-pill {
+      position: relative;
+      overflow: hidden;
       border: 1px solid var(--border);
       border-radius: var(--radius);
       background: var(--surface2);
@@ -256,6 +258,76 @@
     .pill-actions { display: flex; gap: .4rem; align-items: center; }
     .pill-actions input[name=subscriptionKey] { flex: 1; }
     .pill-actions .link-button, .pill-actions button { flex: none; }
+    .timetable-loader {
+      position: absolute;
+      inset: 0;
+      z-index: 2;
+      display: grid;
+      place-content: center;
+      gap: .55rem;
+      text-align: center;
+      background: linear-gradient(110deg, rgba(24, 33, 48, .96), rgba(31, 47, 64, .96));
+      color: var(--text);
+    }
+    .loader-track {
+      position: relative;
+      width: min(15rem, 70vw);
+      height: 2.2rem;
+      overflow: hidden;
+    }
+    .loader-track::after {
+      content: "";
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: .28rem;
+      height: 2px;
+      background: repeating-linear-gradient(90deg, rgba(98,221,244,.25) 0 12px, transparent 12px 20px);
+    }
+    .loader-bus {
+      position: absolute;
+      left: 0;
+      bottom: .42rem;
+      width: 3.3rem;
+      height: 1.45rem;
+      border-radius: .45rem .55rem .25rem .25rem;
+      background: linear-gradient(180deg, #73e8fa, #36bdd8);
+      box-shadow: 0 0 18px rgba(98,221,244,.35);
+      animation: timetable-trip 2.4s ease-in-out infinite;
+    }
+    .loader-bus::before {
+      content: "";
+      position: absolute;
+      inset: .25rem .32rem .55rem;
+      border-radius: .15rem;
+      background: repeating-linear-gradient(90deg, #20324a 0 .58rem, transparent .58rem .72rem);
+    }
+    .loader-bus::after {
+      content: "";
+      position: absolute;
+      left: .45rem;
+      right: .45rem;
+      bottom: -.2rem;
+      height: .42rem;
+      background: radial-gradient(circle at .2rem .2rem, #101824 0 .2rem, transparent .21rem), radial-gradient(circle at calc(100% - .2rem) .2rem, #101824 0 .2rem, transparent .21rem);
+    }
+    .loader-copy { font-size: .8rem; font-weight: 700; letter-spacing: .02em; }
+    .loader-copy span::after { content: ""; animation: loading-dots 1.4s steps(4, end) infinite; }
+    @keyframes timetable-trip {
+      0% { transform: translateX(-3.5rem); opacity: 0; }
+      15%, 85% { opacity: 1; }
+      100% { transform: translateX(15rem); opacity: 0; }
+    }
+    @keyframes loading-dots {
+      0% { content: ""; }
+      25% { content: "."; }
+      50% { content: ".."; }
+      75%, 100% { content: "..."; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .loader-bus { animation: none; left: calc(50% - 1.65rem); }
+      .loader-copy span::after { animation: none; content: "..."; }
+    }
     input.key-bad { border-color: var(--bad); }
     .mode-explainer {
       display: flex;
@@ -765,6 +837,7 @@ S-C: #D03A2E / #FFFFFF`;
       page: 0,
       stopSearch: "",
       autoGtfsAttempted: false,
+      gtfsLoading: false,
       pageLocked: false,
       refreshing: false,
       refreshFailed: false,
@@ -1032,8 +1105,11 @@ S-C: #D03A2E / #FFFFFF`;
     }
 
     async function fetchGtfs(options = {}) {
+      if (state.gtfsLoading) return false;
       const candidates = options.candidates || gtfsFetchCandidates();
       const errors = [];
+      state.gtfsLoading = true;
+      if (state.config.mode === "setup") renderSetup();
       try {
         if (!options.quiet) setStatus("Fetching GTFS zip...");
         for (const candidate of candidates) {
@@ -1051,6 +1127,9 @@ S-C: #D03A2E / #FFFFFF`;
       } catch (err) {
         if (!options.quiet) setStatus(friendlyError(err, "GTFS fetch"), true);
         return false;
+      } finally {
+        state.gtfsLoading = false;
+        if (state.config.mode === "setup") renderSetup();
       }
     }
 
@@ -1774,10 +1853,14 @@ S-C: #D03A2E / #FFFFFF`;
           <div class="status-bar ${state.error ? "error" : ""}">${escapeHtml(state.error || state.status || defaultStatus)}</div>
 
           <div class="connect">
-            <div class="connect-pill ${gtfsReady ? "done" : ""}">
+            <div class="connect-pill ${gtfsReady ? "done" : ""}" aria-busy="${state.gtfsLoading ? "true" : "false"}">
+              ${state.gtfsLoading ? `<div class="timetable-loader" role="status" aria-live="polite">
+                <div class="loader-track" aria-hidden="true"><div class="loader-bus"></div></div>
+                <div class="loader-copy">Fetching the latest timetable<span></span></div>
+              </div>` : ""}
               <div class="pill-head">
                 <span class="pill-title">Timetable</span>
-                <span class="pill-state ${gtfsReady ? "ok" : ""}">${gtfsReady ? "&#10003; loaded" : state.bundle ? "saved board" : "loading…"}</span>
+                <span class="pill-state ${gtfsReady ? "ok" : ""}">${gtfsReady ? "&#10003; loaded" : state.bundle ? "saved board" : state.gtfsLoading ? "loading…" : "not loaded"}</span>
               </div>
               ${gtfsReady
                 ? `<div class="pill-sub">${state.gtfs.stops.length.toLocaleString()} stops · ${escapeHtml(state.gtfs.source)}</div>`
