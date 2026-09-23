@@ -225,7 +225,7 @@
     .chip .chip-id { color: var(--muted); font-weight: 400; font-size: .74rem; margin-left: .3rem; }
     .chip button { padding: 0 .45rem; background: transparent; border: none; color: var(--muted); font-size: .95rem; line-height: 1.3; }
     .chip button:hover { color: #ffd0e9; opacity: 1; }
-    .cta-row { display: flex; align-items: center; gap: .6rem; margin: .55rem 0; }
+    .cta-row { display: flex; flex-wrap: wrap; align-items: center; gap: .6rem; margin: .55rem 0; }
     .cta-row .primary { font-size: 1.02rem; padding: .62rem 1.2rem; }
 
     /* Connect strip (timetable + API key) */
@@ -534,7 +534,7 @@
     .dep-head,
     .dep-row {
       display: grid;
-      grid-template-columns: 8.75rem minmax(0, 1fr) 8.75rem 6rem;
+      grid-template-columns: 8.75rem minmax(0, 1fr) 8.75rem clamp(9rem, 10vw, 10rem);
       align-items: center;
     }
     .dep-head {
@@ -624,6 +624,8 @@
       text-align: right;
       font-size: clamp(1.9rem, 2.8vw, 3rem);
       font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      font-feature-settings: "tnum" 1;
       color: #f0fbff;
       white-space: nowrap;
       line-height: 1;
@@ -768,7 +770,29 @@
       "gtfs.zip",
       "gtfs (1).zip"
     ]);
-    const DEFAULT_ROUTE_COLORS = `BAYS: #1BE2F1 / #1F2A44
+    const DEFAULT_ROUTE_COLORS = `BAYS: #4FAFBD / #000000
+BIRK: #4FAFBD / #000000
+DEV: #4FAFBD / #000000
+GULF: #4FAFBD / #000000
+HMB: #4FAFBD / #000000
+HOBS: #4FAFBD / #000000
+MTIA: #4FAFBD / #000000
+MTID: #4FAFBD / #000000
+PINE: #4FAFBD / #000000
+RAK: #4FAFBD / #000000
+WSTH: #4FAFBD / #000000
+INN: #6CB655 / #000000
+OUT: #E99C3F / #000000
+AIR: #E99C3F / #000000
+CTY: #D9322A / #FFFFFF
+TMK: #3278B8 / #FFFFFF
+E-W: #A3C850 / #000000
+O-W: #4BAEE8 / #000000
+S-C: #D03A2E / #FFFFFF
+NX1: #23408B / #FFFFFF
+NX2: #4AA5B5 / #FFFFFF
+WX1: #3E8C52 / #FFFFFF`;
+    const PREVIOUS_DEFAULT_ROUTE_COLORS = `BAYS: #1BE2F1 / #1F2A44
 BIRK: #1BE2F1 / #1F2A44
 DEV: #1BE2F1 / #1F2A44
 GULF: #1BE2F1 / #1F2A44
@@ -781,12 +805,16 @@ RAK: #1BE2F1 / #1F2A44
 WSTH: #1BE2F1 / #1F2A44
 INN: #6CB655 / #FFFFFF
 OUT: #E99C3F / #FFFFFF
-AIR: #E99C3F / #FFFFFF
+AIR: #E99C3F / #1F2A44
 CTY: #D9322A / #FFFFFF
 TMK: #3278B8 / #FFFFFF
 E-W: #A3C850 / #1F2A44
 O-W: #4BAEE8 / #1F2A44
 S-C: #D03A2E / #FFFFFF`;
+    const LEGACY_DEFAULT_ROUTE_COLORS = new Set([
+      PREVIOUS_DEFAULT_ROUTE_COLORS,
+      PREVIOUS_DEFAULT_ROUTE_COLORS.replace("AIR: #E99C3F / #1F2A44", "AIR: #E99C3F / #FFFFFF")
+    ]);
     const PRESETS = {
       "at-default": {
         label: "AT Default",
@@ -838,6 +866,7 @@ S-C: #D03A2E / #FFFFFF`;
       stopSearch: "",
       autoGtfsAttempted: false,
       gtfsLoading: false,
+      colorDemo: false,
       pageLocked: false,
       refreshing: false,
       refreshFailed: false,
@@ -852,6 +881,7 @@ S-C: #D03A2E / #FFFFFF`;
       const saved = loadJson("config") || {};
       if (saved.demoMode || String(saved.stopIds || "").includes("demo-")) return Object.assign({}, DEFAULT_CONFIG);
       delete saved.demoMode;
+      if (LEGACY_DEFAULT_ROUTE_COLORS.has(saved.routeColors)) delete saved.routeColors;
       if (LEGACY_GTFS_URLS.has(saved.gtfsUrl)) delete saved.gtfsUrl;
       if (!saved.realtimeUrl) delete saved.realtimeUrl;
       if (!saved.alertsUrl) delete saved.alertsUrl;
@@ -1153,7 +1183,8 @@ S-C: #D03A2E / #FFFFFF`;
         if (!line || line.startsWith("#")) continue;
         const match = line.match(/^([^:]+):\s*(#[0-9a-f]{6})\s*\/\s*(#[0-9a-f]{6})\s*$/i);
         if (!match) continue;
-        colors.set(normLabel(match[1]), { background: match[2].toUpperCase(), text: match[3].toUpperCase() });
+        const route = match[1].trim();
+        colors.set(normLabel(route), { route, background: match[2].toUpperCase(), text: match[3].toUpperCase() });
       }
       return colors;
     }
@@ -1918,6 +1949,7 @@ S-C: #D03A2E / #FFFFFF`;
           <div class="cta-row">
             <button class="primary" data-action="go" ${canGo ? "" : "disabled"} title="${escapeHtml(ctaBlocked || "Open the board")}">${gtfsReady ? (state.bundle ? "Rebuild &amp; open board" : "Build &amp; open board") : state.bundle ? "Open board" : "Build &amp; open board"}</button>
             ${state.bundle && gtfsReady ? `<button class="ghost" data-action="openOnly" ${keyUsable ? "" : "disabled"} title="${escapeHtml(keyUsable ? "Open the saved board without rebuilding" : ctaBlocked)}">Open without rebuilding</button>` : ""}
+            <button class="ghost" type="button" data-action="colorDemo">Preview route colours</button>
           </div>
 
           ${collapsible("advanced", "Advanced", `
@@ -1987,6 +2019,13 @@ S-C: #D03A2E / #FFFFFF`;
         else if (state.bundle) { saveConfig({ mode: "board" }); render(); }
       });
       q("[data-action=openOnly]")?.addEventListener("click", () => { readFormIntoConfig(); saveConfig({ mode: "board" }); render(); });
+      q("[data-action=colorDemo]")?.addEventListener("click", () => {
+        readFormIntoConfig();
+        saveConfig();
+        state.colorDemo = true;
+        state.page = 0;
+        render();
+      });
       q("[data-action=reset]")?.addEventListener("click", resetAll);
       q("[data-action=fetchGtfs]")?.addEventListener("click", () => { readFormIntoConfig(); saveConfig(); fetchGtfs(); });
       q("[name=presetChoice]")?.addEventListener("change", e => applyPreset(e.target.value));
@@ -2130,6 +2169,57 @@ S-C: #D03A2E / #FFFFFF`;
       document.querySelector("[data-action=lockPage]")?.addEventListener("click", () => { state.pageLocked = !state.pageLocked; saveConfig({ lockFirstPage: state.pageLocked }); if (state.pageLocked) state.page = 0; renderBoard(); });
     }
 
+    function renderColorDemo() {
+      const cfg = state.config;
+      state.now = new Date();
+      const colors = Array.from(parseRouteColors(cfg.routeColors).values());
+      const rows = colors.map((color, index) => {
+        const scheduled = state.now.getTime() + (index + 1) * 5 * 60000;
+        return {
+          routeLabel: color.route,
+          destination: "Route Colour Preview",
+          occupancy: 0,
+          status: "scheduled",
+          scheduled,
+          effective: scheduled
+        };
+      });
+      const pageSize = Math.max(1, cfg.pageSize);
+      const pages = [];
+      for (let i = 0; i < rows.length; i += pageSize) pages.push(rows.slice(i, i + pageSize));
+      if (!pages.length) pages.push([]);
+      state.page = ((state.page % pages.length) + pages.length) % pages.length;
+      const pageRows = pages[state.page];
+
+      app.innerHTML = `
+        <main class="board">
+          <section class="board-shell">
+            <header class="board-header">
+              <div class="board-meta">
+                <div class="board-meta-top"><span>Route colour preview ${state.page + 1}/${pages.length}</span></div>
+                <div class="board-controls">
+                  <button class="ghost small" data-action="previousDemo">Previous</button>
+                  <button class="primary small" data-action="nextDemo">Next colours</button>
+                  <button class="ghost small" data-action="setup">Back to settings</button>
+                </div>
+              </div>
+            </header>
+            <div class="alert-banner warn">Preview only — no timetable or live data is being used.</div>
+            <div class="board-body">
+              ${pageRows.length ? renderTable(pageRows, cfg) : `<div class="empty-state"><div><strong>No route colours configured</strong><br><span>Add colours in Advanced settings to preview them here.</span></div></div>`}
+            </div>
+            <footer class="board-footer">
+              <div class="legend"><span class="legend-swatch"></span>Configured route colours</div>
+              <div class="ticker">Edit the palette in Advanced settings</div>
+              <div class="clock">${clockLabel(state.now, cfg.timezone)}</div>
+            </footer>
+          </section>
+        </main>`;
+      document.querySelector("[data-action=previousDemo]")?.addEventListener("click", () => { state.page--; renderColorDemo(); });
+      document.querySelector("[data-action=nextDemo]")?.addEventListener("click", () => { state.page++; renderColorDemo(); });
+      document.querySelector("[data-action=setup]")?.addEventListener("click", () => { state.colorDemo = false; state.page = 0; render(); });
+    }
+
     function renderTable(rows, cfg) {
       const frequent = new Set(splitList(cfg.frequentRoutes).map(normLabel));
       const routeColors = parseRouteColors(cfg.routeColors);
@@ -2182,6 +2272,11 @@ S-C: #D03A2E / #FFFFFF`;
 
     function render() {
       clearTimers();
+      if (state.colorDemo) {
+        renderColorDemo();
+        timers.push(setInterval(() => { state.page++; renderColorDemo(); }, Math.max(3, state.config.rotateSeconds) * 1000));
+        return;
+      }
       const keySet = Boolean(String(state.config.subscriptionKey || "").trim());
       const keyOk = keySet || state.config.requireSubscriptionKey === false;
       if (state.config.mode === "board" && state.bundle && keyOk) { renderBoard(); startRuntime(); maybeRebuildStaleBundle(); }
