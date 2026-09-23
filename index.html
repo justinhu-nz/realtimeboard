@@ -689,9 +689,10 @@
     // predictions without a personal key, but does not replace the comprehensive GTFS-RT
     // feeds. Kept as a fallback if config migration removes departuresKey.
     const DEPARTURES_KEY = "0526f69dcb074a4b8df741eef46121fc";
-    const DEFAULT_GTFS_URL = "https://github.com/justinhu-nz/auckland-gtfs/raw/refs/heads/main/gtfs.zip";
+    const DEFAULT_GTFS_URL = "https://raw.githubusercontent.com/justinhu-nz/auckland-gtfs/refs/heads/main/gtfs.zip";
     const LEGACY_GTFS_URLS = new Set([
       "https://gtfs.at.govt.nz/gtfs.zip",
+      "https://github.com/justinhu-nz/auckland-gtfs/raw/refs/heads/main/gtfs.zip",
       "gtfs.zip",
       "gtfs (1).zip"
     ]);
