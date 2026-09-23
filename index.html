@@ -59,6 +59,7 @@
     }
     input:focus, textarea:focus { outline: none; border-color: var(--accent); }
     textarea { min-height: 3.1rem; resize: vertical; }
+    textarea[name="routeColors"] { min-height: 14rem; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
 
     /* Setup */
     .setup {
@@ -688,9 +689,31 @@
     // predictions without a personal key, but does not replace the comprehensive GTFS-RT
     // feeds. Kept as a fallback if config migration removes departuresKey.
     const DEPARTURES_KEY = "0526f69dcb074a4b8df741eef46121fc";
-    const LEGACY_GTFS_URL = "https://gtfs.at.govt.nz/gtfs.zip";
-    const DEFAULT_GTFS_FILE = "gtfs.zip";
-    const SAME_FOLDER_GTFS_CANDIDATES = [DEFAULT_GTFS_FILE, "gtfs (1).zip"];
+    const DEFAULT_GTFS_URL = "https://github.com/justinhu-nz/auckland-gtfs/raw/refs/heads/main/gtfs.zip";
+    const LEGACY_GTFS_URLS = new Set([
+      "https://gtfs.at.govt.nz/gtfs.zip",
+      "gtfs.zip",
+      "gtfs (1).zip"
+    ]);
+    const DEFAULT_ROUTE_COLORS = `BAYS: #1BE2F1 / #1F2A44
+BIRK: #1BE2F1 / #1F2A44
+DEV: #1BE2F1 / #1F2A44
+GULF: #1BE2F1 / #1F2A44
+HMB: #1BE2F1 / #1F2A44
+HOBS: #1BE2F1 / #1F2A44
+MTIA: #1BE2F1 / #1F2A44
+MTID: #1BE2F1 / #1F2A44
+PINE: #1BE2F1 / #1F2A44
+RAK: #1BE2F1 / #1F2A44
+WSTH: #1BE2F1 / #1F2A44
+INN: #6CB655 / #FFFFFF
+OUT: #E99C3F / #FFFFFF
+AIR: #E99C3F / #FFFFFF
+CTY: #D9322A / #FFFFFF
+TMK: #3278B8 / #FFFFFF
+E-W: #A3C850 / #1F2A44
+O-W: #4BAEE8 / #1F2A44
+S-C: #D03A2E / #FFFFFF`;
     const PRESETS = {
       "at-default": {
         label: "AT Default",
@@ -706,13 +729,14 @@
     };
     const DEFAULT_CONFIG = {
       timezone: "Pacific/Auckland",
-      gtfsUrl: DEFAULT_GTFS_FILE,
+      gtfsUrl: DEFAULT_GTFS_URL,
       realtimeUrl: "https://api.at.govt.nz/realtime/legacy/tripupdates",
       alertsUrl: "https://api.at.govt.nz/realtime/legacy/servicealerts",
       vehiclesUrl: "https://api.at.govt.nz/realtime/legacy/vehiclelocations",
       departuresUrl: "https://api.at.govt.nz/serviceinfo/v1/departures",
       departuresKey: DEPARTURES_KEY,
       frequentRoutes: "",
+      routeColors: DEFAULT_ROUTE_COLORS,
       subscriptionKey: "",
       pollSeconds: 10,
       pageSize: 5,
@@ -754,7 +778,7 @@
       const saved = loadJson("config") || {};
       if (saved.demoMode || String(saved.stopIds || "").includes("demo-")) return Object.assign({}, DEFAULT_CONFIG);
       delete saved.demoMode;
-      if (saved.gtfsUrl === LEGACY_GTFS_URL) delete saved.gtfsUrl;
+      if (LEGACY_GTFS_URLS.has(saved.gtfsUrl)) delete saved.gtfsUrl;
       if (!saved.realtimeUrl) delete saved.realtimeUrl;
       if (!saved.alertsUrl) delete saved.alertsUrl;
       if (!saved.vehiclesUrl) delete saved.vehiclesUrl;
@@ -838,7 +862,7 @@
       } catch { return "#"; }
     }
     function gtfsFetchCandidates(primary = state.config.gtfsUrl) {
-      const values = [primary, ...SAME_FOLDER_GTFS_CANDIDATES]
+      const values = [primary, DEFAULT_GTFS_URL]
         .map(v => String(v || "").trim())
         .filter(Boolean);
       return Array.from(new Set(values));
@@ -1040,6 +1064,18 @@
     function cleanColor(v) {
       const color = String(v || "").replace(/^#/, "").trim().toUpperCase();
       return /^[0-9A-F]{6}$/.test(color) ? color : "";
+    }
+
+    function parseRouteColors(text) {
+      const colors = new Map();
+      for (const rawLine of String(text || "").split(/\r?\n/)) {
+        const line = rawLine.trim();
+        if (!line || line.startsWith("#")) continue;
+        const match = line.match(/^([^:]+):\s*(#[0-9a-f]{6})\s*\/\s*(#[0-9a-f]{6})\s*$/i);
+        if (!match) continue;
+        colors.set(normLabel(match[1]), { background: match[2].toUpperCase(), text: match[3].toUpperCase() });
+      }
+      return colors;
     }
 
     async function buildBundle() {
@@ -1704,7 +1740,7 @@
       const defaultStatus = state.bundle
         ? "Board ready — open it below, or adjust stops and rebuild."
         : gtfsReady ? "Timetable loaded — pick your stops, then build the board."
-        : "Waiting for timetable data (gtfs.zip)...";
+        : "Waiting for timetable data from the GTFS URL...";
 
       const keyVal = String(cfg.subscriptionKey || "").trim();
       const keyStatePill = state.keyTest === "ok" ? "done" : state.keyTest === "fail" ? "bad" : "";
@@ -1748,7 +1784,7 @@
                      <label class="link-button" style="cursor:pointer">Upload zip<input name="gtfsFile" type="file" accept=".zip" hidden></label>
                      <button class="ghost small" type="button" data-action="fetchGtfs">Retry</button>
                    </div>
-                   <div class="pill-sub">Auto-loads <code>gtfs.zip</code> beside this file.</div>`}
+                   <div class="pill-sub">Auto-loads the latest timetable from the configured GTFS URL.</div>`}
             </div>
 
             <div class="connect-pill ${keyStatePill}">
@@ -1801,7 +1837,8 @@
           </div>
 
           ${collapsible("advanced", "Advanced", `
-            <div class="field"><label>GTFS zip file path or URL</label><input name="gtfsUrl" value="${escapeHtml(cfg.gtfsUrl)}"><div class="hint">Default is <code>gtfs.zip</code> next to this HTML file; <code>gtfs (1).zip</code> is tried as a fallback.</div></div>
+            <div class="field"><label>GTFS zip file path or URL</label><input name="gtfsUrl" value="${escapeHtml(cfg.gtfsUrl)}"><div class="hint">Defaults to the Auckland GTFS feed hosted in your GitHub repository.</div></div>
+            <div class="field"><label>Route colours</label><textarea name="routeColors" spellcheck="false">${escapeHtml(cfg.routeColors)}</textarea><div class="hint">One per line: <code>ROUTE: #BACKGROUND / #TEXT</code>. These override the standard cyan and outline styles.</div></div>
             <div class="field"><label>Departures API URL (limited per-stop predictions)</label><input name="departuresUrl" value="${escapeHtml(cfg.departuresUrl)}"><div class="hint">Uses the built-in departures credential. Coverage is incomplete; trips without an expected time remain scheduled.</div></div>
             <div class="field"><label>GTFS-RT trip updates URL</label><input name="realtimeUrl" value="${escapeHtml(cfg.realtimeUrl)}"></div>
             <div class="row">
@@ -1928,6 +1965,7 @@
       if (v("vehiclesUrl") !== undefined) cfg.vehiclesUrl = v("vehiclesUrl");
       if (v("departuresUrl") !== undefined) cfg.departuresUrl = v("departuresUrl");
       if (v("frequentRoutes") !== undefined) cfg.frequentRoutes = v("frequentRoutes");
+      if (v("routeColors") !== undefined) cfg.routeColors = v("routeColors");
       if (v("subscriptionKey") !== undefined) cfg.subscriptionKey = v("subscriptionKey");
       if (v("pollSeconds") !== undefined) cfg.pollSeconds = clampNumber(v("pollSeconds"), DEFAULT_CONFIG.pollSeconds, 5, 3600);
       if (v("pageSize") !== undefined) cfg.pageSize = Math.round(clampNumber(v("pageSize"), DEFAULT_CONFIG.pageSize, 1, 50));
@@ -2010,9 +2048,12 @@
 
     function renderTable(rows, cfg) {
       const frequent = new Set(splitList(cfg.frequentRoutes).map(normLabel));
+      const routeColors = parseRouteColors(cfg.routeColors);
       return `<div class="dep-table"><div class="dep-head"><div>Route</div><div>Destination</div><div>Occupancy</div><div>Due</div></div><div class="dep-rows" style="--row-count:${rows.length}">${rows.map(r => {
         // Blank frequent-routes list = every pill filled cyan; otherwise only listed routes are filled, the rest outlined (matches AT PID styling).
-        const pillClass = !frequent.size || frequent.has(normLabel(r.routeLabel)) ? "" : " outline";
+        const customColor = routeColors.get(normLabel(r.routeLabel));
+        const pillClass = customColor || !frequent.size || frequent.has(normLabel(r.routeLabel)) ? "" : " outline";
+        const pillStyle = customColor ? ` style="background:${customColor.background};color:${customColor.text};border-color:${customColor.background}"` : "";
         const cancelled = r.status === "cancelled";
         const middle = cancelled ? `<span class="badge cancelled">Cancelled</span>` : occupancyIcons(r.occupancy);
         // Live rows (a real prediction) show the moving countdown; rows with no ETA show
@@ -2021,13 +2062,13 @@
         const due = (cancelled || r.status === "scheduled")
           ? timeLabel(r.scheduled, cfg.timezone)
           : formatDue(r.effective, state.now.getTime(), cfg);
-        return `<div class="dep-row"><div><span class="route-pill${pillClass}">${escapeHtml(r.routeLabel)}</span></div><div><div class="dest-cell"><strong>${escapeHtml(normalizeDestinationLabel(r.destination))}</strong></div></div><div>${middle}</div><div class="due-cell">${due}</div></div>`;
+        return `<div class="dep-row"><div><span class="route-pill${pillClass}"${pillStyle}>${escapeHtml(r.routeLabel)}</span></div><div><div class="dest-cell"><strong>${escapeHtml(normalizeDestinationLabel(r.destination))}</strong></div></div><div>${middle}</div><div class="due-cell">${due}</div></div>`;
       }).join("")}</div></div>`;
     }
 
     // A board built from an old GTFS zip is useless with today's realtime: AT rotates
     // trip ids every release, so nothing matches and every row silently degrades to the
-    // stale schedule. Rebuild automatically from the current zip when the bundle ages.
+    // stale schedule. Rebuild automatically from the configured GTFS URL when the bundle ages.
     const BUNDLE_MAX_AGE_MS = 3 * 24 * 3600000;
     let bundleRefreshAttempted = false;
     async function maybeRebuildStaleBundle() {
@@ -2040,7 +2081,7 @@
       else console.warn("[bundle] automatic refresh failed - keeping the old board");
     }
 
-    function autoLoadSameFolderGtfs() {
+    function autoLoadGtfs() {
       if (state.autoGtfsAttempted || state.gtfs) return;
       state.autoGtfsAttempted = true;
       fetchGtfs({ quiet: true }).then(ok => { if (ok && state.config.mode === "setup") renderSetup(); });
@@ -2060,7 +2101,7 @@
       const keySet = Boolean(String(state.config.subscriptionKey || "").trim());
       const keyOk = keySet || state.config.requireSubscriptionKey === false;
       if (state.config.mode === "board" && state.bundle && keyOk) { renderBoard(); startRuntime(); maybeRebuildStaleBundle(); }
-      else { state.config.mode = "setup"; renderSetup(); autoLoadSameFolderGtfs(); }
+      else { state.config.mode = "setup"; renderSetup(); autoLoadGtfs(); }
     }
 
     window.addEventListener("error", e => { state.status = "Error: " + (e.message || "unknown"); try { render(); } catch {} });
