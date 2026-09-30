@@ -211,6 +211,10 @@
     .step-status { font-size: .75rem; font-weight: 400; color: var(--muted); margin-left: .4rem; }
     .ok { color: var(--good); }
     .chips { display: flex; flex-wrap: wrap; gap: .35rem; }
+    .checkbox-label { display: inline-flex !important; align-items: center; gap: .5rem; cursor: pointer; color: var(--text) !important; font-weight: 700 !important; }
+    .checkbox-label input { width: auto; margin: 0; }
+    .dual-stop-settings { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .65rem; }
+    .dual-stop-settings input { margin-top: .4rem; }
     .chip {
       display: inline-flex;
       align-items: center;
@@ -509,6 +513,85 @@
       display: flex;
       flex-direction: column;
     }
+    /* Scale every dual-board column from the same unit as the CSS viewport narrows at page zoom. */
+    .dual-mode { --dual-unit: clamp(.625rem, 1.25vw, 1rem); }
+    .dual-mode.board:not(.frameless) { padding: calc(1.25 * var(--dual-unit)); }
+    .dual-mode .board-shell:not(.frameless) { padding: calc(.7 * var(--dual-unit)); gap: calc(.6 * var(--dual-unit)); }
+    .dual-bands {
+      flex: 1;
+      min-height: 0;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: calc(.7 * var(--dual-unit, 1rem));
+    }
+    .dual-band {
+      min-width: 0;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      border: 1px solid rgba(185, 200, 216, .3);
+      border-radius: var(--radius);
+      background: var(--surface);
+    }
+    .dual-band-header {
+      min-height: calc(4.25 * var(--dual-unit));
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: calc(.6 * var(--dual-unit));
+      padding: calc(.55 * var(--dual-unit)) calc(.8 * var(--dual-unit));
+      background: rgba(98, 221, 244, .12);
+      border-bottom: 1px solid rgba(98, 221, 244, .25);
+    }
+    .dual-band:nth-child(2) .dual-band-header { background: rgba(241, 198, 102, .1); border-color: rgba(241, 198, 102, .25); }
+    .dual-band-header > div { min-width: 0; }
+    .dual-direction { display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: calc(2 * var(--dual-unit)); font-weight: 800; line-height: 1.15; }
+    .dual-stop-code { display: block; color: var(--muted); font-size: calc(.85 * var(--dual-unit)); }
+    .dual-page { color: var(--muted); font-size: calc(1 * var(--dual-unit)); font-weight: 700; white-space: nowrap; }
+    .dual-mode .dual-band .dep-table { border-radius: 0; }
+    .dual-mode .dual-band .dep-head,
+    .dual-mode .dual-band .dep-row {
+      grid-template-columns: calc(8 * var(--dual-unit)) minmax(0, 1fr) calc(4.5 * var(--dual-unit)) calc(7.25 * var(--dual-unit));
+      column-gap: calc(.25 * var(--dual-unit));
+    }
+    .dual-mode .dual-band .dep-row { padding: calc(.45 * var(--dual-unit)) calc(.6 * var(--dual-unit)); }
+    .dual-mode .dual-band .dep-head { padding: calc(.3 * var(--dual-unit)) calc(.6 * var(--dual-unit)); font-size: calc(.98 * var(--dual-unit)); }
+    .dual-mode .dual-band .route-pill {
+      width: calc(6.65 * var(--dual-unit));
+      height: calc(2.85 * var(--dual-unit));
+      padding: 0 calc(.45 * var(--dual-unit));
+      border-radius: calc(.5 * var(--dual-unit));
+      font-size: calc(1.95 * var(--dual-unit));
+    }
+    .dual-mode .dual-band .dest-cell strong {
+      width: 100%;
+      min-width: 0;
+      font-size: calc(1.95 * var(--dual-unit));
+      line-height: 1.05;
+      max-height: 2.1em;
+      overflow: hidden;
+      overflow-wrap: anywhere;
+    }
+    .dual-mode .dual-band .occ-cell { gap: calc(.22 * var(--dual-unit)); }
+    .dual-mode .dual-band .occ-cell svg { width: calc(.62 * var(--dual-unit)); height: calc(1.8 * var(--dual-unit)); }
+    .dual-mode .dual-band .badge.cancelled { padding: calc(.2 * var(--dual-unit)) calc(.3 * var(--dual-unit)); font-size: calc(.75 * var(--dual-unit)); }
+    .dual-mode .dual-band .due-cell { font-size: calc(2.4 * var(--dual-unit)); }
+    .dual-mode .board-footer { gap: calc(.75 * var(--dual-unit)); padding: calc(.75 * var(--dual-unit)) calc(.9 * var(--dual-unit)); }
+    .dual-mode .board-footer .legend { gap: calc(.55 * var(--dual-unit)); font-size: calc(1.2 * var(--dual-unit)); }
+    .dual-mode .board-footer .ticker { font-size: calc(1.15 * var(--dual-unit)); }
+    .dual-mode .board-footer .mode-indicator { font-size: calc(.98 * var(--dual-unit)); padding: calc(.3 * var(--dual-unit)) calc(.62 * var(--dual-unit)); }
+    .dual-mode .board-footer .clock { font-size: calc(2.1 * var(--dual-unit)); }
+    @media (max-width: 800px) and (orientation: landscape) {
+      .dual-mode .dual-band .dep-head,
+      .dual-mode .dual-band .dep-row {
+        grid-template-columns: calc(8 * var(--dual-unit)) minmax(0, 1fr) calc(7.25 * var(--dual-unit));
+      }
+      .dual-mode .dual-band .dep-head > div:nth-child(3),
+      .dual-mode .dual-band .dep-row > div:nth-child(3) { display: none; }
+    }
+    .board.frameless.dual-mode .dual-bands { gap: 0; }
+    .board.frameless.dual-mode .dual-band { border-radius: 0; border-top: 0; border-bottom: 0; }
     .alert-banner {
       padding: .6rem .8rem;
       border-radius: var(--radius);
@@ -729,8 +812,9 @@
       border-radius: var(--radius);
       color: #f1fbff;
     }
-    @media (max-width: 700px) {
+    @media (max-width: 700px) and (orientation: portrait) {
       .setup { padding: .5rem; }
+      .dual-stop-settings { grid-template-columns: 1fr; }
       .board { padding: .5rem; }
       .board-header { flex-direction: column; gap: .5rem; }
       .board-meta { text-align: left; align-items: flex-start; }
@@ -752,6 +836,10 @@
       .due-cell { text-align: left; }
       .board-footer { flex-wrap: wrap; }
       .mode-indicator { max-width: 100%; order: 3; }
+      .dual-bands { grid-template-columns: 1fr; overflow-y: auto; }
+      .dual-mode .dual-band .dep-table,
+      .dual-mode .dual-band .dep-rows,
+      .dual-mode .dual-band .dep-row { display: block; }
     }
   </style>
 </head>
@@ -849,6 +937,11 @@ S-C: #D03A2E / #FFFFFF`;
       staleMultiplier: 2,
       routeAllowlist: "",
       stopIds: "8205-eda192d2",
+      dualStopMode: false,
+      dualStopLeftId: "",
+      dualStopRightId: "",
+      dualStopLeftLabel: "",
+      dualStopRightLabel: "",
       chromeHidden: false,
       mode: "setup"
     };
@@ -914,6 +1007,18 @@ S-C: #D03A2E / #FFFFFF`;
     function clearTimers() { timers.forEach(clearInterval); timers = []; }
     function splitList(text) {
       return String(text || "").split(/[,\n]/).map(v => v.trim()).filter(Boolean);
+    }
+    function dualStopIds(cfg = state.config) {
+      const stops = Array.from(new Set(splitList(cfg.stopIds)));
+      const left = stops.includes(cfg.dualStopLeftId) ? cfg.dualStopLeftId : stops[0];
+      const right = stops.includes(cfg.dualStopRightId) && cfg.dualStopRightId !== left
+        ? cfg.dualStopRightId : stops.find(id => id !== left);
+      return [left, right];
+    }
+    function bundleHasSelectedStops(cfg = state.config) {
+      if (!state.bundle) return false;
+      const ids = cfg.dualStopMode ? dualStopIds(cfg) : splitList(cfg.stopIds);
+      return ids.every(id => Boolean(state.bundle.stops && state.bundle.stops[id]));
     }
     function gtfsRtArray(value) {
       if (!value) return [];
@@ -1200,9 +1305,18 @@ S-C: #D03A2E / #FFFFFF`;
         const match = state.gtfs.stops.find(s => s.stop_code === code || s.stop_id.split("-")[0] === code);
         return match ? match.stop_id : id;
       };
-      const resolved = splitList(state.config.stopIds).map(resolveStop);
+      const configuredStops = splitList(state.config.stopIds);
+      const resolved = configuredStops.map(resolveStop);
       const resolvedText = resolved.join(", ");
       if (resolvedText !== splitList(state.config.stopIds).join(", ")) saveConfig({ stopIds: resolvedText });
+      if (state.config.dualStopMode) {
+        const leftIndex = configuredStops.indexOf(state.config.dualStopLeftId);
+        const rightIndex = configuredStops.indexOf(state.config.dualStopRightId);
+        saveConfig({
+          dualStopLeftId: leftIndex >= 0 ? resolved[leftIndex] : resolved[0] || "",
+          dualStopRightId: rightIndex >= 0 ? resolved[rightIndex] : resolved.find(id => id !== resolved[0]) || ""
+        });
+      }
       const stopIds = new Set(resolved);
       if (!stopIds.size) { setStatus("Add at least one stop.", true); return; }
       setStatus("Building board...");
@@ -1278,7 +1392,8 @@ S-C: #D03A2E / #FFFFFF`;
     function departureStopCodes() {
       // AT stop codes (the number on the sign, used by the departures API) are the
       // leading segment of GTFS stop ids like "3955-edf582eb".
-      return Array.from(new Set(splitList(state.config.stopIds).map(id => id.split("-")[0]).filter(Boolean)));
+      const ids = state.config.dualStopMode ? dualStopIds() : splitList(state.config.stopIds);
+      return Array.from(new Set(ids.filter(Boolean).map(id => id.split("-")[0])));
     }
 
     // Per-stop predictions from AT's departures API. Coverage is intentionally treated as
@@ -1638,7 +1753,7 @@ S-C: #D03A2E / #FFFFFF`;
       const today = dateKeyFor(state.now, cfg.timezone);
       const dates = [shiftDateKey(today, -1), today, shiftDateKey(today, 1)];
       const rows = [];
-      for (const stopId of splitList(cfg.stopIds)) {
+      for (const stopId of (cfg.dualStopMode ? dualStopIds(cfg) : splitList(cfg.stopIds))) {
         const stop = bundle.stops[stopId];
         for (const st of (bundle.stopTimesByStop[stopId] || [])) {
           const trip = bundle.trips[st.tripId], route = bundle.routes[st.routeId];
@@ -1690,7 +1805,7 @@ S-C: #D03A2E / #FFFFFF`;
               );
             }
             rows.push({
-              key: st.tripId + ":" + serviceDate, tripId: st.tripId, routeId: route.routeId,
+              key: st.tripId + ":" + stopId + ":" + serviceDate, tripId: st.tripId, routeId: route.routeId,
               stopId, serviceDate, routeLabel: route.shortName, routeColor: route.color,
               routeTextColor: route.textColor,
               destination: st.headsign || trip.headsign || "",
@@ -1710,7 +1825,7 @@ S-C: #D03A2E / #FFFFFF`;
 
     function boardAlerts() {
       if (!state.bundle || !state.realtime || !String(state.config.subscriptionKey || "").trim()) return [];
-      const stops = new Set(splitList(state.config.stopIds));
+      const stops = new Set(state.config.dualStopMode ? dualStopIds() : splitList(state.config.stopIds));
       const routes = new Set(Object.keys(state.bundle.routes));
       return (state.realtime.alerts || []).filter(a => (a.stopIds || []).some(s => stops.has(s)) || (a.routeIds || []).some(r => routes.has(r)));
     }
@@ -1843,11 +1958,14 @@ S-C: #D03A2E / #FFFFFF`;
         ? state.gtfs.stops.filter(s => (s.stop_id + " " + s.stop_name + " " + (s.stop_desc || "")).toLowerCase().includes(state.stopSearch.toLowerCase())).slice(0, 30)
         : [];
       const stopList = splitList(cfg.stopIds);
+      const [leftStopId, rightStopId] = dualStopIds(cfg);
+      const dualReady = !cfg.dualStopMode || Boolean(leftStopId && rightStopId);
       const gtfsReady = Boolean(state.gtfs);
+      const savedBoardReady = bundleHasSelectedStops(cfg);
       const keySet = Boolean(String(cfg.subscriptionKey || "").trim());
       const keyRequired = cfg.requireSubscriptionKey !== false;
       const keyUsable = keySet || !keyRequired;
-      const canGo = keyUsable && (gtfsReady || Boolean(state.bundle));
+      const canGo = keyUsable && dualReady && (gtfsReady || savedBoardReady);
       const defaultStatus = state.bundle
         ? "Board ready — open it below, or adjust stops and rebuild."
         : gtfsReady ? "Timetable loaded — pick your stops, then build the board."
@@ -1859,8 +1977,9 @@ S-C: #D03A2E / #FFFFFF`;
         : state.keyTest === "fail" ? "&#10007; failed"
         : state.keyTest === "testing" ? "testing…"
         : keyVal ? "untested" : (cfg.requireSubscriptionKey !== false ? "needed" : "optional");
-      const ctaBlocked = (keyRequired && !keySet) ? "Enter your AT API key first"
-        : !(gtfsReady || state.bundle) ? "Waiting for timetable data…"
+      const ctaBlocked = !dualReady ? "Select at least two stops for dual-stop mode"
+        : (keyRequired && !keySet) ? "Enter your AT API key first"
+        : !(gtfsReady || savedBoardReady) ? "Load the timetable and rebuild for the selected stops"
         : "";
       const testedTripHealth = state.realtime && state.realtime.feedHealth && state.realtime.feedHealth.tripUpdates;
       const fullLiveUnavailable = keySet && (state.keyTest === "fail" || (testedTripHealth && !testedTripHealth.ok));
@@ -1939,6 +2058,10 @@ S-C: #D03A2E / #FFFFFF`;
             <div class="chips">${stopList.length
               ? stopList.map(id => `<span class="chip">${escapeHtml(stopDisplayName(id))}<span class="chip-id">${escapeHtml(id)}</span><button type="button" data-removestop="${escapeHtml(id)}" title="Remove stop">&times;</button></span>`).join("")
               : `<span class="hint">No stops selected yet.</span>`}</div>
+            <div class="field"><label class="checkbox-label"><input name="dualStopMode" type="checkbox" ${cfg.dualStopMode ? "checked" : ""}> Show two stops side by side</label><div class="hint">Each stop gets its own vertical band. Add at least two stops above, then choose which appears on each side.</div></div>
+            ${cfg.dualStopMode ? `<div class="dual-stop-settings">
+              ${[["Left", leftStopId, "dualStopLeftId", "dualStopLeftLabel", cfg.dualStopLeftLabel], ["Right", rightStopId, "dualStopRightId", "dualStopRightLabel", cfg.dualStopRightLabel]].map(([side, selectedId, idName, labelName, label]) => `<div class="field"><label>${side} stop</label><select name="${idName}">${stopList.map(id => `<option value="${escapeHtml(id)}" ${id === selectedId ? "selected" : ""}>${escapeHtml(stopDisplayName(id))} · ${escapeHtml(id.split("-")[0])}</option>`).join("")}</select><input name="${labelName}" value="${escapeHtml(label)}" placeholder="Optional direction label" aria-label="${side} direction label"><div class="hint">Blank uses the stop name.</div></div>`).join("")}
+            </div>` : ""}
             <div class="row">
               <div class="field"><label>Only show these routes (comma-separated, blank = all)</label><input name="routeAllowlist" value="${escapeHtml(cfg.routeAllowlist)}"></div>
               <div class="field"><label>Frequent routes — solid cyan pill (blank = all)</label><input name="frequentRoutes" value="${escapeHtml(cfg.frequentRoutes)}"></div>
@@ -1948,7 +2071,7 @@ S-C: #D03A2E / #FFFFFF`;
 
           <div class="cta-row">
             <button class="primary" data-action="go" ${canGo ? "" : "disabled"} title="${escapeHtml(ctaBlocked || "Open the board")}">${gtfsReady ? (state.bundle ? "Rebuild &amp; open board" : "Build &amp; open board") : state.bundle ? "Open board" : "Build &amp; open board"}</button>
-            ${state.bundle && gtfsReady ? `<button class="ghost" data-action="openOnly" ${keyUsable ? "" : "disabled"} title="${escapeHtml(keyUsable ? "Open the saved board without rebuilding" : ctaBlocked)}">Open without rebuilding</button>` : ""}
+            ${state.bundle && gtfsReady ? `<button class="ghost" data-action="openOnly" ${keyUsable && dualReady && savedBoardReady ? "" : "disabled"} title="${escapeHtml(keyUsable && dualReady && savedBoardReady ? "Open the saved board without rebuilding" : ctaBlocked)}">Open without rebuilding</button>` : ""}
             <button class="ghost" type="button" data-action="colorDemo">Preview route colours</button>
           </div>
 
@@ -2046,14 +2169,19 @@ S-C: #D03A2E / #FFFFFF`;
         state.config.subscriptionKey = e.target.value;
         state.keyTest = null;
         e.target.classList.remove("key-bad");
-        const enabled = Boolean(e.target.value.trim()) || state.config.requireSubscriptionKey === false;
-        const go = q("[data-action=go]"); if (go) go.disabled = !enabled || !(state.gtfs || state.bundle);
-        const openOnly = q("[data-action=openOnly]"); if (openOnly) openOnly.disabled = !enabled;
+        const enabled = (Boolean(e.target.value.trim()) || state.config.requireSubscriptionKey === false)
+          && (!state.config.dualStopMode || dualStopIds().every(Boolean));
+        const go = q("[data-action=go]"); if (go) go.disabled = !enabled || !(state.gtfs || bundleHasSelectedStops());
+        const openOnly = q("[data-action=openOnly]"); if (openOnly) openOnly.disabled = !enabled || !bundleHasSelectedStops();
       });
       document.querySelectorAll("[name=pollSeconds], [name=pageSize], [name=rotateSeconds], [name=lookaheadHours], [name=frequentRoutes]").forEach(el => {
         el.addEventListener("input", () => { readFormIntoConfig(); syncPresetUi(); });
       });
       q("[name=requireSubscriptionKey]")?.addEventListener("change", () => { readFormIntoConfig(); saveConfig(); renderSetup(); });
+      q("[name=dualStopMode]")?.addEventListener("change", () => { readFormIntoConfig(); saveConfig(); renderSetup(); });
+      document.querySelectorAll("[name=dualStopLeftId], [name=dualStopRightId]").forEach(el => {
+        el.addEventListener("change", () => { readFormIntoConfig(); saveConfig(); renderSetup(); });
+      });
       q("[name=gtfsFile]")?.addEventListener("change", e => { readFormIntoConfig(); saveConfig(); uploadGtfs(e.target.files[0]); });
       q("[name=stopSearch]")?.addEventListener("input", e => {
         state.stopSearch = e.target.value;
@@ -2088,6 +2216,12 @@ S-C: #D03A2E / #FFFFFF`;
       if (v("vehiclesUrl") !== undefined) cfg.vehiclesUrl = v("vehiclesUrl");
       if (v("departuresUrl") !== undefined) cfg.departuresUrl = v("departuresUrl");
       if (v("frequentRoutes") !== undefined) cfg.frequentRoutes = v("frequentRoutes");
+      const dualModeEl = document.querySelector('[name="dualStopMode"]');
+      if (dualModeEl) cfg.dualStopMode = dualModeEl.checked;
+      if (v("dualStopLeftId") !== undefined) cfg.dualStopLeftId = v("dualStopLeftId");
+      if (v("dualStopRightId") !== undefined) cfg.dualStopRightId = v("dualStopRightId");
+      if (v("dualStopLeftLabel") !== undefined) cfg.dualStopLeftLabel = v("dualStopLeftLabel");
+      if (v("dualStopRightLabel") !== undefined) cfg.dualStopRightLabel = v("dualStopRightLabel");
       if (v("routeColors") !== undefined) cfg.routeColors = v("routeColors");
       if (v("subscriptionKey") !== undefined) cfg.subscriptionKey = v("subscriptionKey");
       if (v("pollSeconds") !== undefined) cfg.pollSeconds = clampNumber(v("pollSeconds"), DEFAULT_CONFIG.pollSeconds, 5, 3600);
@@ -2114,16 +2248,72 @@ S-C: #D03A2E / #FFFFFF`;
       return !rows.some(r => r.predictedSource === "at-api");
     }
 
+    function renderDualStopBoards(rows, cfg) {
+      const ids = dualStopIds(cfg);
+      const labels = [cfg.dualStopLeftLabel, cfg.dualStopRightLabel];
+      const stopPages = ids.map(stopId => {
+        const stopRows = rows.filter(row => row.stopId === stopId);
+        const pages = [];
+        for (let i = 0; i < stopRows.length; i += cfg.pageSize) pages.push(stopRows.slice(i, i + cfg.pageSize));
+        if (!pages.length) pages.push([]);
+        return pages;
+      });
+      const pageCount = Math.max(...stopPages.map(pages => pages.length));
+      state.page %= pageCount;
+      const bands = ids.map((stopId, index) => {
+        const pages = stopPages[index];
+        const pageIndex = state.pageLocked ? 0 : state.page % pages.length;
+        const pageRows = pages[pageIndex];
+        const stop = state.bundle && state.bundle.stops[stopId];
+        const name = String(labels[index] || "").trim() || (stop && stop.name) || stopId;
+        return {
+          pageRows, pageCount: pages.length,
+          html: `<section class="dual-band" aria-label="${escapeHtml(name)} departures">
+            <div class="dual-band-header"><div><span class="dual-direction">${escapeHtml(name)}</span><span class="dual-stop-code">Stop ${escapeHtml(stopId.split("-")[0])}</span></div>${pages.length > 1 ? `<span class="dual-page">${pageIndex + 1}/${pages.length}</span>` : ""}</div>
+            ${pageRows.length ? renderTable(pageRows, cfg) : `<div class="empty-state"><div><strong>No departures</strong><br><span>Nothing scheduled in the next ${cfg.lookaheadHours}h.</span></div></div>`}
+          </section>`
+        };
+      });
+      return { html: `<div class="dual-bands">${bands.map(b => b.html).join("")}</div>`, pageRows: bands.flatMap(b => b.pageRows), pageCount };
+    }
+
+    function fitDualDestinations() {
+      document.querySelectorAll(".dual-band .dest-cell strong").forEach(label => {
+        label.title = label.textContent;
+        const availableHeight = label.parentElement.clientHeight;
+        if (!availableHeight) return;
+        const preferredSize = parseFloat(getComputedStyle(label).fontSize);
+        for (let size = Math.floor(preferredSize); size >= 12; size--) {
+          label.style.fontSize = size + "px";
+          label.style.maxHeight = "none";
+          label.style.overflow = "visible";
+          const naturalHeight = label.getBoundingClientRect().height;
+          if (naturalHeight <= size * 2.1 + 2 && naturalHeight <= availableHeight + 1) break;
+        }
+        label.style.maxHeight = Math.min(parseFloat(label.style.fontSize) * 2.1, availableHeight) + "px";
+        label.style.overflow = "hidden";
+      });
+    }
+
     function renderBoard() {
       const cfg = state.config;
       const rows = deriveDepartures();
-      const pages = [];
-      for (let i = 0; i < rows.length; i += cfg.pageSize) pages.push(rows.slice(i, i + cfg.pageSize));
-      if (!pages.length) pages.push([]);
       if (state.pageLocked) state.page = 0;
-      state.page = state.page % pages.length;
-      const pageRows = pages[state.page] || [];
-      const pageLabel = pages.length > 1 ? " " + (state.page + 1) + "/" + pages.length : "";
+      let pageRows, pageLabel, boardContent;
+      if (cfg.dualStopMode) {
+        const dual = renderDualStopBoards(rows, cfg);
+        pageRows = dual.pageRows;
+        pageLabel = dual.pageCount > 1 ? " " + (state.page + 1) + "/" + dual.pageCount : "";
+        boardContent = dual.html;
+      } else {
+        const pages = [];
+        for (let i = 0; i < rows.length; i += cfg.pageSize) pages.push(rows.slice(i, i + cfg.pageSize));
+        if (!pages.length) pages.push([]);
+        state.page %= pages.length;
+        pageRows = pages[state.page] || [];
+        pageLabel = pages.length > 1 ? " " + (state.page + 1) + "/" + pages.length : "";
+        boardContent = pageRows.length ? renderTable(pageRows, cfg) : `<div class="empty-state"><div><strong>No departures</strong><br><span>Nothing scheduled in the next ${cfg.lookaheadHours}h.</span></div></div>`;
+      }
       const hasRT = Boolean(cfg.departuresUrl || (String(cfg.subscriptionKey || "").trim() && (cfg.realtimeUrl || cfg.alertsUrl)));
       const stale = hasRT && !realtimeFresh(state.realtime, cfg, Date.now());
       const mode = operatingMode(pageRows);
@@ -2132,7 +2322,7 @@ S-C: #D03A2E / #FFFFFF`;
       const frameless = Boolean(cfg.chromeHidden);
 
       app.innerHTML = `
-        <main class="board ${frameless ? "frameless" : ""}">
+        <main class="board ${frameless ? "frameless" : ""} ${cfg.dualStopMode ? "dual-mode" : ""}">
           <button class="ghost chrome-toggle" data-action="toggleChrome" title="${frameless ? "Show frame and controls" : "Hide frame and controls"}">${frameless ? "+" : "-"}</button>
           <section class="board-shell ${frameless ? "frameless" : ""}">
             <header class="board-header">
@@ -2152,7 +2342,7 @@ S-C: #D03A2E / #FFFFFF`;
             ${!frameless && !stale && timetableOutdated(rows) ? `<div class="alert-banner warn">Timetable data looks outdated - live times can't be matched. Refreshing it automatically; if this persists, update gtfs.zip and rebuild in Settings.</div>` : ""}
             ${!frameless && alerts.length ? `<div class="alert-banner warn">${escapeHtml(alerts[0])}</div>` : ""}
             <div class="board-body">
-              ${pageRows.length ? renderTable(pageRows, cfg) : `<div class="empty-state"><div><strong>No departures</strong><br><span>Nothing scheduled in the next ${cfg.lookaheadHours}h.</span></div></div>`}
+              ${boardContent}
             </div>
             <footer class="board-footer">
               <div class="legend"><span class="legend-swatch"></span>Frequent services</div>
@@ -2163,6 +2353,7 @@ S-C: #D03A2E / #FFFFFF`;
             </footer>
           </section>
         </main>`;
+      if (cfg.dualStopMode) fitDualDestinations();
       document.querySelector("[data-action=toggleChrome]")?.addEventListener("click", () => { saveConfig({ chromeHidden: !state.config.chromeHidden }); renderBoard(); });
       document.querySelector("[data-action=setup]")?.addEventListener("click", () => { saveConfig({ mode: "setup" }); render(); });
       document.querySelector("[data-action=refresh]")?.addEventListener("click", () => { refreshRealtime().then(() => renderBoard()); });
@@ -2223,7 +2414,7 @@ S-C: #D03A2E / #FFFFFF`;
     function renderTable(rows, cfg) {
       const frequent = new Set(splitList(cfg.frequentRoutes).map(normLabel));
       const routeColors = parseRouteColors(cfg.routeColors);
-      return `<div class="dep-table"><div class="dep-head"><div>Route</div><div>Destination</div><div>Occupancy</div><div>Due</div></div><div class="dep-rows" style="--row-count:${rows.length}">${rows.map(r => {
+      return `<div class="dep-table"><div class="dep-head"><div>Route</div><div>Destination</div><div>Occupancy</div><div>Due</div></div><div class="dep-rows" style="--row-count:${cfg.dualStopMode ? cfg.pageSize : rows.length}">${rows.map(r => {
         // Blank frequent-routes list = every pill filled cyan; otherwise only listed routes are filled, the rest outlined (matches AT PID styling).
         const customColor = routeColors.get(normLabel(r.routeLabel));
         const pillClass = customColor || !frequent.size || frequent.has(normLabel(r.routeLabel)) ? "" : " outline";
@@ -2279,7 +2470,7 @@ S-C: #D03A2E / #FFFFFF`;
       }
       const keySet = Boolean(String(state.config.subscriptionKey || "").trim());
       const keyOk = keySet || state.config.requireSubscriptionKey === false;
-      if (state.config.mode === "board" && state.bundle && keyOk) { renderBoard(); startRuntime(); maybeRebuildStaleBundle(); }
+      if (state.config.mode === "board" && bundleHasSelectedStops() && keyOk && (!state.config.dualStopMode || dualStopIds().every(Boolean))) { renderBoard(); startRuntime(); maybeRebuildStaleBundle(); }
       else { state.config.mode = "setup"; renderSetup(); autoLoadGtfs(); }
     }
 
