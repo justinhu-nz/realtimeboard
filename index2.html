@@ -1,0 +1,2990 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Auckland Live Departures</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #142038;
+      --surface: #1b2940;
+      --surface2: #2b384b;
+      --surface3: #36465f;
+      --border: #4c5f79;
+      --text: #eef8ff;
+      --muted: #b9c8d8;
+      --accent: #62ddf4;
+      --accent-strong: #3ed2f1;
+      --accent-text: #163047;
+      --good: #62ddf4;
+      --warn: #f1c666;
+      --bad: #ee4ca4;
+      --radius: 8px;
+      font-family: "Open Sans", "Segoe UI", sans-serif;
+    }
+    * { box-sizing: border-box; margin: 0; }
+    html, body { min-height: 100vh; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+    }
+    button {
+      font: inherit;
+      border: 1px solid transparent;
+      border-radius: var(--radius);
+      padding: .5rem .8rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity .15s, border-color .15s, background .15s;
+    }
+    button:hover { opacity: .88; }
+    button:disabled { opacity: .4; cursor: not-allowed; }
+    button.primary { background: var(--accent); color: var(--accent-text); border-color: transparent; }
+    button.ghost { background: var(--surface2); color: var(--text); border-color: var(--border); }
+    button.danger { background: transparent; color: #ffc8e4; border-color: var(--bad); }
+    button.small { padding: .32rem .58rem; font-size: .82rem; }
+    input, textarea, select {
+      font: inherit;
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--surface);
+      color: var(--text);
+      padding: .42rem .55rem;
+    }
+    input:focus, textarea:focus { outline: none; border-color: var(--accent); }
+    textarea { min-height: 3.1rem; resize: vertical; }
+    textarea[name="routeColors"] { min-height: 14rem; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+
+    /* Setup */
+    .setup {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: .75rem;
+      font-size: .9rem;
+    }
+    .setup-header {
+      margin-bottom: .45rem;
+    }
+    .setup-header h1 {
+      font-size: 1.25rem;
+      line-height: 1.15;
+      margin-bottom: .15rem;
+    }
+    .setup-header p { color: var(--muted); font-size: .86rem; }
+    .quick-actions {
+      display: flex;
+      gap: .4rem;
+      margin: .45rem 0;
+      flex-wrap: wrap;
+    }
+    .status-bar {
+      padding: .42rem .55rem;
+      color: var(--muted);
+      font-size: .84rem;
+      min-height: 1.9rem;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--surface2);
+    }
+    .status-bar.error { color: #ffd0e9; border-color: var(--bad); background: rgba(238, 76, 164, .12); }
+    .setup-layout {
+      display: block;
+    }
+    .debug-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: .35rem;
+      margin: .45rem 0;
+    }
+    .debug-item {
+      display: inline-flex;
+      gap: .35rem;
+      padding: .28rem .45rem;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--surface2);
+      color: var(--muted);
+      font-size: .78rem;
+    }
+    .debug-item strong { color: var(--text); font-weight: 800; text-align: right; }
+    .note {
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--surface2);
+      color: var(--muted);
+      font-size: .8rem;
+      padding: .4rem .5rem;
+    }
+    .link-row {
+      display: flex;
+      gap: .5rem;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .link-button {
+      display: inline-flex;
+      align-items: center;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: .32rem .58rem;
+      color: var(--text);
+      font-size: .82rem;
+      font-weight: 600;
+      text-decoration: none;
+      background: var(--surface2);
+    }
+    .link-button:hover { border-color: var(--accent); color: var(--text); }
+    .section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      margin-bottom: .45rem;
+      overflow: hidden;
+    }
+    .section-header {
+      padding: .36rem .5rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      user-select: none;
+    }
+    .section-header:hover { background: var(--surface2); }
+    .section-header .arrow { transition: transform .2s; font-size: .8rem; color: var(--muted); }
+    .section-header .arrow.open { transform: rotate(90deg); }
+    .section-status { font-size: .75rem; font-weight: 400; color: var(--muted); margin-left: .45rem; }
+    .section-body {
+      padding: 0 .5rem .45rem;
+      display: grid;
+      gap: .42rem;
+    }
+    .section-body.hidden { display: none; }
+    .field label {
+      display: block;
+      font-size: .8rem;
+      color: var(--muted);
+      margin-bottom: .25rem;
+      font-weight: 400;
+    }
+    .hint {
+      color: var(--muted);
+      font-size: .78rem;
+      line-height: 1.35;
+      margin-top: .22rem;
+    }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: .45rem; }
+    .stop-results {
+      max-height: 10rem;
+      overflow-y: auto;
+      display: grid;
+      gap: .4rem;
+    }
+    .stop-item {
+      display: flex;
+      align-items: center;
+      gap: .6rem;
+      padding: .38rem .48rem;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      font-size: .85rem;
+    }
+    .stop-item .name { flex: 1; font-weight: 600; }
+    .stop-item .id { color: var(--muted); font-size: .78rem; }
+    .step {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: .55rem .65rem;
+      margin-bottom: .45rem;
+      display: grid;
+      gap: .45rem;
+    }
+    .step h2 { font-size: .98rem; font-weight: 700; }
+    .step-status { font-size: .75rem; font-weight: 400; color: var(--muted); margin-left: .4rem; }
+    .ok { color: var(--good); }
+    .chips { display: flex; flex-wrap: wrap; gap: .35rem; }
+    .checkbox-label { display: inline-flex !important; align-items: center; gap: .5rem; cursor: pointer; color: var(--text) !important; font-weight: 700 !important; }
+    .checkbox-label input { width: auto; margin: 0; }
+    .dual-stop-settings { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .65rem; }
+    .dual-stop-settings input { margin-top: .4rem; }
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: .15rem;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: .2rem .25rem .2rem .6rem;
+      font-size: .82rem;
+      font-weight: 600;
+    }
+    .chip .chip-id { color: var(--muted); font-weight: 400; font-size: .74rem; margin-left: .3rem; }
+    .chip button { padding: 0 .45rem; background: transparent; border: none; color: var(--muted); font-size: .95rem; line-height: 1.3; }
+    .chip button:hover { color: #ffd0e9; opacity: 1; }
+    .cta-row { display: flex; flex-wrap: wrap; align-items: center; gap: .6rem; margin: .55rem 0; }
+    .cta-row .primary { font-size: 1.02rem; padding: .62rem 1.2rem; }
+
+    /* Connect strip (timetable + API key) */
+    .connect { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem; margin: .5rem 0; }
+    .connect-pill {
+      position: relative;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--surface2);
+      padding: .5rem .6rem;
+      display: grid;
+      gap: .4rem;
+      align-content: start;
+    }
+    .connect-pill.done { background: rgba(98, 221, 244, .08); border-color: rgba(98, 221, 244, .4); }
+    .connect-pill.bad { background: rgba(238, 76, 164, .1); border-color: var(--bad); }
+    .pill-head { display: flex; justify-content: space-between; align-items: center; gap: .5rem; }
+    .pill-title { font-weight: 700; font-size: .86rem; }
+    .pill-title .req {
+      font-weight: 600; font-size: .64rem; text-transform: uppercase; letter-spacing: .04em;
+      color: #ffd0e9; border: 1px solid rgba(238, 76, 164, .5); border-radius: 999px;
+      padding: .02rem .34rem; margin-left: .35rem; vertical-align: middle;
+    }
+    .pill-state { font-size: .76rem; color: var(--muted); white-space: nowrap; }
+    .pill-state.ok { color: var(--good); font-weight: 700; }
+    .pill-state.bad { color: #ffd0e9; font-weight: 700; }
+    .pill-sub { font-size: .75rem; color: var(--muted); }
+    .pill-sub a { color: var(--accent); }
+    .pill-actions { display: flex; gap: .4rem; align-items: center; }
+    .pill-actions input[name=subscriptionKey] { flex: 1; }
+    .pill-actions .link-button, .pill-actions button { flex: none; }
+    .timetable-loader {
+      position: absolute;
+      inset: 0;
+      z-index: 2;
+      display: grid;
+      place-content: center;
+      gap: .55rem;
+      text-align: center;
+      background: linear-gradient(110deg, rgba(24, 33, 48, .96), rgba(31, 47, 64, .96));
+      color: var(--text);
+    }
+    .loader-track {
+      position: relative;
+      width: min(15rem, 70vw);
+      height: 2.2rem;
+      overflow: hidden;
+    }
+    .loader-track::after {
+      content: "";
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: .28rem;
+      height: 2px;
+      background: repeating-linear-gradient(90deg, rgba(98,221,244,.25) 0 12px, transparent 12px 20px);
+    }
+    .loader-bus {
+      position: absolute;
+      left: 0;
+      bottom: .42rem;
+      width: 3.3rem;
+      height: 1.45rem;
+      border-radius: .45rem .55rem .25rem .25rem;
+      background: linear-gradient(180deg, #73e8fa, #36bdd8);
+      box-shadow: 0 0 18px rgba(98,221,244,.35);
+      animation: timetable-trip 2.4s ease-in-out infinite;
+    }
+    .loader-bus::before {
+      content: "";
+      position: absolute;
+      inset: .25rem .32rem .55rem;
+      border-radius: .15rem;
+      background: repeating-linear-gradient(90deg, #20324a 0 .58rem, transparent .58rem .72rem);
+    }
+    .loader-bus::after {
+      content: "";
+      position: absolute;
+      left: .45rem;
+      right: .45rem;
+      bottom: -.2rem;
+      height: .42rem;
+      background: radial-gradient(circle at .2rem .2rem, #101824 0 .2rem, transparent .21rem), radial-gradient(circle at calc(100% - .2rem) .2rem, #101824 0 .2rem, transparent .21rem);
+    }
+    .loader-copy { font-size: .8rem; font-weight: 700; letter-spacing: .02em; }
+    .loader-copy span::after { content: ""; animation: loading-dots 1.4s steps(4, end) infinite; }
+    @keyframes timetable-trip {
+      0% { transform: translateX(-3.5rem); opacity: 0; }
+      15%, 85% { opacity: 1; }
+      100% { transform: translateX(15rem); opacity: 0; }
+    }
+    @keyframes loading-dots {
+      0% { content: ""; }
+      25% { content: "."; }
+      50% { content: ".."; }
+      75%, 100% { content: "..."; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .loader-bus { animation: none; left: calc(50% - 1.65rem); }
+      .loader-copy span::after { animation: none; content: "..."; }
+    }
+    input.key-bad { border-color: var(--bad); }
+    .mode-explainer {
+      display: flex;
+      align-items: flex-start;
+      gap: .55rem;
+      margin: -.05rem 0 .55rem;
+      padding: .55rem .65rem;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--surface2);
+      color: var(--muted);
+      font-size: .78rem;
+      line-height: 1.35;
+    }
+    .mode-explainer strong { color: var(--text); white-space: nowrap; }
+    .preset-bar {
+      display: grid;
+      grid-template-columns: auto minmax(10rem, 14rem) minmax(0, 1fr);
+      align-items: center;
+      gap: .55rem;
+      margin: 0 0 .55rem;
+      padding: .5rem .65rem;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--surface);
+    }
+    .preset-bar label { font-size: .82rem; font-weight: 700; color: var(--text); }
+    .preset-bar select { padding: .42rem .55rem; }
+    .preset-summary { min-width: 0; color: var(--muted); font-size: .75rem; line-height: 1.3; }
+    .mode-dot {
+      width: .62rem;
+      height: .62rem;
+      margin-top: .22rem;
+      border-radius: 999px;
+      background: var(--muted);
+      flex: none;
+    }
+    .mode-dot.full { background: var(--good); }
+    .mode-dot.limited { background: var(--warn); }
+    .mode-dot.degraded, .mode-dot.scheduled { background: var(--bad); }
+    button.linkish {
+      background: none; border: none; padding: 0; color: var(--accent);
+      font-size: inherit; font-weight: 600; text-decoration: underline; cursor: pointer;
+    }
+    button.linkish:hover { opacity: .85; }
+
+    /* Focused step + stop result meta + inline preview */
+    .step.focus { border-color: rgba(98, 221, 244, .45); box-shadow: inset 0 0 0 1px rgba(98, 221, 244, .12); }
+    .stop-item .name { flex: 1; font-weight: 600; display: flex; flex-direction: column; }
+    .stop-item .name .meta { font-weight: 400; color: var(--muted); font-size: .72rem; }
+    .preview { border: 1px dashed var(--border); border-radius: var(--radius); padding: .45rem .55rem; display: grid; gap: .35rem; background: var(--surface); }
+    .preview-title { font-size: .7rem; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+    .preview-row { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: .55rem; font-size: .92rem; }
+    .preview-row .pv-pill {
+      display: inline-flex; justify-content: center; align-items: center;
+      min-width: 2.7rem; height: 1.55rem; padding: 0 .42rem; border-radius: 6px;
+      background: linear-gradient(180deg, #73e8fa 0%, #57d9f2 100%);
+      color: var(--accent-text); font-weight: 700; font-size: .85rem;
+    }
+    .preview-row .pv-due { font-weight: 700; white-space: nowrap; }
+    .preview-empty { font-size: .78rem; color: var(--muted); }
+    @media (max-width: 700px) {
+      .connect { grid-template-columns: 1fr; }
+      .preset-bar { grid-template-columns: 1fr; }
+    }
+
+    /* Board */
+    .board {
+      min-height: 100vh;
+      padding: 1.25rem;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+    }
+    .board.frameless {
+      padding: 0;
+    }
+    .chrome-toggle {
+      position: absolute;
+      top: .2rem;
+      right: .25rem;
+      z-index: 20;
+      min-width: 1.6rem;
+      min-height: 1.6rem;
+      padding: 0;
+      border-radius: 999px;
+      background: rgba(43, 56, 75, .9);
+      border-color: rgba(185, 200, 216, .28);
+      color: #d9ecf7;
+      font-size: .72rem;
+      line-height: 1;
+    }
+    .chrome-toggle:hover {
+      background: rgba(54, 70, 95, .95);
+      border-color: rgba(98, 221, 244, .45);
+    }
+    .board.frameless .chrome-toggle {
+      top: .18rem;
+      right: .18rem;
+      opacity: .1;
+      background: transparent;
+      border-color: transparent;
+      color: #f0fbff;
+    }
+    .board.frameless .chrome-toggle:hover {
+      opacity: .45;
+      background: rgba(43, 56, 75, .55);
+      border-color: rgba(185, 200, 216, .18);
+    }
+    .board-shell {
+      flex: 1;
+      background: var(--surface2);
+      border: 1px solid #41516a;
+      border-radius: var(--radius);
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      gap: .6rem;
+      padding: .7rem;
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,.03);
+    }
+    .board-shell.frameless {
+      background: transparent;
+      border-color: transparent;
+      box-shadow: none;
+      padding: 0;
+      gap: 0;
+    }
+    .board-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      padding: .2rem .2rem .1rem;
+    }
+    .board-header h1 {
+      font-size: clamp(1.6rem, 3.5vw, 3rem);
+      line-height: 1.1;
+      font-weight: 700;
+    }
+    .board-header .sub { color: var(--muted); font-size: .9rem; }
+    .board-meta {
+      text-align: right;
+      font-size: .9rem;
+      color: #d9ecf7;
+      display: flex;
+      flex-direction: column;
+      gap: .3rem;
+      align-items: flex-end;
+      width: 100%;
+    }
+    .board-meta-top {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: .7rem;
+      width: 100%;
+    }
+    .board-controls {
+      display: flex;
+      gap: .3rem;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+    .board-shell.frameless .board-header {
+      display: none;
+    }
+    .board-shell.frameless .board-controls {
+      display: none;
+    }
+    .board-shell.frameless .board-meta-top {
+      display: none;
+    }
+    .board-shell.frameless .alert-banner {
+      display: none;
+    }
+    .board-body {
+      flex: 1;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+    }
+    /* Scale every dual-board column from the same unit as the CSS viewport narrows at page zoom. */
+    .dual-mode { --dual-unit: clamp(.625rem, 1.25vw, 1rem); }
+    .dual-mode.board:not(.frameless) { padding: calc(1.25 * var(--dual-unit)); }
+    .dual-mode .board-shell:not(.frameless) { padding: calc(.7 * var(--dual-unit)); gap: calc(.6 * var(--dual-unit)); }
+    .dual-bands {
+      flex: 1;
+      min-height: 0;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: calc(.7 * var(--dual-unit, 1rem));
+    }
+    .dual-band {
+      min-width: 0;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      border: 1px solid rgba(185, 200, 216, .3);
+      border-radius: var(--radius);
+      background: var(--surface);
+    }
+    .dual-band-header {
+      min-height: calc(4.25 * var(--dual-unit));
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: calc(.6 * var(--dual-unit));
+      padding: calc(.55 * var(--dual-unit)) calc(.8 * var(--dual-unit));
+      background: rgba(98, 221, 244, .12);
+      border-bottom: 1px solid rgba(98, 221, 244, .25);
+    }
+    .dual-band:nth-child(2) .dual-band-header { background: rgba(241, 198, 102, .1); border-color: rgba(241, 198, 102, .25); }
+    .dual-band-header > div { min-width: 0; }
+    .dual-direction { display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: calc(2 * var(--dual-unit)); font-weight: 800; line-height: 1.15; }
+    .dual-stop-code { display: block; color: var(--muted); font-size: calc(.85 * var(--dual-unit)); }
+    .dual-page { color: var(--muted); font-size: calc(1 * var(--dual-unit)); font-weight: 700; white-space: nowrap; }
+    .dual-mode .dual-band .dep-table { border-radius: 0; }
+    .dual-mode .dual-band .dep-head,
+    .dual-mode .dual-band .dep-row {
+      grid-template-columns: calc(8 * var(--dual-unit)) minmax(0, 1fr) calc(4.5 * var(--dual-unit)) calc(7.25 * var(--dual-unit));
+      column-gap: calc(.25 * var(--dual-unit));
+    }
+    .dual-mode .dual-band .dep-row { padding: calc(.45 * var(--dual-unit)) calc(.6 * var(--dual-unit)); }
+    .dual-mode .dual-band .dep-head { padding: calc(.3 * var(--dual-unit)) calc(.6 * var(--dual-unit)); font-size: calc(.98 * var(--dual-unit)); }
+    .dual-mode .dual-band .route-pill {
+      width: calc(6.65 * var(--dual-unit));
+      height: calc(2.85 * var(--dual-unit));
+      padding: 0 calc(.45 * var(--dual-unit));
+      border-radius: calc(.5 * var(--dual-unit));
+      font-size: calc(1.95 * var(--dual-unit));
+    }
+    .dual-mode .dual-band .dest-cell strong {
+      width: 100%;
+      min-width: 0;
+      font-size: calc(1.95 * var(--dual-unit));
+      line-height: 1.05;
+      max-height: 2.1em;
+      overflow: hidden;
+      overflow-wrap: anywhere;
+    }
+    .dual-mode .dual-band .occ-cell { gap: calc(.22 * var(--dual-unit)); }
+    .dual-mode .dual-band .occ-cell svg { width: calc(.62 * var(--dual-unit)); height: calc(1.8 * var(--dual-unit)); }
+    .dual-mode .dual-band .badge.cancelled { padding: calc(.2 * var(--dual-unit)) calc(.3 * var(--dual-unit)); font-size: calc(.75 * var(--dual-unit)); }
+    .dual-mode .dual-band .due-cell { font-size: calc(2.4 * var(--dual-unit)); }
+    .dual-mode .board-footer { gap: calc(.75 * var(--dual-unit)); padding: calc(.75 * var(--dual-unit)) calc(.9 * var(--dual-unit)); }
+    .dual-mode .board-footer .legend { gap: calc(.55 * var(--dual-unit)); font-size: calc(1.2 * var(--dual-unit)); }
+    .dual-mode .board-footer .ticker { font-size: calc(1.15 * var(--dual-unit)); }
+    .dual-mode .board-footer .mode-indicator { font-size: calc(.98 * var(--dual-unit)); padding: calc(.3 * var(--dual-unit)) calc(.62 * var(--dual-unit)); }
+    .dual-mode .board-footer .clock { font-size: calc(2.1 * var(--dual-unit)); }
+    @media (max-width: 800px) and (orientation: landscape) {
+      .dual-mode .dual-band .dep-head,
+      .dual-mode .dual-band .dep-row {
+        grid-template-columns: calc(8 * var(--dual-unit)) minmax(0, 1fr) calc(7.25 * var(--dual-unit));
+      }
+      .dual-mode .dual-band .dep-head > div:nth-child(3),
+      .dual-mode .dual-band .dep-row > div:nth-child(3) { display: none; }
+    }
+    .board.frameless.dual-mode .dual-bands { gap: 0; }
+    .board.frameless.dual-mode .dual-band { border-radius: 0; border-top: 0; border-bottom: 0; }
+    .alert-banner {
+      padding: .6rem .8rem;
+      border-radius: var(--radius);
+      font-size: .9rem;
+      border: 1px solid;
+    }
+    .alert-banner.warn { background: rgba(241, 198, 102, .12); border-color: rgba(241, 198, 102, .4); color: #ffe2a2; }
+    .alert-banner.bad { background: rgba(238, 76, 164, .14); border-color: rgba(238, 76, 164, .4); color: #ffd0e9; }
+    .dep-table {
+      width: 100%;
+      flex: 1;
+      min-height: 0;
+      background: var(--surface);
+      border-radius: var(--radius);
+      overflow: hidden;
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr);
+    }
+    .board.frameless .dep-table,
+    .board.frameless .empty-state {
+      border-radius: 0;
+    }
+    .dep-head,
+    .dep-row {
+      display: grid;
+      grid-template-columns: 8.75rem minmax(0, 1fr) 8.75rem clamp(9rem, 10vw, 10rem);
+      align-items: center;
+    }
+    .dep-head {
+      padding: .32rem .9rem .28rem;
+      font-size: clamp(.88rem, .95vw, .98rem);
+      font-weight: 700;
+      color: #f0fbff;
+      background: rgba(255,255,255,.03);
+    }
+    .dep-head > div:last-child,
+    .dep-row > div:last-child {
+      text-align: right;
+    }
+    .dep-head > div:nth-child(3),
+    .dep-row > div:nth-child(3) {
+      text-align: center;
+    }
+    .dep-rows {
+      min-height: 0;
+      display: grid;
+      grid-template-rows: repeat(var(--row-count, 1), minmax(0, 1fr));
+    }
+    .dep-row {
+      padding: .5rem .9rem;
+      border-top: 1px solid rgba(185, 200, 216, .18);
+      min-height: 0;
+    }
+    .dep-row > div,
+    .dep-head > div {
+      min-width: 0;
+    }
+    .route-pill {
+      display: inline-flex;
+      justify-content: center;
+      align-items: center;
+      width: 6.65rem;
+      height: 2.85rem;
+      padding: 0 .45rem;
+      border-radius: 8px;
+      font-weight: 700;
+      font-size: 1.95rem;
+      line-height: 1;
+      letter-spacing: 0;
+      background: linear-gradient(180deg, #73e8fa 0%, #57d9f2 100%);
+      color: var(--accent-text);
+      border: 1px solid rgba(255,255,255,.22);
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,.18);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .route-pill.outline {
+      background: transparent;
+      color: var(--text);
+      border: 2px solid rgba(222, 236, 248, .75);
+      box-shadow: none;
+    }
+    .dest-cell strong {
+      display: block;
+      font-size: 1.95rem;
+      font-weight: 700;
+      line-height: 1;
+    }
+    .dest-cell {
+      min-height: 100%;
+      display: flex;
+      align-items: center;
+    }
+    .badge {
+      display: inline-block;
+      padding: .28rem .72rem;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: .84rem;
+    }
+    .badge.cancelled { color: #fff3fb; background: var(--bad); border: 1px solid transparent; font-size: 1.05rem; font-weight: 700; padding: .3rem .85rem; }
+    .occ-cell {
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      gap: .22rem;
+      color: rgba(222, 236, 248, .9);
+    }
+    .occ-cell svg { display: block; fill: currentColor; width: 0.62rem; height: 1.8rem; }
+    .occ-cell .dim { color: rgba(185, 200, 216, .38); }
+    .due-cell {
+      text-align: right;
+      font-size: clamp(1.9rem, 2.8vw, 3rem);
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      font-feature-settings: "tnum" 1;
+      color: #f0fbff;
+      white-space: nowrap;
+      line-height: 1;
+    }
+    .empty-state {
+      flex: 1;
+      display: grid;
+      place-content: center;
+      text-align: center;
+      min-height: 12rem;
+      color: var(--muted);
+      background: var(--surface);
+      border-radius: var(--radius);
+    }
+    .board-footer {
+      display: flex;
+      align-items: center;
+      gap: .75rem;
+      background: rgba(98, 221, 244, .08);
+      border-radius: var(--radius);
+      padding: .75rem .9rem;
+      overflow: hidden;
+      border: 1px solid rgba(98, 221, 244, .18);
+    }
+    .board-shell.frameless .board-footer {
+      border-left-color: transparent;
+      border-right-color: transparent;
+      border-bottom-color: transparent;
+      border-radius: 0;
+      padding-left: .5rem;
+      padding-right: .5rem;
+      background: transparent;
+    }
+    .legend {
+      display: flex;
+      align-items: center;
+      gap: .55rem;
+      white-space: nowrap;
+      color: #e9fbff;
+      font-size: clamp(1rem, 1.4vw, 1.25rem);
+      font-weight: 600;
+    }
+    .legend-swatch {
+      width: 1.05em;
+      height: 1.05em;
+      border-radius: .28em;
+      background: linear-gradient(180deg, #73e8fa 0%, #57d9f2 100%);
+      flex: none;
+    }
+    .ticker {
+      flex: 1;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+      color: #ffe2a2;
+      font-size: clamp(.95rem, 1.3vw, 1.15rem);
+      font-weight: 600;
+      text-align: center;
+    }
+    .mode-indicator {
+      display: inline-flex;
+      align-items: center;
+      gap: .42rem;
+      flex: none;
+      max-width: 42%;
+      padding: .3rem .62rem;
+      border: 1px solid rgba(185, 200, 216, .28);
+      border-radius: 999px;
+      color: #e9fbff;
+      background: rgba(185, 200, 216, .08);
+      font-size: clamp(.78rem, 1.05vw, .98rem);
+      font-weight: 700;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .mode-indicator.full { border-color: rgba(91, 214, 143, .45); background: rgba(91, 214, 143, .12); }
+    .mode-indicator.limited { border-color: rgba(241, 198, 102, .5); background: rgba(241, 198, 102, .12); color: #ffe2a2; }
+    .mode-indicator.degraded,
+    .mode-indicator.scheduled { border-color: rgba(238, 76, 164, .45); background: rgba(238, 76, 164, .12); color: #ffd0e9; }
+    .mode-indicator .mode-dot { margin-top: 0; }
+    .ambient-status {
+      display: none;
+      width: .68rem;
+      height: .68rem;
+      border-radius: 999px;
+      flex: none;
+      opacity: .88;
+    }
+    .ambient-status.good { background: var(--good); box-shadow: 0 0 .72rem rgba(91, 214, 143, .72); }
+    .ambient-status.warn { background: var(--warn); box-shadow: 0 0 .72rem rgba(241, 198, 102, .68); }
+    .ambient-status.bad { background: var(--bad); box-shadow: 0 0 .72rem rgba(238, 76, 164, .68); }
+    .board-shell.frameless .mode-indicator { display: none; }
+    .board-shell.frameless .ambient-status { display: inline-block; }
+    .clock {
+      font-weight: 700;
+      font-size: clamp(1.4rem, 2vw, 2.2rem);
+      white-space: nowrap;
+      padding: .15rem 0 0;
+      background: transparent;
+      border-radius: var(--radius);
+      color: #f1fbff;
+    }
+    @media (max-width: 700px) and (orientation: portrait) {
+      .setup { padding: .5rem; }
+      .dual-stop-settings { grid-template-columns: 1fr; }
+      .board { padding: .5rem; }
+      .board-header { flex-direction: column; gap: .5rem; }
+      .board-meta { text-align: left; align-items: flex-start; }
+      .board-meta-top { justify-content: space-between; }
+      .board-controls { justify-content: flex-start; }
+      .row { grid-template-columns: 1fr; }
+      .dep-head { display: none; }
+      .dep-table, .dep-rows, .dep-row { display: block; width: 100%; }
+      .dep-row { padding: .6rem 0; border-top: 1px solid rgba(185, 200, 216, .18); }
+      .dep-row > div { padding: .3rem .8rem; text-align: left !important; }
+      .dep-head,
+      .dep-row {
+        grid-template-columns: 1fr;
+      }
+      .route-pill { width: 5.7rem; height: 3rem; font-size: 1.7rem; }
+      .dest-cell { min-height: auto; }
+      .dest-cell strong { font-size: 1.7rem; }
+      .due-cell { font-size: clamp(1.6rem, 9vw, 2.7rem); }
+      .due-cell { text-align: left; }
+      .board-footer { flex-wrap: wrap; }
+      .mode-indicator { max-width: 100%; order: 3; }
+      .dual-bands { grid-template-columns: 1fr; overflow-y: auto; }
+      .dual-mode .dual-band .dep-table,
+      .dual-mode .dual-band .dep-rows,
+      .dual-mode .dual-band .dep-row { display: block; }
+    }
+  </style>
+</head>
+<body>
+  <div id="app"></div>
+  <script>
+    const STORE_KEY = "akl-pid-v2";
+    // Credential embedded in AT's live-departures web page. It provides limited per-stop
+    // predictions without a personal key, but does not replace the comprehensive GTFS-RT
+    // feeds. Kept as a fallback if config migration removes departuresKey.
+    const DEPARTURES_KEY = "0526f69dcb074a4b8df741eef46121fc";
+    const DEFAULT_GTFS_URL = "https://raw.githubusercontent.com/justinhu-nz/auckland-gtfs/refs/heads/main/gtfs.zip";
+    const LEGACY_GTFS_URLS = new Set([
+      "https://gtfs.at.govt.nz/gtfs.zip",
+      "https://github.com/justinhu-nz/auckland-gtfs/raw/refs/heads/main/gtfs.zip",
+      "gtfs.zip",
+      "gtfs (1).zip"
+    ]);
+    const DEFAULT_ROUTE_COLORS = `BAYS: #4FAFBD / #000000
+BIRK: #4FAFBD / #000000
+DEV: #4FAFBD / #000000
+GULF: #4FAFBD / #000000
+HMB: #4FAFBD / #000000
+HOBS: #4FAFBD / #000000
+MTIA: #4FAFBD / #000000
+MTID: #4FAFBD / #000000
+PINE: #4FAFBD / #000000
+RAK: #4FAFBD / #000000
+WSTH: #4FAFBD / #000000
+INN: #6CB655 / #000000
+OUT: #E99C3F / #000000
+AIR: #E99C3F / #000000
+CTY: #D9322A / #FFFFFF
+TMK: #3278B8 / #FFFFFF
+E-W: #A3C850 / #000000
+O-W: #4BAEE8 / #000000
+S-C: #D03A2E / #FFFFFF
+NX1: #23408B / #FFFFFF
+NX2: #4AA5B5 / #FFFFFF
+WX1: #3E8C52 / #FFFFFF`;
+    const PREVIOUS_DEFAULT_ROUTE_COLORS = `BAYS: #1BE2F1 / #1F2A44
+BIRK: #1BE2F1 / #1F2A44
+DEV: #1BE2F1 / #1F2A44
+GULF: #1BE2F1 / #1F2A44
+HMB: #1BE2F1 / #1F2A44
+HOBS: #1BE2F1 / #1F2A44
+MTIA: #1BE2F1 / #1F2A44
+MTID: #1BE2F1 / #1F2A44
+PINE: #1BE2F1 / #1F2A44
+RAK: #1BE2F1 / #1F2A44
+WSTH: #1BE2F1 / #1F2A44
+INN: #6CB655 / #FFFFFF
+OUT: #E99C3F / #FFFFFF
+AIR: #E99C3F / #1F2A44
+CTY: #D9322A / #FFFFFF
+TMK: #3278B8 / #FFFFFF
+E-W: #A3C850 / #1F2A44
+O-W: #4BAEE8 / #1F2A44
+S-C: #D03A2E / #FFFFFF`;
+    const LEGACY_DEFAULT_ROUTE_COLORS = new Set([
+      PREVIOUS_DEFAULT_ROUTE_COLORS,
+      PREVIOUS_DEFAULT_ROUTE_COLORS.replace("AIR: #E99C3F / #1F2A44", "AIR: #E99C3F / #FFFFFF")
+    ]);
+    const PRESETS = {
+      "at-default": {
+        label: "AT Default",
+        summary: "10s refresh · 5 rows · 5s page rotation · 2h lookahead · AT cyan route pills",
+        config: {
+          pollSeconds: 10,
+          pageSize: 5,
+          rotateSeconds: 5,
+          lookaheadHours: 2,
+          frequentRoutes: ""
+        }
+      }
+    };
+    const DEFAULT_CONFIG = {
+      timezone: "Pacific/Auckland",
+      gtfsUrl: DEFAULT_GTFS_URL,
+      realtimeUrl: "https://api.at.govt.nz/realtime/legacy/tripupdates",
+      alertsUrl: "https://api.at.govt.nz/realtime/legacy/servicealerts",
+      vehiclesUrl: "https://api.at.govt.nz/realtime/legacy/vehiclelocations",
+      departuresUrl: "https://api.at.govt.nz/serviceinfo/v1/departures",
+      departuresKey: DEPARTURES_KEY,
+      frequentRoutes: "",
+      routeColors: DEFAULT_ROUTE_COLORS,
+      subscriptionKey: "",
+      pollSeconds: 10,
+      pageSize: 5,
+      rotateSeconds: 5,
+      lockFirstPage: false,
+      requireSubscriptionKey: true,
+      lookaheadHours: 2,
+      relativeCutoffMinutes: 60,
+      staleMultiplier: 2,
+      routeAllowlist: "",
+      stopIds: "8205-eda192d2",
+      dualStopMode: false,
+      dualStopLeftId: "",
+      dualStopRightId: "",
+      dualStopLeftLabel: "",
+      dualStopRightLabel: "",
+      chromeHidden: false,
+      mode: "setup"
+    };
+
+    // ---------- MOTAT trams ----------
+    // Western Springs Tramway: one 1.7 km line, MOTAT Great North Road <-> Aviation Hall.
+    // Live positions come from MOTAT's public Traccar tracker (the read-only share session
+    // behind tramtracker.motat.nz). Rows are shaped exactly like GTFS rows so the normal
+    // board renders them. Timing constants were measured from the tracker's history
+    // (30 Sep 2026, 24 runs): ~7 min end to end, ~1 min dwell at the Zoo, and trams leave
+    // each terminus on the next quarter-hour at least ~4 min after arriving.
+    const MOTAT_TOKEN = "PEhvkEuq8Pv9InaHvc594uffkEOv7ypV";
+    // Track centreline from OpenStreetMap, GNR end first. Distances below are metres along it.
+    const MOTAT_TRACK = [[-36.867879,174.727743],[-36.867884,174.72773],[-36.867889,174.727715],[-36.867898,174.727668],[-36.867922,174.727486],[-36.867951,174.727198],[-36.867965,174.727044],[-36.867966,174.72702],[-36.867967,174.727005],[-36.867965,174.726956],[-36.867957,174.726774],[-36.867979,174.726565],[-36.868038,174.726154],[-36.868041,174.726093],[-36.868043,174.726036],[-36.868043,174.725889],[-36.868039,174.725715],[-36.868034,174.725464],[-36.868012,174.724687],[-36.867951,174.722781],[-36.867947,174.722682],[-36.867902,174.721275],[-36.867872,174.720335],[-36.867863,174.720065],[-36.867862,174.719991],[-36.867835,174.719866],[-36.867826,174.719833],[-36.867817,174.719807],[-36.867799,174.71976],[-36.867782,174.719727],[-36.867762,174.719689],[-36.86774,174.719655],[-36.867702,174.719608],[-36.867576,174.719462],[-36.867557,174.719439],[-36.867459,174.71932],[-36.867407,174.719273],[-36.86735,174.719236],[-36.867293,174.719211],[-36.867248,174.719203],[-36.867207,174.719197],[-36.867148,174.719198],[-36.866955,174.719166],[-36.866875,174.719158],[-36.866819,174.71916],[-36.86659,174.719165],[-36.866002,174.719182],[-36.865894,174.719185],[-36.865308,174.719195],[-36.865157,174.719198],[-36.865124,174.719198],[-36.864523,174.71921],[-36.864257,174.719213],[-36.864219,174.719204],[-36.864174,174.719184],[-36.864162,174.719176],[-36.864127,174.719155],[-36.864086,174.719126],[-36.864053,174.719093],[-36.864029,174.719069],[-36.864005,174.719038],[-36.863975,174.718994],[-36.863949,174.718962],[-36.863927,174.718934],[-36.863894,174.7189],[-36.86385,174.718867],[-36.863813,174.718845],[-36.863768,174.718823],[-36.863506,174.718708],[-36.862287,174.718173],[-36.862226,174.718146],[-36.862196,174.718133],[-36.862156,174.718123],[-36.862096,174.718115],[-36.862006,174.718104],[-36.861944,174.718099],[-36.861862,174.718083],[-36.861823,174.718066],[-36.861783,174.718047],[-36.861739,174.718024],[-36.861641,174.717941],[-36.860926,174.717278],[-36.860869,174.717216],[-36.860811,174.717137],[-36.860744,174.717041],[-36.860679,174.716972],[-36.86065,174.716941],[-36.860385,174.716709],[-36.860286,174.716622],[-36.860028,174.716396],[-36.859975,174.716349],[-36.859901,174.716284]];
+    // at = metres along the track where trams actually stop. up/down = measured seconds
+    // from leaving GNR / Aviation Hall to arriving here.
+    const MOTAT_STOPS = [
+      { id: "motat-gnr", name: "MOTAT Great North Road", short: "Great North Road", at: 49, up: 0, down: 439 },
+      { id: "motat-lakeside", name: "Western Springs Lakeside", short: "Western Springs Lakeside", at: 452, up: 59, down: 366, request: true },
+      { id: "motat-motions", name: "Motions Road Corner", short: "Motions Road Corner", at: 750, up: 122, down: 290, request: true },
+      { id: "motat-zoo", name: "Auckland Zoo", short: "Auckland Zoo", at: 1050, up: 199, down: 151 },
+      { id: "motat-tapac", name: "TAPAC Car Park", short: "TAPAC", at: 1367, up: 340, down: 66, request: true },
+      { id: "motat-aviation", name: "MOTAT Aviation Hall", short: "Aviation Hall", at: 1677, up: 414, down: 0 }
+    ];
+    const MOTAT_STOP_BY_ID = Object.fromEntries(MOTAT_STOPS.map(s => [s.id, s]));
+    const MOTAT_GNR = MOTAT_STOPS[0], MOTAT_AVIATION = MOTAT_STOPS[MOTAT_STOPS.length - 1];
+    // Seconds since leaving the origin terminus vs metres travelled, per direction
+    // (1 = towards Aviation Hall, -1 = towards GNR). Includes the Zoo dwell.
+    const MOTAT_PROFILE = {
+      "1": [[0,0],[100,15],[200,36],[300,46],[400,62],[500,78],[600,96],[700,134],[800,162],[900,180],[1000,212],[1100,308],[1200,324],[1300,346],[1400,366],[1500,386],[1628,414]],
+      "-1": [[0,0],[100,26],[200,47],[300,72],[400,92],[500,122],[600,152],[700,244],[800,261],[900,290],[1000,332],[1100,351],[1200,366],[1300,380],[1400,398],[1500,413],[1628,439]]
+    };
+    // Published terminus departures (MOTAT timetables, June 2026). Used when no tram is
+    // live, and for first/last departure times.
+    const MOTAT_TIMETABLE = {
+      "motat-gnr": {
+        weekday: "10:00 10:15 10:30 10:45 11:00 11:15 11:30 11:45 11:55 12:15 12:45 13:00 13:30 14:00 14:30 14:55 15:35 16:00",
+        weekend: "10:00 10:15 10:30 10:45 11:00 11:15 11:30 12:00 12:30 13:00 13:15 13:30 13:45 14:00 14:15 14:30 15:00 15:15 15:30 15:45 16:00"
+      },
+      "motat-aviation": {
+        weekday: "10:15 10:30 10:45 11:00 11:15 11:30 11:45 12:00 12:10 12:30 13:00 13:15 13:45 14:15 14:45 15:00 15:45 16:10",
+        weekend: "10:15 10:30 10:45 11:00 11:15 11:30 11:45 12:15 12:45 13:15 13:30 13:45 14:00 14:15 14:30 15:00 15:15 15:30 15:45 16:00 16:10"
+      }
+    };
+    const MOTAT_TERMINUS_M = 40;       // within this of a terminus stop = at the terminus
+    const MOTAT_OFF_LINE_M = 40;       // further than this from the track = depot / yard
+    const MOTAT_FIX_MAX_AGE_MS = 120000;
+    const MOTAT_MIN_LAYOVER_MS = 4 * 60000;
+    const MOTAT_DEFAULT_CONFIG = Object.assign({}, DEFAULT_CONFIG, {
+      stopIds: "motat-zoo",
+      routeColors: "TRAM: #E8D4BC / #000000",
+      frequentRoutes: "",
+      subscriptionKey: "",
+      requireSubscriptionKey: false,
+      trackerUrl: "https://tramtracker.motat.nz",
+      trackerToken: MOTAT_TOKEN,
+      closedDates: "2026-10-12..2026-10-16"
+    });
+    const motat = { trams: {}, names: {}, namesAt: 0, lastOk: 0, loggedIn: false, error: "", test: null, seeded: new Set() };
+
+    function loadMotatConfig() {
+      const saved = loadJson("motat-config") || {};
+      if (!saved.routeColors) delete saved.routeColors; // pick up the default tram colour
+      return sanitizeConfig(Object.assign({}, MOTAT_DEFAULT_CONFIG, saved));
+    }
+    function switchSource(source) {
+      clearTimers();
+      boardSource = source === "motat" ? "motat" : "at";
+      saveJson("source", boardSource);
+      state.config = isMotat() ? loadMotatConfig() : loadConfig();
+      state.pageLocked = Boolean(state.config.lockFirstPage);
+      state.page = 0;
+      state.status = ""; state.error = "";
+      render();
+    }
+
+    // Nearest point on the track: s = metres along it, off = metres away from it.
+    function motatProject(lat, lon) {
+      let best = null, run = 0;
+      for (let i = 0; i < MOTAT_TRACK.length - 1; i++) {
+        const [aLat, aLon] = MOTAT_TRACK[i], [bLat, bLon] = MOTAT_TRACK[i + 1];
+        const kx = Math.cos(aLat * Math.PI / 180) * 111320, ky = 110540;
+        const bx = (bLon - aLon) * kx, by = (bLat - aLat) * ky;
+        const px = (lon - aLon) * kx, py = (lat - aLat) * ky;
+        const len2 = bx * bx + by * by, len = Math.sqrt(len2);
+        const t = len2 ? Math.max(0, Math.min(1, (px * bx + py * by) / len2)) : 0;
+        const off = Math.hypot(px - t * bx, py - t * by);
+        if (!best || off < best.off) best = { s: run + t * len, off };
+        run += len;
+      }
+      return best;
+    }
+    function motatProfileSeconds(dir, metres) {
+      const prof = MOTAT_PROFILE[dir];
+      if (metres <= 0) return 0;
+      for (let i = 1; i < prof.length; i++) {
+        const [m1, t1] = prof[i], [m0, t0] = prof[i - 1];
+        if (metres <= m1) return t0 + (t1 - t0) * (metres - m0) / (m1 - m0);
+      }
+      return prof[prof.length - 1][1];
+    }
+    function motatStopOffsetMs(stop, dir) { return (dir > 0 ? stop.up : stop.down) * 1000; }
+    function motatTerminusAt(s) {
+      if (s <= MOTAT_GNR.at + MOTAT_TERMINUS_M) return MOTAT_GNR;
+      if (s >= MOTAT_AVIATION.at - MOTAT_TERMINUS_M) return MOTAT_AVIATION;
+      return null;
+    }
+
+    function motatServiceDay(nowMs) {
+      const key = dateKeyFor(new Date(nowMs), state.config.timezone);
+      const iso = key.slice(0, 4) + "-" + key.slice(4, 6) + "-" + key.slice(6, 8);
+      const weekday = new Date(Date.UTC(+key.slice(0, 4), +key.slice(4, 6) - 1, +key.slice(6, 8))).getUTCDay();
+      const closed = splitList(state.config.closedDates).some(part => {
+        const [from, to] = part.split("..").map(v => v.trim());
+        return to ? iso >= from && iso <= to : iso === from;
+      });
+      return { key, closed, service: weekday === 0 || weekday === 6 ? "weekend" : "weekday" };
+    }
+    function motatTimetable(terminusId, nowMs) {
+      const day = motatServiceDay(nowMs);
+      if (day.closed) return [];
+      return MOTAT_TIMETABLE[terminusId][day.service].split(" ").map(t => gtfsEpoch(day.key, t, state.config.timezone));
+    }
+    // When a tram waiting at a terminus will leave: the next :00/:15/:30/:45 at least
+    // MOTAT_MIN_LAYOVER_MS after it arrived, never after the day's last timetabled departure.
+    function motatNextDeparture(terminus, arrivedMs, nowMs) {
+      const deps = motatTimetable(terminus.id, nowMs);
+      if (!deps.length) return null;
+      const last = deps[deps.length - 1], first = deps[0];
+      const earliest = Math.max(arrivedMs + MOTAT_MIN_LAYOVER_MS, first);
+      const quarter = 15 * 60000;
+      let dep = Math.ceil(earliest / quarter) * quarter;
+      if (dep > last) dep = earliest <= last ? last : null;
+      // Still sitting there after its slot (lunch break, late running): assume the next one.
+      if (dep && dep < nowMs - 60000) {
+        dep = Math.ceil((nowMs - 60000) / quarter) * quarter;
+        if (dep > last) return null;
+      }
+      return dep;
+    }
+
+    // --- Tracker I/O ---
+    async function motatFetchJson(path) {
+      const base = String(state.config.trackerUrl || MOTAT_DEFAULT_CONFIG.trackerUrl).replace(/\/+$/, "");
+      const res = await fetch(base + path, { credentials: "include", cache: "no-store", headers: { Accept: "application/json" } });
+      if (res.status === 401 || res.status === 403) { const err = new Error("HTTP " + res.status); err.auth = true; throw err; }
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      return res.json();
+    }
+    async function motatAuthed(path) {
+      if (!motat.loggedIn) {
+        await motatFetchJson("/api/session?token=" + encodeURIComponent(state.config.trackerToken || ""));
+        motat.loggedIn = true;
+      }
+      try { return await motatFetchJson(path); }
+      catch (err) {
+        if (!err.auth) throw err;
+        // Session expired: log in once more. A second 401 straight after a successful
+        // login means the browser is refusing the tracker's cookie.
+        await motatFetchJson("/api/session?token=" + encodeURIComponent(state.config.trackerToken || ""));
+        try { return await motatFetchJson(path); }
+        catch (again) { if (again.auth) again.cookieBlocked = true; throw again; }
+      }
+    }
+    async function motatRefresh() {
+      state.refreshing = true;
+      try {
+        const nowMs = Date.now();
+        if (nowMs - motat.namesAt > 5 * 60000) {
+          const devices = await motatAuthed("/api/devices");
+          motat.names = Object.fromEntries(devices.map(d => [d.id, d.name]));
+          motat.namesAt = nowMs;
+        }
+        const positions = await motatAuthed("/api/positions");
+        await motatSeedHistory(positions, nowMs);
+        positions.forEach(p => motatAddFix(p));
+        motat.lastOk = Date.now();
+        motat.error = "";
+        state.refreshFailed = false;
+      } catch (err) {
+        motat.loggedIn = false;
+        state.refreshFailed = true;
+        motat.error = err.cookieBlocked ? "This browser is blocking the tram tracker's cookie (Safari/Firefox privacy settings)."
+          : err.auth ? "The tram tracker rejected the share token."
+          : "Tram tracker unreachable (" + (err.message || err) + ").";
+        console.warn("[motat]", err);
+      } finally {
+        state.refreshing = false;
+      }
+    }
+    // First sighting of a working tram: pull its last 20 minutes so direction and
+    // terminus arrival time are known immediately instead of after a few polls.
+    async function motatSeedHistory(positions, nowMs) {
+      const fresh = positions.filter(p => !motat.seeded.has(p.deviceId) && nowMs - motatParseTime(p.fixTime) < MOTAT_FIX_MAX_AGE_MS);
+      await Promise.all(fresh.map(async p => {
+        motat.seeded.add(p.deviceId);
+        const from = new Date(nowMs - 20 * 60000).toISOString(), to = new Date(nowMs).toISOString();
+        try {
+          const hist = await motatAuthed(`/api/positions?deviceId=${encodeURIComponent(p.deviceId)}&from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`);
+          hist.forEach(h => motatAddFix(h));
+        } catch (err) { console.warn("[motat] history", p.deviceId, err); }
+      }));
+    }
+    function motatParseTime(value) {
+      // Older Traccar builds send "+0000"; Safari wants "+00:00".
+      return Date.parse(String(value || "").replace(/([+-]\d\d)(\d\d)$/, "$1:$2"));
+    }
+    function motatAddFix(p) {
+      const t = motatParseTime(p.fixTime);
+      if (!Number.isFinite(t) || p.valid === false) return;
+      const tram = motat.trams[p.deviceId] || (motat.trams[p.deviceId] = { id: p.deviceId, fixes: [], dir: 0 });
+      const last = tram.fixes[tram.fixes.length - 1];
+      if (last && t <= last.t) return;
+      const { s, off } = motatProject(p.latitude, p.longitude);
+      tram.fixes.push({ t, s, off, knots: Number(p.speed) || 0 });
+      tram.fixes = tram.fixes.filter(f => t - f.t <= 30 * 60000);
+      // Direction = progress along the track over the last 10-60 s; sticky while stopped.
+      const ref = tram.fixes.find(f => t - f.t <= 60000 && t - f.t >= 10000);
+      if (ref && Math.abs(s - ref.s) >= 12) tram.dir = Math.sign(s - ref.s);
+    }
+    function motatTramName(tram) {
+      return "Tram " + (motat.names[tram.id] || tram.id);
+    }
+    // Trams with a recent fix, split into on-the-line and in-the-depot.
+    function motatActiveTrams(nowMs) {
+      return Object.values(motat.trams).map(tram => {
+        const fix = tram.fixes[tram.fixes.length - 1];
+        if (!fix || nowMs - fix.t > MOTAT_FIX_MAX_AGE_MS) return null;
+        const terminus = fix.off <= MOTAT_OFF_LINE_M ? motatTerminusAt(fix.s) : null;
+        let arrivedMs = fix.t;
+        if (terminus) {
+          for (let i = tram.fixes.length - 1; i >= 0 && motatTerminusAt(tram.fixes[i].s) === terminus && tram.fixes[i].off <= MOTAT_OFF_LINE_M; i--) arrivedMs = tram.fixes[i].t;
+        }
+        return { tram, fix, onLine: fix.off <= MOTAT_OFF_LINE_M, terminus, arrivedMs, name: motatTramName(tram) };
+      }).filter(Boolean);
+    }
+    function motatFresh(nowMs) {
+      return Boolean(motat.lastOk) && nowMs - motat.lastOk <= state.config.pollSeconds * state.config.staleMultiplier * 1000;
+    }
+
+    // --- Predictions ---
+    // Every stop each tram will reach over the lookahead: the rest of its current run
+    // (live), then later runs after a terminus layover (shown as scheduled clock times,
+    // like an AT trip with no prediction).
+    function motatTramLegs(active, nowMs, untilMs) {
+      const legs = [];
+      let dir, startMs, elapsedMs, live = true, arriveMs;
+      if (active.terminus) {
+        startMs = motatNextDeparture(active.terminus, active.arrivedMs, nowMs);
+        if (!startMs) return legs;
+        dir = active.terminus === MOTAT_GNR ? 1 : -1;
+        elapsedMs = 0;
+      } else {
+        dir = active.tram.dir;
+        if (!dir) return legs;
+        const travelled = dir > 0 ? active.fix.s - MOTAT_GNR.at : MOTAT_AVIATION.at - active.fix.s;
+        startMs = active.fix.t;
+        elapsedMs = motatProfileSeconds(dir, travelled) * 1000;
+      }
+      for (let n = 0; n < 8 && startMs <= untilMs; n++) {
+        const origin = dir > 0 ? MOTAT_GNR : MOTAT_AVIATION, dest = dir > 0 ? MOTAT_AVIATION : MOTAT_GNR;
+        const stops = [];
+        for (const stop of MOTAT_STOPS) {
+          if (stop === dest) continue; // arrivals at the end of the line aren't departures
+          const offset = motatStopOffsetMs(stop, dir);
+          if (stop !== origin && offset < elapsedMs - 20000) continue; // already passed
+          if (stop === origin && elapsedMs > 0) continue;
+          stops.push({ stop, time: startMs + Math.max(0, offset - elapsedMs) });
+        }
+        legs.push({ dir, dest, live, stops, tram: active.tram, n });
+        arriveMs = startMs + Math.max(0, motatStopOffsetMs(dest, dir) - elapsedMs);
+        const next = motatNextDeparture(dest, arriveMs, Math.max(nowMs, arriveMs));
+        if (!next) break;
+        dir = -dir; startMs = next; elapsedMs = 0; live = false;
+      }
+      return legs;
+    }
+
+    function motatDepartures() {
+      const cfg = state.config, nowMs = state.now.getTime();
+      const untilMs = nowMs + cfg.lookaheadHours * 3600000;
+      const wanted = new Set(cfg.dualStopMode ? dualStopIds(cfg) : splitList(cfg.stopIds));
+      const running = motatFresh(nowMs) ? motatActiveTrams(nowMs).filter(a => a.onLine) : [];
+      const rows = [];
+      const push = (key, stop, dest, time, live) => {
+        if (!wanted.has(stop.id) || time < nowMs - 30000 || time > untilMs) return;
+        rows.push({
+          key, tripId: key, routeId: "motat", stopId: stop.id, routeLabel: "TRAM",
+          destination: dest.short, stopName: stop.name,
+          scheduled: time, predicted: live ? time : undefined, effective: time,
+          predictedSource: live ? "motat-tracker" : null, occupancy: 0,
+          status: live ? "live" : "scheduled"
+        });
+      };
+      if (running.length) {
+        for (const active of running) {
+          for (const leg of motatTramLegs(active, nowMs, untilMs)) {
+            for (const { stop, time } of leg.stops) push(leg.tram.id + ":" + leg.n + ":" + stop.id, stop, leg.dest, time, leg.live);
+          }
+        }
+      } else {
+        // No tram on the line (tracker down, before opening, between runs): timetable.
+        for (const origin of [MOTAT_GNR, MOTAT_AVIATION]) {
+          const dir = origin === MOTAT_GNR ? 1 : -1, dest = dir > 0 ? MOTAT_AVIATION : MOTAT_GNR;
+          for (const dep of motatTimetable(origin.id, nowMs)) {
+            for (const stop of MOTAT_STOPS) {
+              if (stop !== dest) push("tt:" + origin.id + ":" + dep + ":" + stop.id, stop, dest, dep + motatStopOffsetMs(stop, dir), false);
+            }
+          }
+        }
+      }
+      return rows.sort((a, b) => a.effective - b.effective);
+    }
+
+    function motatOperatingMode(rows, nowMs) {
+      const predicted = rows.filter(row => row.status === "live").length;
+      const total = rows.length;
+      const coverage = total ? predicted + "/" + total + " live ETA" + (total === 1 ? "" : "s") : "no upcoming rows";
+      const fresh = motatFresh(nowMs);
+      if (state.refreshing && !fresh) return { id: "scheduled", label: "Connecting", coverage, detail: "Connecting to the MOTAT tram tracker." };
+      if (!fresh) return { id: "scheduled", label: "Scheduled", coverage, detail: (motat.error ? motat.error + " " : "") + "Every time shown is from the MOTAT timetable." };
+      if (state.refreshFailed) return { id: "degraded", label: "Degraded", coverage, detail: "The latest refresh failed. Recent tram positions are still in use." };
+      return { id: "full", label: "Full live", coverage, detail: "Live tram positions from the MOTAT tram tracker; later runs are estimated." };
+    }
+
+    // One movement at a time for the footer ticker, rotating every few seconds.
+    function motatMovements(nowMs) {
+      if (motatServiceDay(nowMs).closed) return ["MOTAT trams are not running today - tramway maintenance"];
+      if (!motatFresh(nowMs)) return [];
+      const tz = state.config.timezone;
+      const messages = motatActiveTrams(nowMs).sort((a, b) => b.onLine - a.onLine).map(a => {
+        const { fix, tram } = a;
+        if (!a.onLine) return a.name + " is in the depot";
+        if (a.terminus) {
+          const dep = motatNextDeparture(a.terminus, a.arrivedMs, nowMs);
+          const other = a.terminus === MOTAT_GNR ? MOTAT_AVIATION : MOTAT_GNR;
+          return dep ? a.name + " waiting at " + a.terminus.short + " · departs " + timeLabel(dep, tz) + " for " + other.short : a.name + " has finished at " + a.terminus.short;
+        }
+        const dest = tram.dir > 0 ? MOTAT_AVIATION : tram.dir < 0 ? MOTAT_GNR : null;
+        const at = MOTAT_STOPS.find(stop => Math.abs(stop.at - fix.s) <= 25);
+        const moving = fix.knots > 1;
+        if (at && !moving) return a.name + " at " + at.short + (dest ? " → " + dest.short : "");
+        if (at && moving && dest && (fix.s - at.at) * tram.dir > 0) return a.name + " leaving " + at.short + " → " + dest.short;
+        if (!dest) return a.name + " on the line";
+        const next = MOTAT_STOPS.filter(stop => (stop.at - fix.s) * tram.dir > 0).sort((x, y) => (x.at - fix.s) * tram.dir - (y.at - fix.s) * tram.dir)[0];
+        return a.name + (moving ? " approaching " : " stopped before ") + (next ? next.short : dest.short) + " → " + dest.short;
+      });
+      if (!messages.length) {
+        const deps = [MOTAT_GNR, MOTAT_AVIATION].flatMap(t => motatTimetable(t.id, nowMs));
+        const first = deps.length ? Math.min(...deps) : null;
+        return [first && nowMs < first ? "No trams out yet · first tram " + timeLabel(first, tz) : "No trams on the line right now"];
+      }
+      return messages;
+    }
+    function motatTickerText() {
+      const messages = motatMovements(Date.now());
+      return messages.length ? messages[Math.floor(Date.now() / 5000) % messages.length] : "";
+    }
+
+    // Which board the app is showing: "at" (GTFS + AT realtime) or "motat" (MOTAT trams).
+    // Each keeps its own saved settings.
+    let boardSource = loadJson("source") === "motat" ? "motat" : "at";
+    function isMotat() { return boardSource === "motat"; }
+    const state = {
+      config: boardSource === "motat" ? loadMotatConfig() : loadConfig(),
+      bundle: loadBundle(),
+      gtfs: null,
+      realtime: loadRealtime(),
+      status: "",
+      error: "",
+      realtimeStatus: "",
+      now: new Date(),
+      page: 0,
+      stopSearch: "",
+      autoGtfsAttempted: false,
+      gtfsLoading: false,
+      colorDemo: false,
+      pageLocked: false,
+      refreshing: false,
+      refreshFailed: false,
+      keyTest: null, // null | "testing" | "ok" | "fail"
+      expandedSections: { advanced: false }
+    };
+    let timers = [];
+    let realtimeRequestSeq = 0;
+    state.pageLocked = Boolean(state.config.lockFirstPage);
+
+    function loadConfig() {
+      const saved = loadJson("config") || {};
+      if (saved.demoMode || String(saved.stopIds || "").includes("demo-")) return Object.assign({}, DEFAULT_CONFIG);
+      delete saved.demoMode;
+      if (LEGACY_DEFAULT_ROUTE_COLORS.has(saved.routeColors)) delete saved.routeColors;
+      if (LEGACY_GTFS_URLS.has(saved.gtfsUrl)) delete saved.gtfsUrl;
+      if (!saved.realtimeUrl) delete saved.realtimeUrl;
+      if (!saved.alertsUrl) delete saved.alertsUrl;
+      if (!saved.vehiclesUrl) delete saved.vehiclesUrl;
+      if (!saved.departuresUrl) delete saved.departuresUrl;
+      if (!saved.departuresKey) delete saved.departuresKey;
+      // Old default was 20; migrate to the new 60 (matches the AT website, which shows
+      // "45 min" rather than switching to clock time). Explicit other values are kept.
+      if (saved.relativeCutoffMinutes === 20) delete saved.relativeCutoffMinutes;
+      return sanitizeConfig(Object.assign({}, DEFAULT_CONFIG, saved));
+    }
+    function loadBundle() {
+      const bundle = loadJson("bundle");
+      return bundle && bundle.source !== "demo" ? bundle : null;
+    }
+    function loadRealtime() {
+      const realtime = loadJson("realtime");
+      return realtime && realtime.sourceUrl !== "demo://local" ? realtime : null;
+    }
+    function loadJson(name) {
+      try {
+        const raw = localStorage.getItem(STORE_KEY + ":" + name);
+        return raw ? JSON.parse(raw) : null;
+      } catch { return null; }
+    }
+    function saveJson(name, value) {
+      try { localStorage.setItem(STORE_KEY + ":" + name, JSON.stringify(value)); }
+      catch { state.status = "Storage unavailable — settings will not persist."; render(); }
+    }
+    function clearTimers() { timers.forEach(clearInterval); timers = []; }
+    function splitList(text) {
+      return String(text || "").split(/[,\n]/).map(v => v.trim()).filter(Boolean);
+    }
+    function dualStopIds(cfg = state.config) {
+      const stops = Array.from(new Set(splitList(cfg.stopIds)));
+      const left = stops.includes(cfg.dualStopLeftId) ? cfg.dualStopLeftId : stops[0];
+      const right = stops.includes(cfg.dualStopRightId) && cfg.dualStopRightId !== left
+        ? cfg.dualStopRightId : stops.find(id => id !== left);
+      return [left, right];
+    }
+    function bundleHasSelectedStops(cfg = state.config) {
+      if (isMotat()) return (cfg.dualStopMode ? dualStopIds(cfg) : splitList(cfg.stopIds)).every(id => Boolean(id && MOTAT_STOP_BY_ID[id]));
+      if (!state.bundle) return false;
+      const ids = cfg.dualStopMode ? dualStopIds(cfg) : splitList(cfg.stopIds);
+      return ids.every(id => Boolean(state.bundle.stops && state.bundle.stops[id]));
+    }
+    function gtfsRtArray(value) {
+      if (!value) return [];
+      if (Array.isArray(value)) return value;
+      if (typeof value !== "object") return [];
+      const singleKeys = ["trip_update", "tripUpdate", "vehicle", "alert", "stop_sequence", "stopSequence", "stop_id", "stopId", "arrival", "departure", "route_id", "routeId"];
+      return singleKeys.some(k => k in value) ? [value] : Object.values(value);
+    }
+    function normLabel(value) {
+      return String(value || "").trim().toLowerCase();
+    }
+    function clampNumber(value, fallback, min, max) {
+      const n = Number(value);
+      if (!Number.isFinite(n)) return fallback;
+      return Math.min(max, Math.max(min, n));
+    }
+    function safeTimezone(value) {
+      const tz = String(value || DEFAULT_CONFIG.timezone).trim();
+      try {
+        new Intl.DateTimeFormat("en-NZ", { timeZone: tz }).format(new Date());
+        return tz;
+      } catch { return DEFAULT_CONFIG.timezone; }
+    }
+    function sanitizeConfig(cfg) {
+      cfg.timezone = safeTimezone(cfg.timezone);
+      cfg.pollSeconds = clampNumber(cfg.pollSeconds, DEFAULT_CONFIG.pollSeconds, 5, 3600);
+      cfg.pageSize = Math.round(clampNumber(cfg.pageSize, DEFAULT_CONFIG.pageSize, 1, 50));
+      cfg.rotateSeconds = clampNumber(cfg.rotateSeconds, DEFAULT_CONFIG.rotateSeconds, 3, 3600);
+      cfg.lookaheadHours = clampNumber(cfg.lookaheadHours, DEFAULT_CONFIG.lookaheadHours, 1, 48);
+      cfg.relativeCutoffMinutes = clampNumber(cfg.relativeCutoffMinutes, DEFAULT_CONFIG.relativeCutoffMinutes, 0, 180);
+      cfg.staleMultiplier = clampNumber(cfg.staleMultiplier, DEFAULT_CONFIG.staleMultiplier, 1, 20);
+      return cfg;
+    }
+    function matchingPresetId(cfg) {
+      for (const [id, preset] of Object.entries(PRESETS)) {
+        const matches = Object.entries(preset.config).every(([key, value]) => {
+          return typeof value === "number" ? Number(cfg[key]) === value : String(cfg[key] ?? "") === String(value);
+        });
+        if (matches) return id;
+      }
+      return "";
+    }
+    function escapeHtml(v) {
+      return String(v == null ? "" : v).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+    }
+    function safeHref(value) {
+      try {
+        const url = new URL(String(value || ""), location.href);
+        return /^(https?|file):$/.test(url.protocol) ? url.href : "#";
+      } catch { return "#"; }
+    }
+    function gtfsFetchCandidates(primary = state.config.gtfsUrl) {
+      const values = [primary, DEFAULT_GTFS_URL]
+        .map(v => String(v || "").trim())
+        .filter(Boolean);
+      return Array.from(new Set(values));
+    }
+
+    // CSV parser
+    function csvParse(text) {
+      const rows = [];
+      let row = [], field = "", quoted = false;
+      for (let i = 0; i < text.length; i++) {
+        const c = text[i], n = text[i + 1];
+        if (quoted) {
+          if (c === '"' && n === '"') { field += '"'; i++; }
+          else if (c === '"') quoted = false;
+          else field += c;
+        } else if (c === '"') quoted = true;
+        else if (c === ",") { row.push(field); field = ""; }
+        else if (c === "\n") { row.push(field); rows.push(row); row = []; field = ""; }
+        else if (c !== "\r") field += c;
+      }
+      if (field.length || row.length) { row.push(field); rows.push(row); }
+      const header = rows.shift() || [];
+      return rows.filter(r => r.length && r.some(Boolean)).map(r => Object.fromEntries(header.map((h, i) => [h, r[i] || ""])));
+    }
+
+    // ZIP reader
+    async function readZipEntries(buffer, names) {
+      if (!("DecompressionStream" in globalThis)) throw new Error("Browser needs DecompressionStream (Chrome/Edge).");
+      const bytes = new Uint8Array(buffer);
+      const view = new DataView(buffer);
+      let eocd = -1;
+      for (let i = bytes.length - 22; i >= Math.max(0, bytes.length - 66000); i--) {
+        if (view.getUint32(i, true) === 0x06054b50) { eocd = i; break; }
+      }
+      if (eocd < 0) throw new Error("Invalid ZIP file.");
+      const entryCount = view.getUint16(eocd + 10, true);
+      let cdOffset = view.getUint32(eocd + 16, true);
+      const wanted = new Set(names);
+      const output = {};
+      for (let e = 0; e < entryCount; e++) {
+        if (view.getUint32(cdOffset, true) !== 0x02014b50) throw new Error("Invalid ZIP entry.");
+        const method = view.getUint16(cdOffset + 10, true);
+        const compressedSize = view.getUint32(cdOffset + 20, true);
+        const nameLen = view.getUint16(cdOffset + 28, true);
+        const extraLen = view.getUint16(cdOffset + 30, true);
+        const commentLen = view.getUint16(cdOffset + 32, true);
+        const localOffset = view.getUint32(cdOffset + 42, true);
+        const name = new TextDecoder().decode(bytes.slice(cdOffset + 46, cdOffset + 46 + nameLen));
+        if (wanted.has(name)) {
+          const localNameLen = view.getUint16(localOffset + 26, true);
+          const localExtraLen = view.getUint16(localOffset + 28, true);
+          const start = localOffset + 30 + localNameLen + localExtraLen;
+          const compressed = bytes.slice(start, start + compressedSize);
+          let fileBytes;
+          if (method === 0) fileBytes = compressed;
+          else if (method === 8) fileBytes = new Uint8Array(await new Response(new Blob([compressed]).stream().pipeThrough(new DecompressionStream("deflate-raw"))).arrayBuffer());
+          else throw new Error("Unsupported ZIP method " + method);
+          output[name] = new TextDecoder("utf-8").decode(fileBytes);
+        }
+        cdOffset += 46 + nameLen + extraLen + commentLen;
+      }
+      return output;
+    }
+
+    // GTFS ingestion. stop_times.txt in a full AT feed is ~80 MB / 1.7M rows; parsing it
+    // all into objects froze the page for minutes. Instead, work happens in an inline
+    // Web Worker, and stop_times is never fully parsed: the worker scans it line by line
+    // and returns only the rows for the configured stops (a few hundred).
+    function stopTimesFilterSource() {
+      // Serialized into the worker. NL/CR constants avoid template-escaping mistakes.
+      return `
+        const NL = String.fromCharCode(10), CR = String.fromCharCode(13);
+        function filterStopTimes(text, stopIds) {
+          const want = new Set(stopIds);
+          const headEnd = text.indexOf(NL);
+          const headerLine = text.slice(0, headEnd).split(CR).join("");
+          const header = headerLine.split(",");
+          const stopCol = header.indexOf("stop_id");
+          if (stopCol < 0) throw new Error("stop_times.txt missing stop_id column");
+          const rows = [];
+          let pos = headEnd + 1;
+          while (pos < text.length) {
+            let end = text.indexOf(NL, pos);
+            if (end < 0) end = text.length;
+            let line = text.slice(pos, end);
+            pos = end + 1;
+            if (line.endsWith(CR)) line = line.slice(0, -1);
+            if (!line) continue;
+            if (line.indexOf('"') >= 0) {
+              const parsed = csvParse(headerLine + NL + line)[0];
+              if (parsed && want.has(parsed.stop_id)) rows.push(parsed);
+              continue;
+            }
+            const cells = line.split(",");
+            if (!want.has(cells[stopCol])) continue;
+            rows.push(Object.fromEntries(header.map((h, i) => [h, cells[i] || ""])));
+          }
+          return rows;
+        }`;
+    }
+
+    function gtfsWorkerTask(message) {
+      return new Promise((resolve, reject) => {
+        const src = csvParse.toString() + "\n" + readZipEntries.toString() + "\n" + stopTimesFilterSource() + `
+          self.onmessage = async e => {
+            try {
+              const { kind, buffer, names, stopIds } = e.data;
+              const files = await readZipEntries(buffer, kind === "tables" ? names : ["stop_times.txt"]);
+              let out;
+              if (kind === "tables") {
+                out = {};
+                for (const k of Object.keys(files)) out[k] = csvParse(files[k]);
+              } else {
+                if (!files["stop_times.txt"]) throw new Error("GTFS zip missing stop_times.txt");
+                out = filterStopTimes(files["stop_times.txt"], stopIds);
+              }
+              self.postMessage({ ok: true, out });
+            } catch (err) { self.postMessage({ ok: false, error: String(err && err.message || err) }); }
+          };`;
+        const url = URL.createObjectURL(new Blob([src], { type: "text/javascript" }));
+        const w = new Worker(url);
+        const done = fn => v => { URL.revokeObjectURL(url); w.terminate(); fn(v); };
+        w.onmessage = e => (e.data.ok ? done(resolve)(e.data.out) : done(reject)(new Error(e.data.error)));
+        w.onerror = e => done(reject)(new Error((e && e.message) || "Worker failed"));
+        w.postMessage(message, [message.buffer]);
+      });
+    }
+
+    async function ingestGtfs(buffer, source) {
+      const tables = ["stops.txt", "routes.txt", "trips.txt", "calendar.txt", "calendar_dates.txt", "feed_info.txt"];
+      setStatus("Reading timetable data...");
+      let parsed;
+      try {
+        parsed = await gtfsWorkerTask({ kind: "tables", buffer: buffer.slice(0), names: tables });
+      } catch (err) {
+        console.warn("[gtfs] worker parse failed, parsing on main thread:", err && err.message || err);
+        const files = await readZipEntries(buffer, tables);
+        parsed = {};
+        for (const name of Object.keys(files)) parsed[name] = csvParse(files[name]);
+      }
+      for (const name of ["stops.txt", "routes.txt", "trips.txt"]) {
+        if (!parsed[name]) throw new Error("GTFS zip missing " + name);
+      }
+      state.gtfs = {
+        source,
+        buffer, // kept so buildBundle can filter stop_times on demand
+        feedInfo: parsed["feed_info.txt"] || [],
+        stops: parsed["stops.txt"],
+        routes: parsed["routes.txt"],
+        trips: parsed["trips.txt"],
+        calendars: parsed["calendar.txt"] || [],
+        calendarDates: parsed["calendar_dates.txt"] || []
+      };
+      setStatus("Loaded " + state.gtfs.stops.length.toLocaleString() + " stops from GTFS.");
+    }
+
+    async function selectedStopTimesFor(stopIds) {
+      try {
+        return await gtfsWorkerTask({ kind: "stopTimes", buffer: state.gtfs.buffer.slice(0), stopIds: Array.from(stopIds) });
+      } catch (err) {
+        console.warn("[gtfs] worker stop_times filter failed, falling back to main thread:", err && err.message || err);
+        const files = await readZipEntries(state.gtfs.buffer, ["stop_times.txt"]);
+        if (!files["stop_times.txt"]) throw new Error("GTFS zip missing stop_times.txt");
+        return csvParse(files["stop_times.txt"]).filter(st => stopIds.has(st.stop_id));
+      }
+    }
+
+    async function fetchGtfs(options = {}) {
+      if (state.gtfsLoading) return false;
+      const candidates = options.candidates || gtfsFetchCandidates();
+      const errors = [];
+      state.gtfsLoading = true;
+      if (state.config.mode === "setup") renderSetup();
+      try {
+        if (!options.quiet) setStatus("Fetching GTFS zip...");
+        for (const candidate of candidates) {
+          try {
+            const res = await fetch(candidate);
+            if (!res.ok) throw new Error("Fetch failed: " + res.status);
+            await ingestGtfs(await res.arrayBuffer(), candidate);
+            if (candidate !== state.config.gtfsUrl) saveConfig({ gtfsUrl: candidate });
+            return true;
+          } catch (err) {
+            errors.push(candidate + " (" + (err && err.message || err) + ")");
+          }
+        }
+        throw new Error(errors.join("; "));
+      } catch (err) {
+        if (!options.quiet) setStatus(friendlyError(err, "GTFS fetch"), true);
+        return false;
+      } finally {
+        state.gtfsLoading = false;
+        if (state.config.mode === "setup") renderSetup();
+      }
+    }
+
+    async function uploadGtfs(file) {
+      if (!file) return;
+      try {
+        setStatus("Reading GTFS zip...");
+        await ingestGtfs(await file.arrayBuffer(), file.name);
+      } catch (err) { setStatus(friendlyError(err, "GTFS upload"), true); }
+    }
+
+    function cleanColor(v) {
+      const color = String(v || "").replace(/^#/, "").trim().toUpperCase();
+      return /^[0-9A-F]{6}$/.test(color) ? color : "";
+    }
+
+    function parseRouteColors(text) {
+      const colors = new Map();
+      for (const rawLine of String(text || "").split(/\r?\n/)) {
+        const line = rawLine.trim();
+        if (!line || line.startsWith("#")) continue;
+        const match = line.match(/^([^:]+):\s*(#[0-9a-f]{6})\s*\/\s*(#[0-9a-f]{6})\s*$/i);
+        if (!match) continue;
+        const route = match[1].trim();
+        colors.set(normLabel(route), { route, background: match[2].toUpperCase(), text: match[3].toUpperCase() });
+      }
+      return colors;
+    }
+
+    async function buildBundle() {
+      if (!state.gtfs) { setStatus("Load GTFS data first.", true); return; }
+      // AT rotates the hash suffix of stop ids ("3955-edf582eb") with GTFS releases.
+      // If a configured id no longer exists, re-resolve it by its stop code prefix.
+      const gtfsStopIds = new Set(state.gtfs.stops.map(s => s.stop_id));
+      const resolveStop = id => {
+        if (gtfsStopIds.has(id)) return id;
+        const code = id.split("-")[0];
+        const match = state.gtfs.stops.find(s => s.stop_code === code || s.stop_id.split("-")[0] === code);
+        return match ? match.stop_id : id;
+      };
+      const configuredStops = splitList(state.config.stopIds);
+      const resolved = configuredStops.map(resolveStop);
+      const resolvedText = resolved.join(", ");
+      if (resolvedText !== splitList(state.config.stopIds).join(", ")) saveConfig({ stopIds: resolvedText });
+      if (state.config.dualStopMode) {
+        const leftIndex = configuredStops.indexOf(state.config.dualStopLeftId);
+        const rightIndex = configuredStops.indexOf(state.config.dualStopRightId);
+        saveConfig({
+          dualStopLeftId: leftIndex >= 0 ? resolved[leftIndex] : resolved[0] || "",
+          dualStopRightId: rightIndex >= 0 ? resolved[rightIndex] : resolved.find(id => id !== resolved[0]) || ""
+        });
+      }
+      const stopIds = new Set(resolved);
+      if (!stopIds.size) { setStatus("Add at least one stop.", true); return; }
+      setStatus("Building board...");
+      let candidateStopTimes;
+      try { candidateStopTimes = await selectedStopTimesFor(stopIds); }
+      catch (err) { setStatus(friendlyError(err, "Board build"), true); return; }
+      const routeAllow = new Set(splitList(state.config.routeAllowlist).map(normLabel));
+      const routesById = new Map(state.gtfs.routes.map(r => [r.route_id, r]));
+      const tripsById = new Map(state.gtfs.trips.map(t => [t.trip_id, t]));
+      const stopsById = new Map(state.gtfs.stops.map(s => [s.stop_id, s]));
+      const calendarsByService = new Map(state.gtfs.calendars.map(c => [c.service_id, c]));
+      const selectedStopTimes = [];
+      const tripIds = new Set(), routeIds = new Set(), serviceIds = new Set();
+      for (const st of candidateStopTimes) {
+        if (!stopIds.has(st.stop_id)) continue;
+        const trip = tripsById.get(st.trip_id);
+        const route = trip && routesById.get(trip.route_id);
+        if (!trip || !route) continue;
+        const labels = [route.route_short_name, route.route_long_name, route.route_id].filter(Boolean);
+        if (routeAllow.size && !labels.some(label => routeAllow.has(normLabel(label)))) continue;
+        selectedStopTimes.push(st);
+        tripIds.add(st.trip_id); routeIds.add(trip.route_id); serviceIds.add(trip.service_id);
+      }
+      if (!selectedStopTimes.length) {
+        setStatus("No departures matched these stop IDs and route filters. Check the stop IDs, route labels, or leave the route filter blank.", true);
+        return;
+      }
+      const bundle = {
+        schemaVersion: 1,
+        generatedAt: new Date().toISOString(),
+        source: state.gtfs.source,
+        config: Object.assign({}, state.config, { mode: "board" }),
+        feedInfo: state.gtfs.feedInfo[0] || {},
+        stops: {}, routes: {}, trips: {},
+        calendars: {}, calendarDates: {}, stopTimesByStop: {}
+      };
+      for (const stopId of stopIds) {
+        const s = stopsById.get(stopId);
+        if (s) bundle.stops[stopId] = { stopId, name: s.stop_name || stopId, lat: +s.stop_lat, lon: +s.stop_lon };
+      }
+      for (const routeId of routeIds) {
+        const r = routesById.get(routeId);
+        bundle.routes[routeId] = { routeId, shortName: r.route_short_name || r.route_long_name || routeId, longName: r.route_long_name || "", color: cleanColor(r.route_color), textColor: cleanColor(r.route_text_color) };
+      }
+      for (const tripId of tripIds) {
+        const t = tripsById.get(tripId);
+        bundle.trips[tripId] = { tripId, routeId: t.route_id, serviceId: t.service_id, headsign: t.trip_headsign || t.trip_short_name || tripId, directionId: t.direction_id || "" };
+      }
+      for (const serviceId of serviceIds) {
+        const c = calendarsByService.get(serviceId);
+        if (c) bundle.calendars[serviceId] = c;
+        bundle.calendarDates[serviceId] = state.gtfs.calendarDates.filter(d => d.service_id === serviceId);
+      }
+      for (const st of selectedStopTimes) {
+        const trip = tripsById.get(st.trip_id);
+        (bundle.stopTimesByStop[st.stop_id] ||= []).push({
+          tripId: st.trip_id, routeId: trip.route_id, serviceId: trip.service_id,
+          stopId: st.stop_id, stopSequence: +st.stop_sequence || 0,
+          arrivalTime: st.arrival_time, departureTime: st.departure_time,
+          headsign: st.stop_headsign || trip.trip_headsign || ""
+        });
+      }
+      for (const stopId of Object.keys(bundle.stopTimesByStop)) {
+        bundle.stopTimesByStop[stopId].sort((a, b) => a.departureTime.localeCompare(b.departureTime) || a.stopSequence - b.stopSequence);
+      }
+      state.bundle = bundle;
+      saveJson("bundle", bundle);
+      saveConfig({ mode: "board" });
+      setStatus("Built board: " + selectedStopTimes.length.toLocaleString() + " departures.");
+    }
+
+    // Realtime
+    function departureStopCodes() {
+      // AT stop codes (the number on the sign, used by the departures API) are the
+      // leading segment of GTFS stop ids like "3955-edf582eb".
+      const ids = state.config.dualStopMode ? dualStopIds() : splitList(state.config.stopIds);
+      return Array.from(new Set(ids.filter(Boolean).map(id => id.split("-")[0])));
+    }
+
+    // Per-stop predictions from AT's departures API. Coverage is intentionally treated as
+    // partial: unmonitored and omitted trips remain scheduled on the board.
+    async function fetchMovements(codes, key) {
+      const base = String(state.config.departuresUrl || "").replace(/\/+$/, "");
+      const movements = {};
+      const results = await Promise.all(codes.map(async code => {
+        try {
+          const res = await fetch(base + "/" + encodeURIComponent(code) + "?scope=tripsData", {
+            headers: { "Ocp-Apim-Subscription-Key": key, "Cache-Control": "no-cache" }
+          });
+          const payload = await res.json();
+          if (!res.ok || payload.message) throw new Error((payload.message || "fetch failed") + " (" + res.status + ")");
+          const feed = payload.response || payload;
+          for (const m of gtfsRtArray(feed.movements)) {
+            if (!m || !m.trip_id) continue;
+            // The AT website prefers the arrival prediction for its "Due" display — match it.
+            const expected = Date.parse(m.expectedArrivalTime || m.expectedDepartureTime || "");
+            movements[m.trip_id + ":" + code] = {
+              expected: Number.isFinite(expected) ? expected : undefined,
+              cancelled: /cancel/i.test(String(m.arrivalStatus || "")) || /cancel/i.test(String(m.departureStatus || "")),
+              monitored: Boolean(m.monitored)
+            };
+          }
+          return { code, ok: true };
+        } catch (err) {
+          return { code, ok: false, error: code + " (" + (err && err.message || err) + ")" };
+        }
+      }));
+      const errors = results.filter(r => !r.ok).map(r => r.error);
+      const succeeded = results.length - errors.length;
+      if (!succeeded) throw new Error("Departures API: " + errors.join("; "));
+      return { movements, requested: codes.length, succeeded, errors };
+    }
+
+    async function refreshRealtime() {
+      if (isMotat()) return motatRefresh();
+      const requestId = ++realtimeRequestSeq;
+      const cfg = state.config;
+      const key = String(cfg.subscriptionKey || "").trim();
+      const depKey = String(cfg.departuresKey || "").trim() || DEPARTURES_KEY || key;
+      // Did the feeds that authenticate with the USER's subscription key work? null = not
+      // tested this run. Drives the setup "Test" verdict, so it validates their key
+      // specifically (the departures API uses a different embedded key and always works).
+      state.subKeyOk = null;
+      state.refreshing = true;
+      const userFeeds = key ? [
+        { kind: "tripUpdates", label: "trip updates", url: cfg.realtimeUrl },
+        { kind: "alerts", label: "service alerts", url: cfg.alertsUrl },
+        { kind: "vehicles", label: "vehicle positions", url: cfg.vehiclesUrl }
+      ].filter(feed => feed.url) : [];
+      const depCodes = cfg.departuresUrl && depKey ? departureStopCodes() : [];
+      if (!userFeeds.length && !depCodes.length) {
+        state.realtimeStatus = "No API key";
+        state.status = "Configure the departures API or an AT subscription key to fetch live data.";
+        state.error = state.status;
+        state.refreshing = false;
+        state.refreshFailed = true;
+        return;
+      }
+      try {
+        const headers = { "Cache-Control": "no-cache", "Ocp-Apim-Subscription-Key": key };
+        const tasks = [
+          {
+            kind: "departures",
+            label: "stop predictions",
+            run: depCodes.length
+              ? fetchMovements(depCodes, depKey)
+              : Promise.resolve({ movements: {}, requested: 0, succeeded: 0, errors: [] })
+          },
+          ...userFeeds.map(feed => ({
+            kind: feed.kind,
+            label: feed.label,
+            run: (async () => {
+              const res = await fetch(feed.url, { method: "GET", headers });
+              let payload;
+              try { payload = await res.json(); }
+              catch { throw new Error("Realtime response from " + feed.url + " is not JSON."); }
+              if (!res.ok || payload.message) {
+                throw new Error((payload.message || "Realtime fetch failed") + " (" + res.status + ")");
+              }
+              return normalizeRealtime(payload, feed.url);
+            })()
+          }))
+        ];
+        const settled = await Promise.allSettled(tasks.map(task => task.run));
+        if (requestId !== realtimeRequestSeq) return;
+        const failures = settled
+          .map((result, index) => result.status === "rejected" ? new Error(tasks[index].label + ": " + (result.reason && result.reason.message || result.reason)) : null)
+          .filter(Boolean);
+        if (failures.length === settled.length) throw failures[0];
+        const departuresResult = settled[0].status === "fulfilled"
+          ? settled[0].value
+          : { movements: {}, requested: depCodes.length, succeeded: 0, errors: [failures[0] && failures[0].message] };
+        const movements = departuresResult.movements || {};
+        const feeds = settled.slice(1).filter(s => s.status === "fulfilled").map(s => s.value);
+        // A valid key authenticates all its feeds; if even one succeeds the key is good.
+        // AT's alerts/vehicles feeds are flaky, so requiring ALL of them wrongly fails good keys.
+        if (userFeeds.length) state.subKeyOk = settled.slice(1).some(s => s.status === "fulfilled");
+        const feedHealth = Object.fromEntries(tasks.map((task, index) => [task.kind, {
+          configured: task.kind === "departures" ? Boolean(depCodes.length) : true,
+          ok: settled[index].status === "fulfilled",
+          error: settled[index].status === "rejected" ? String(settled[index].reason && settled[index].reason.message || settled[index].reason) : ""
+        }]));
+        feedHealth.departures.requested = departuresResult.requested || 0;
+        feedHealth.departures.succeeded = departuresResult.succeeded || 0;
+        feedHealth.departures.errors = departuresResult.errors || [];
+        state.realtime = feeds.reduce((a, f) => ({
+          fetchedAt: Math.max(a.fetchedAt || 0, f.fetchedAt || 0),
+          feedTimestamp: Math.max(a.feedTimestamp || 0, f.feedTimestamp || 0),
+          sourceUrl: a.sourceUrl || f.sourceUrl,
+          trips: Object.assign(a.trips || {}, f.trips || {}),
+          vehicles: Object.assign(a.vehicles || {}, f.vehicles || {}),
+          alerts: (a.alerts || []).concat(f.alerts || []),
+          movements: a.movements,
+          feedHealth: a.feedHealth
+        }), { fetchedAt: Date.now(), trips: {}, vehicles: {}, alerts: [], movements, feedHealth });
+        const parts = [];
+        const liveCount = Object.values(movements).filter(m => m.expected).length;
+        if (depCodes.length) parts.push(liveCount.toLocaleString() + " stop predictions from " + departuresResult.succeeded + "/" + departuresResult.requested + " stops");
+        if (feedHealth.tripUpdates && feedHealth.tripUpdates.ok) parts.push(Object.keys(state.realtime.trips).length.toLocaleString() + " trip updates");
+        if (feedHealth.vehicles && feedHealth.vehicles.ok) parts.push(Object.keys(state.realtime.vehicles).length.toLocaleString() + " vehicle reports");
+        if (feedHealth.alerts && feedHealth.alerts.ok) parts.push(state.realtime.alerts.length.toLocaleString() + " alerts");
+        state.realtimeStatus = parts.join(" · ") || "No data";
+        state.status = "Realtime loaded: " + state.realtimeStatus + ".";
+        state.refreshFailed = false;
+        saveJson("realtime", state.realtime);
+        const partialStopError = departuresResult.errors && departuresResult.errors[0];
+        state.error = failures.length
+          ? friendlyError(failures[0], "Partial realtime fetch")
+          : partialStopError ? "Some stops could not fetch predictions: " + partialStopError : "";
+      } catch (err) {
+        if (requestId !== realtimeRequestSeq) return;
+        console.warn("[realtime] fetch failed:", err && err.message || err);
+        state.status = friendlyError(err, "Realtime fetch");
+        state.error = state.status;
+        state.realtimeStatus = "Fetch failed";
+        state.refreshFailed = true;
+      } finally {
+        if (requestId === realtimeRequestSeq) state.refreshing = false;
+      }
+    }
+
+    function normalizeRealtime(payload, sourceUrl) {
+      const feed = payload.response || payload;
+      const entities = gtfsRtArray(feed.entity || payload.entity);
+      const rt = { fetchedAt: Date.now(), sourceUrl, feedTimestamp: secToMs(feed.header && feed.header.timestamp), trips: {}, vehicles: {}, alerts: [] };
+      for (const e of entities) {
+        const tu = e.trip_update || e.tripUpdate;
+        const tripRef = tu && tu.trip;
+        const tripId = tripRef && (tripRef.trip_id || tripRef.tripId);
+        if (tu && tripRef && tripId) {
+          const updates = {};
+          const orderedUpdates = [];
+          for (const u of gtfsRtArray(tu.stop_time_update || tu.stopTimeUpdate)) {
+            if (!u || typeof u !== "object") continue;
+            const stopId = u.stop_id || u.stopId;
+            const stopSequence = +(u.stop_sequence || u.stopSequence || 0);
+            const update = {
+              stopId,
+              stopSequence,
+              departureTime: secToMs(u.departure && u.departure.time),
+              arrivalTime: secToMs(u.arrival && u.arrival.time),
+              departureDelay: secValue(u.departure && u.departure.delay),
+              arrivalDelay: secValue(u.arrival && u.arrival.delay),
+              scheduleRelationship: schedName(u.schedule_relationship || u.scheduleRelationship, "stop")
+            };
+            if (stopId) updates[stopId] = update;
+            if (stopSequence) updates["seq:" + stopSequence] = update;
+            orderedUpdates.push(update);
+          }
+          orderedUpdates.sort((a, b) => (a.stopSequence || 0) - (b.stopSequence || 0));
+          rt.trips[tripId] = { tripId, routeId: tripRef.route_id || tripRef.routeId || "", startDate: tripRef.start_date || tripRef.startDate || "", timestamp: secToMs(tu.timestamp), tripDelay: secValue(tu.delay), scheduleRelationship: schedName(tripRef.schedule_relationship || tripRef.scheduleRelationship || tu.schedule_relationship || tu.scheduleRelationship, "trip"), updates, orderedUpdates };
+        }
+        const vp = e.vehicle;
+        const vpTrip = vp && vp.trip;
+        const vpTripId = vpTrip && (vpTrip.trip_id || vpTrip.tripId);
+        if (vp && vpTripId) {
+          const level = occupancyLevel(vp.occupancy_status ?? vp.occupancyStatus);
+          if (level) rt.vehicles[vpTripId] = { occupancy: level };
+        }
+        if (e.alert) {
+          const header = translated(e.alert.header_text || e.alert.headerText);
+          const informed = gtfsRtArray(e.alert.informed_entity || e.alert.informedEntity);
+          if (header) rt.alerts.push({ id: e.id || header, header, routeIds: informed.map(x => x.route_id || x.routeId).filter(Boolean), stopIds: informed.map(x => x.stop_id || x.stopId).filter(Boolean) });
+        }
+      }
+      return rt;
+    }
+    function translated(v) { const t = v && v.translation && v.translation[0]; return t && t.text; }
+    // GTFS-RT OccupancyStatus → 1..4 (how many of the four person icons light up). 0 = unknown.
+    function occupancyLevel(v) {
+      const byName = { EMPTY: 1, MANY_SEATS_AVAILABLE: 1, FEW_SEATS_AVAILABLE: 2, STANDING_ROOM_ONLY: 3, CRUSHED_STANDING_ROOM_ONLY: 4, FULL: 4, NOT_ACCEPTING_PASSENGERS: 4 };
+      if (typeof v === "string" && v in byName) return byName[v];
+      const n = Number(v);
+      if (!Number.isFinite(n)) return 0;
+      return [1, 1, 2, 3, 4, 4, 4][n] || 0;
+    }
+    function secToMs(v) { const n = Number(v); return Number.isFinite(n) ? n * 1000 : undefined; }
+    function secValue(v) { const n = Number(v); return Number.isFinite(n) ? n : undefined; }
+    function schedName(v, kind) {
+      if (typeof v === "string") return v.toUpperCase();
+      const n = Number(v);
+      if (!Number.isFinite(n)) return "";
+      return kind === "trip" ? ["SCHEDULED","ADDED","UNSCHEDULED","CANCELED"][n] || "" : ["SCHEDULED","SKIPPED","NO_DATA","UNSCHEDULED"][n] || "";
+    }
+
+    // Schedule logic
+    function activeService(bundle, serviceId, dateKey) {
+      const overrides = bundle.calendarDates[serviceId] || [];
+      const override = overrides.find(d => d.date === dateKey);
+      if (override) return String(override.exception_type) === "1";
+      const c = bundle.calendars[serviceId];
+      if (!c) return false;
+      if (dateKey < c.start_date || dateKey > c.end_date) return false;
+      const weekday = new Date(Date.UTC(+dateKey.slice(0,4), +dateKey.slice(4,6)-1, +dateKey.slice(6,8))).getUTCDay();
+      return ["sunday","monday","tuesday","wednesday","thursday","friday","saturday"].map(d => String(c[d])==="1")[weekday];
+    }
+    function dateKeyFor(date, tz) {
+      const p = new Intl.DateTimeFormat("en-CA", { timeZone: tz, year:"numeric", month:"2-digit", day:"2-digit" }).formatToParts(date).reduce((a,x) => (x.type !== "literal" && (a[x.type]=x.value), a), {});
+      return p.year + p.month + p.day;
+    }
+    function shiftDateKey(key, days) {
+      const d = new Date(Date.UTC(+key.slice(0,4), +key.slice(4,6)-1, +key.slice(6,8)+days));
+      return String(d.getUTCFullYear()).padStart(4,"0") + String(d.getUTCMonth()+1).padStart(2,"0") + String(d.getUTCDate()).padStart(2,"0");
+    }
+    function offsetMs(date, tz) {
+      const p = new Intl.DateTimeFormat("en-CA", { timeZone: tz, year:"numeric", month:"2-digit", day:"2-digit", hour:"2-digit", minute:"2-digit", second:"2-digit", hourCycle:"h23" }).formatToParts(date).reduce((a,x) => (x.type !== "literal" && (a[x.type]=x.value), a), {});
+      return Date.UTC(+p.year, +p.month-1, +p.day, +p.hour, +p.minute, +p.second) - date.getTime();
+    }
+    function gtfsEpoch(dateKey, time, tz) {
+      const [h, m, s] = String(time || "00:00:00").split(":").map(Number);
+      const overflow = Math.floor(h / 24);
+      const guess = new Date(Date.UTC(+dateKey.slice(0,4), +dateKey.slice(4,6)-1, +dateKey.slice(6,8)+overflow, h%24, m||0, s||0));
+      return guess.getTime() - offsetMs(guess, tz);
+    }
+    function formatDue(epoch, now, cfg) {
+      const delta = epoch - now;
+      if (delta < -30000) return "Gone";
+      if (delta <= 60000) return "Now";
+      // Floor, not round: a bus 4m40s away reads "4", like the real PID and AT website.
+      const mins = Math.floor(delta / 60000);
+      if (mins <= cfg.relativeCutoffMinutes) return String(mins);
+      return new Intl.DateTimeFormat("en-NZ", { timeZone: cfg.timezone, hour:"2-digit", minute:"2-digit", hourCycle:"h23" }).format(new Date(epoch));
+    }
+    function clockLabel(date, tz) {
+      return new Intl.DateTimeFormat("en-NZ", { timeZone: tz, hour:"2-digit", minute:"2-digit", second:"2-digit", hourCycle:"h23" }).format(date);
+    }
+    // Stop-level schedule_relationship values whose delay fields are not real predictions.
+    // SKIPPED = bus won't stop there; NO_DATA = AT has no prediction. Both publish junk delay.
+    const UNRELIABLE_STOP_REL = new Set(["SKIPPED", "NO_DATA"]);
+    // A trip update older than this is treated as no realtime at all: AT keeps a vehicle's
+    // last report in the feed for hours after it finishes, and an active bus reports every
+    // ~20-30s, so anything this old means the vehicle has stopped reporting.
+    const REALTIME_MAX_AGE_MS = 10 * 60000;
+
+    function propagatedStopUpdate(rtTrip, stopId, stopSequence) {
+      if (!rtTrip || !rtTrip.updates) return null;
+      const exact = rtTrip.updates[stopId] || rtTrip.updates["seq:" + stopSequence];
+      // SKIPPED at our stop means the bus won't stop here — surface it as a cancellation,
+      // but without its time/delay fields (they're junk, see UNRELIABLE_STOP_REL).
+      if (exact && exact.scheduleRelationship === "SKIPPED") {
+        return { propagated: false, source: "exact-skipped", scheduleRelationship: "SKIPPED" };
+      }
+      if (exact && !UNRELIABLE_STOP_REL.has(exact.scheduleRelationship)) {
+        return Object.assign({ propagated: false, source: "exact" }, exact);
+      }
+      // Per GTFS-RT spec, a delay propagates FORWARD from the most recent update at or
+      // before our stop; updates for later stops must not propagate backwards. AT's legacy
+      // feed has a single update (the stop the bus just reached), so this picks it up
+      // whenever the bus hasn't passed us yet.
+      let latestPrior = null;
+      for (const update of rtTrip.orderedUpdates || []) {
+        if (!update.stopSequence || update.stopSequence > stopSequence) continue;
+        if (UNRELIABLE_STOP_REL.has(update.scheduleRelationship)) continue;
+        if (!Number.isFinite(update.departureDelay ?? update.arrivalDelay)) continue;
+        latestPrior = update; // orderedUpdates is sorted by stopSequence
+      }
+      if (latestPrior) {
+        const delay = latestPrior.departureDelay ?? latestPrior.arrivalDelay;
+        return { propagated: true, source: "prior@seq" + latestPrior.stopSequence, departureDelay: delay, arrivalDelay: delay, scheduleRelationship: latestPrior.scheduleRelationship };
+      }
+      if (Number.isFinite(rtTrip.tripDelay)) {
+        return { propagated: true, source: "trip-level", departureDelay: rtTrip.tripDelay, arrivalDelay: rtTrip.tripDelay, scheduleRelationship: rtTrip.scheduleRelationship };
+      }
+      return null;
+    }
+    function timeLabel(epoch, tz) {
+      return new Intl.DateTimeFormat("en-NZ", { timeZone: tz, hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(new Date(epoch));
+    }
+    const PERSON_SVG = `<svg viewBox="0 0 140 405" aria-hidden="true"><circle cx="70" cy="42" r="42"/><rect height="124" rx="25" width="140" y="94"/><path d="m33 218h74v168a19 19 0 0 1 -19 19h-36a19 19 0 0 1 -19-19z"/></svg>`;
+    function occupancyIcons(level) {
+      if (!level) return "";
+      const icons = [];
+      for (let i = 0; i < 4; i++) {
+        icons.push(`<span class="${i === 0 ? "occ-lead" : "occ-rest"} ${i < level ? "" : "dim"}">${PERSON_SVG}</span>`);
+      }
+      return `<span class="occ-cell" title="Occupancy">${icons.join("")}</span>`;
+    }
+    function normalizeDestinationLabel(value) {
+      const text = String(value || "").trim();
+      if (!text || /[a-z]/.test(text) || !/[A-Z]/.test(text)) return text;
+      return text
+        .toLowerCase()
+        .replace(/\b([a-z])([a-z']*)/g, (_, first, rest) => first.toUpperCase() + rest);
+    }
+
+    // Shared by the board's "Live data unavailable" banner and deriveDepartures, so the
+    // rows always match what the banner claims: once the last successful fetch is too
+    // old (network outage, laptop asleep), predictions are dropped and every row falls
+    // back to its schedule. Movements have no per-item timestamp, so this global check
+    // is their only staleness guard.
+    function realtimeFresh(rt, cfg, nowMs) {
+      if (!rt) return false;
+      const latest = rt.feedTimestamp || rt.fetchedAt;
+      const age = nowMs - latest;
+      return Boolean(latest) && age >= -5 * 60000 && age <= cfg.pollSeconds * cfg.staleMultiplier * 1000;
+    }
+
+    function operatingMode(rows = [], nowMs = Date.now()) {
+      if (isMotat()) return motatOperatingMode(rows, nowMs);
+      const cfg = state.config;
+      const keySet = Boolean(String(cfg.subscriptionKey || "").trim());
+      const fresh = realtimeFresh(state.realtime, cfg, nowMs);
+      const health = state.realtime && state.realtime.feedHealth || {};
+      const tripUpdatesOk = Boolean(
+        health.tripUpdates && health.tripUpdates.ok ||
+        keySet && state.realtime && Object.keys(state.realtime.trips || {}).length
+      );
+      const predicted = rows.filter(row => row.status === "live").length;
+      const total = rows.filter(row => row.status !== "cancelled").length;
+      const coverage = total ? predicted + "/" + total + " live ETA" + (total === 1 ? "" : "s") : "no upcoming rows";
+
+      if (state.refreshing && !fresh) {
+        return { id: "scheduled", label: "Connecting", coverage, detail: "Fetching the latest available live data." };
+      }
+      if (!fresh) {
+        return { id: "scheduled", label: "Scheduled", coverage, detail: "Live data is unavailable or stale; every time shown is from the timetable." };
+      }
+      if (state.refreshFailed) {
+        return { id: "degraded", label: "Degraded", coverage, detail: "The latest refresh failed. Recently cached predictions remain visible until they become stale, then the board switches to scheduled times." };
+      }
+      if (keySet && tripUpdatesOk) {
+        return { id: "full", label: "Full live", coverage, detail: "Personal-key trip updates are connected; unmatched trips still fall back to the timetable." };
+      }
+      if (keySet) {
+        return { id: "degraded", label: "Degraded", coverage, detail: "A personal key is configured, but trip updates are unavailable. Using limited stop predictions and timetable fallbacks." };
+      }
+      return { id: "limited", label: "Limited live", coverage, detail: "No personal key: only AT stop predictions are live; unmatched trips use scheduled times." };
+    }
+
+    function deriveDepartures() {
+      if (isMotat()) return motatDepartures();
+      const bundle = state.bundle, cfg = state.config;
+      if (!bundle) return [];
+      const nowMs = state.now.getTime();
+      const rt = realtimeFresh(state.realtime, cfg, nowMs) ? state.realtime : null;
+      const maxMs = nowMs + cfg.lookaheadHours * 3600000;
+      const today = dateKeyFor(state.now, cfg.timezone);
+      const dates = [shiftDateKey(today, -1), today, shiftDateKey(today, 1)];
+      const rows = [];
+      for (const stopId of (cfg.dualStopMode ? dualStopIds(cfg) : splitList(cfg.stopIds))) {
+        const stop = bundle.stops[stopId];
+        for (const st of (bundle.stopTimesByStop[stopId] || [])) {
+          const trip = bundle.trips[st.tripId], route = bundle.routes[st.routeId];
+          if (!trip || !route) continue;
+          for (const serviceDate of dates) {
+            if (!activeService(bundle, st.serviceId, serviceDate)) continue;
+            // Departures board: what matters is when the bus LEAVES this stop.
+            const scheduled = gtfsEpoch(serviceDate, st.departureTime || st.arrivalTime, cfg.timezone);
+            // Keep rows up to an hour past their scheduled time: a late-running bus must
+            // survive long enough for its live prediction to be applied. Rows actually
+            // gone are dropped below by the effectiveMs check.
+            if (scheduled < nowMs - 3600000 || scheduled > maxMs) continue;
+            const personalKeySet = Boolean(String(cfg.subscriptionKey || "").trim());
+            let rtTrip = personalKeySet && rt && rt.trips && rt.trips[st.tripId];
+            // A realtime update for another service date (same trip_id runs daily) says
+            // nothing about this row — ignore it but keep the scheduled departure.
+            if (rtTrip && rtTrip.startDate && rtTrip.startDate !== serviceDate) rtTrip = null;
+            const cancelledTrip = rtTrip && ["CANCELED", "CANCELLED"].includes(rtTrip.scheduleRelationship);
+            // Ignore predictions from vehicles that stopped reporting (AT leaves hours-old
+            // updates in the feed). Cancellations stay valid — they are schedule facts.
+            if (rtTrip && !cancelledTrip && rtTrip.timestamp && nowMs - rtTrip.timestamp > REALTIME_MAX_AGE_MS) rtTrip = null;
+            // Primary ETA: AT's departures API (same prediction engine as the official
+            // live board). Guard against a movement from another service day of the same
+            // trip_id by requiring the prediction to sit near this row's scheduled time.
+            const mv = rt && rt.movements && rt.movements[st.tripId + ":" + stopId.split("-")[0]];
+            const mvValid = mv && (!mv.expected || Math.abs(mv.expected - scheduled) < 3 * 3600000);
+            // Fallback ETA: GTFS-RT delay propagation.
+            const stopUpdate = propagatedStopUpdate(rtTrip, stopId, st.stopSequence);
+            const realtimeTime = stopUpdate && (stopUpdate.departureTime || stopUpdate.arrivalTime);
+            const realtimeDelay = stopUpdate && (stopUpdate.departureDelay ?? stopUpdate.arrivalDelay);
+            const mvPredicted = mvValid ? mv.expected : undefined;
+            const predicted = mvPredicted || realtimeTime || (Number.isFinite(realtimeDelay) ? scheduled + realtimeDelay * 1000 : undefined);
+            const effectiveMs = predicted || scheduled;
+            // Drop departures that have already left (predicted/scheduled more than 30s in the past).
+            // Without this we keep showing a bus until its SCHEDULED time + 2 min, even if realtime
+            // says it departed minutes ago (e.g. an "early" bus shown as "Now" long after gone).
+            if (effectiveMs < nowMs - 30000) continue;
+            const cancelled = cancelledTrip || (mvValid && mv.cancelled) || (stopUpdate && ["CANCELED","CANCELLED","SKIPPED"].includes(stopUpdate.scheduleRelationship));
+            if (location.hash === "#debug" && predicted) {
+              const deltaSec = Math.round((predicted - scheduled) / 1000);
+              const dueMin = Math.round((predicted - nowMs) / 60000);
+              console.log(
+                "[predict]", route.shortName, "trip", st.tripId,
+                "stop", stopId, "seq", st.stopSequence,
+                "| due", dueMin + "min", "(" + (deltaSec >= 0 ? "+" : "") + deltaSec + "s vs sched)",
+                "| source:", stopUpdate ? stopUpdate.source : "scheduled-only",
+                "| tripDelay:", rtTrip && rtTrip.tripDelay,
+                "| updates:", rtTrip && rtTrip.orderedUpdates ? rtTrip.orderedUpdates.length : 0
+              );
+            }
+            rows.push({
+              key: st.tripId + ":" + stopId + ":" + serviceDate, tripId: st.tripId, routeId: route.routeId,
+              stopId, serviceDate, routeLabel: route.shortName, routeColor: route.color,
+              routeTextColor: route.textColor,
+              destination: st.headsign || trip.headsign || "",
+              stopName: stop ? stop.name : stopId,
+              scheduled, predicted, effective: predicted || scheduled,
+              predictedSource: mvPredicted ? "at-api" : stopUpdate ? stopUpdate.source : null,
+              occupancy: (personalKeySet && rt && rt.vehicles && rt.vehicles[st.tripId] && rt.vehicles[st.tripId].occupancy) || 0,
+              status: cancelled ? "cancelled" : predicted ? "live" : "scheduled"
+            });
+          }
+        }
+      }
+      const deduped = new Map();
+      for (const row of rows) { const ex = deduped.get(row.key); if (!ex || row.effective < ex.effective) deduped.set(row.key, row); }
+      return Array.from(deduped.values()).sort((a, b) => a.effective - b.effective);
+    }
+
+    function boardAlerts() {
+      if (isMotat()) return [];
+      if (!state.bundle || !state.realtime || !String(state.config.subscriptionKey || "").trim()) return [];
+      const stops = new Set(state.config.dualStopMode ? dualStopIds() : splitList(state.config.stopIds));
+      const routes = new Set(Object.keys(state.bundle.routes));
+      return (state.realtime.alerts || []).filter(a => (a.stopIds || []).some(s => stops.has(s)) || (a.routeIds || []).some(r => routes.has(r)));
+    }
+
+    function friendlyError(err, context) {
+      const msg = String(err && err.message || err || "Unknown error");
+      if (/failed to fetch|networkerror|load failed/i.test(msg)) {
+        const fileHint = location.protocol === "file:" ? " Because this page is open as a standalone file, upload the GTFS zip if the remote server blocks browser fetches." : "";
+        return context + " failed. Check the URL, CORS access, network connection, and any required API key." + fileHint;
+      }
+      return context + ": " + msg;
+    }
+
+    function runMode() {
+      return location.protocol === "file:" ? "Standalone .html" : "Hosted";
+    }
+
+    function storageKeys() {
+      try { return Object.keys(localStorage).filter(k => k.startsWith(STORE_KEY)); }
+      catch { return []; }
+    }
+
+    function relativeAge(ts) {
+      if (!ts) return "Never";
+      const seconds = Math.max(0, Math.round((Date.now() - ts) / 1000));
+      if (seconds < 90) return seconds + "s ago";
+      const minutes = Math.round(seconds / 60);
+      if (minutes < 90) return minutes + "m ago";
+      return Math.round(minutes / 60) + "h ago";
+    }
+
+    function bundleDepartureCount() {
+      if (!state.bundle) return 0;
+      return Object.values(state.bundle.stopTimesByStop || {}).reduce((sum, rows) => sum + rows.length, 0);
+    }
+
+    function realtimeSummary() {
+      if (state.realtimeStatus) return state.realtimeStatus;
+      if (!state.realtime) return "Not fetched";
+      return Object.keys(state.realtime.trips || {}).length.toLocaleString() + " trips, " + (state.realtime.alerts || []).length.toLocaleString() + " alerts";
+    }
+
+    function diagnostics() {
+      const realtimeLatest = state.realtime && (state.realtime.feedTimestamp || state.realtime.fetchedAt);
+      let modeRows = [];
+      try { modeRows = deriveDepartures().slice(0, state.config.pageSize); } catch {}
+      const mode = operatingMode(modeRows);
+      const health = state.realtime && state.realtime.feedHealth || {};
+      const healthHasFailure = Object.values(health).some(feed => feed && feed.configured !== false && !feed.ok);
+      const tripHealth = health.tripUpdates ? (health.tripUpdates.ok ? "Connected" : "Failed") : "Not requested";
+      const depHealth = health.departures
+        ? (health.departures.ok ? (health.departures.succeeded || 0) + "/" + (health.departures.requested || 0) + " stops connected" : "Failed")
+        : "Not fetched";
+      return [
+        ["Run mode", runMode()],
+        ["Board mode", mode.label + " · " + mode.coverage],
+        ["GTFS unzip support", ("DecompressionStream" in window) ? "Ready" : "Missing"],
+        ["Saved board", state.bundle ? bundleDepartureCount().toLocaleString() + " departures" : "Not built"],
+        ["Loaded GTFS", state.gtfs ? state.gtfs.stops.length.toLocaleString() + " stops" : "Not loaded"],
+        ["Realtime feed", realtimeSummary()],
+        ["Latest refresh", state.refreshing ? "In progress" : state.refreshFailed ? "Failed" : healthHasFailure ? "Partial failure" : state.realtime ? "OK" : "Not run"],
+        ["Trip updates", tripHealth],
+        ["Stop predictions", depHealth],
+        ["Realtime age", relativeAge(realtimeLatest)],
+        ["Storage keys", storageKeys().length.toString()]
+      ];
+    }
+
+    function renderDiagnostics() {
+      return `<div class="debug-grid">${diagnostics().map(([label, value]) => `<div class="debug-item"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>`).join("")}</div>`;
+    }
+
+    // Status
+    function setStatus(msg, isError) {
+      state.status = msg || "";
+      state.error = isError ? msg : "";
+      render();
+    }
+
+    // Config helpers
+    function saveConfig(patch = {}) {
+      Object.assign(state.config, patch);
+      sanitizeConfig(state.config);
+      saveJson(isMotat() ? "motat-config" : "config", state.config);
+    }
+    function applyPreset(id) {
+      const preset = PRESETS[id];
+      if (!preset) return;
+      saveConfig(preset.config);
+      state.page = 0;
+      state.status = "Applied preset: " + preset.label + ".";
+      state.error = "";
+      renderSetup();
+    }
+    function resetAll() {
+      try { Object.keys(localStorage).filter(k => k.startsWith(STORE_KEY)).forEach(k => localStorage.removeItem(k)); } catch {}
+      realtimeRequestSeq++;
+      state.config = Object.assign({}, DEFAULT_CONFIG);
+      state.bundle = null; state.gtfs = null; state.realtime = null;
+      state.status = ""; state.error = ""; state.refreshing = false; state.refreshFailed = false;
+      state.autoGtfsAttempted = false;
+      render();
+    }
+
+    // Rendering
+    function stopDisplayName(stopId) {
+      if (MOTAT_STOP_BY_ID[stopId]) return MOTAT_STOP_BY_ID[stopId].name;
+      if (state.gtfs) {
+        const s = state.gtfs.stops.find(s => s.stop_id === stopId);
+        if (s && s.stop_name) return s.stop_name;
+      }
+      const b = state.bundle && state.bundle.stops && state.bundle.stops[stopId];
+      return (b && b.name) || stopId;
+    }
+
+    // Tiny live sample of the current board, shown inline under the stop picker so users
+    // see it working before committing to fullscreen. Reflects the last-built bundle.
+    function renderPreview() {
+      if (!state.bundle && !isMotat()) return "";
+      let rows = [];
+      try { rows = deriveDepartures().slice(0, 2); } catch { rows = []; }
+      const body = rows.length
+        ? rows.map(r => `<div class="preview-row"><span class="pv-pill">${escapeHtml(r.routeLabel)}</span><span class="pv-dest">${escapeHtml(normalizeDestinationLabel(r.destination))}</span><span class="pv-due">${r.status === "cancelled" ? "Cancelled" : r.status === "scheduled" ? timeLabel(r.scheduled, state.config.timezone) : formatDue(r.effective, state.now.getTime(), state.config)}</span></div>`).join("")
+        : `<div class="preview-empty">No upcoming departures for the current board.</div>`;
+      return `<div class="preview"><div class="preview-title">Current board preview</div>${body}</div>`;
+    }
+
+    function renderSetup() {
+      if (isMotat()) return renderMotatSetup();
+      const cfg = state.config;
+      const results = state.gtfs && state.stopSearch.trim()
+        ? state.gtfs.stops.filter(s => (s.stop_id + " " + s.stop_name + " " + (s.stop_desc || "")).toLowerCase().includes(state.stopSearch.toLowerCase())).slice(0, 30)
+        : [];
+      const stopList = splitList(cfg.stopIds);
+      const [leftStopId, rightStopId] = dualStopIds(cfg);
+      const dualReady = !cfg.dualStopMode || Boolean(leftStopId && rightStopId);
+      const gtfsReady = Boolean(state.gtfs);
+      const savedBoardReady = bundleHasSelectedStops(cfg);
+      const keySet = Boolean(String(cfg.subscriptionKey || "").trim());
+      const keyRequired = cfg.requireSubscriptionKey !== false;
+      const keyUsable = keySet || !keyRequired;
+      const canGo = keyUsable && dualReady && (gtfsReady || savedBoardReady);
+      const defaultStatus = state.bundle
+        ? "Board ready — open it below, or adjust stops and rebuild."
+        : gtfsReady ? "Timetable loaded — pick your stops, then build the board."
+        : "Waiting for timetable data from the GTFS URL...";
+
+      const keyVal = String(cfg.subscriptionKey || "").trim();
+      const keyStatePill = state.keyTest === "ok" ? "done" : state.keyTest === "fail" ? "bad" : "";
+      const keyStateLabel = state.keyTest === "ok" ? "&#10003; valid"
+        : state.keyTest === "fail" ? "&#10007; failed"
+        : state.keyTest === "testing" ? "testing…"
+        : keyVal ? "untested" : (cfg.requireSubscriptionKey !== false ? "needed" : "optional");
+      const ctaBlocked = !dualReady ? "Select at least two stops for dual-stop mode"
+        : (keyRequired && !keySet) ? "Enter your AT API key first"
+        : !(gtfsReady || savedBoardReady) ? "Load the timetable and rebuild for the selected stops"
+        : "";
+      const testedTripHealth = state.realtime && state.realtime.feedHealth && state.realtime.feedHealth.tripUpdates;
+      const fullLiveUnavailable = keySet && (state.keyTest === "fail" || (testedTripHealth && !testedTripHealth.ok));
+      const setupModeId = keySet ? (fullLiveUnavailable ? "degraded" : "full") : "limited";
+      const setupModeLabel = keySet ? (fullLiveUnavailable ? "Degraded until trip updates connect" : "Full live requested") : "Limited live";
+      const setupModeDetail = fullLiveUnavailable
+        ? "Your personal-key trip updates are not connected. The board will use limited stop predictions and scheduled fallbacks until they recover."
+        : keySet
+        ? "Trip updates, occupancy and service alerts will use your personal key. Any trip without a prediction still shows its scheduled time."
+        : "No personal key: only the limited per-stop prediction source is used. Missing predictions show fixed scheduled clock times; occupancy and alerts are unavailable.";
+      const activePresetId = matchingPresetId(cfg);
+      const activePreset = PRESETS[activePresetId];
+      const presetSummary = activePreset ? activePreset.summary : "Custom settings — choose a preset to replace timing, layout and colour defaults.";
+
+      const html = `
+        <main class="setup">
+          <div class="setup-header">
+            <h1>Auckland Live Departures</h1>
+            <p>Connect once, pick your stops, open the board.</p>
+          </div>
+          <div class="status-bar ${state.error ? "error" : ""}">${escapeHtml(state.error || state.status || defaultStatus)}</div>
+
+          <div class="connect">
+            <div class="connect-pill ${gtfsReady ? "done" : ""}" aria-busy="${state.gtfsLoading ? "true" : "false"}">
+              ${state.gtfsLoading ? `<div class="timetable-loader" role="status" aria-live="polite">
+                <div class="loader-track" aria-hidden="true"><div class="loader-bus"></div></div>
+                <div class="loader-copy">Fetching the latest timetable<span></span></div>
+              </div>` : ""}
+              <div class="pill-head">
+                <span class="pill-title">Timetable</span>
+                <span class="pill-state ${gtfsReady ? "ok" : ""}">${gtfsReady ? "&#10003; loaded" : state.bundle ? "saved board" : state.gtfsLoading ? "loading…" : "not loaded"}</span>
+              </div>
+              ${gtfsReady
+                ? `<div class="pill-sub">${state.gtfs.stops.length.toLocaleString()} stops · ${escapeHtml(state.gtfs.source)}</div>`
+                : `<div class="pill-actions">
+                     <label class="link-button" style="cursor:pointer">Upload zip<input name="gtfsFile" type="file" accept=".zip" hidden></label>
+                     <button class="ghost small" type="button" data-action="fetchGtfs">Retry</button>
+                   </div>
+                   <div class="pill-sub">Auto-loads the latest timetable from the configured GTFS URL.</div>`}
+            </div>
+
+            <div class="connect-pill ${keyStatePill}">
+              <div class="pill-head">
+                <span class="pill-title">Your AT API key${state.keyTest === "ok" || !keyRequired ? (keyRequired ? "" : `<span class="req" style="color:var(--muted);border-color:var(--border)">optional</span>`) : `<span class="req">required</span>`}</span>
+                <span class="pill-state ${state.keyTest === "ok" ? "ok" : state.keyTest === "fail" ? "bad" : ""}">${keyStateLabel}</span>
+              </div>
+              ${state.keyTest === "ok"
+                ? `<div class="pill-sub">Key accepted${fullLiveUnavailable ? "; trip updates unavailable" : ""}. <button class="linkish" type="button" data-action="editKey">Change key</button></div>`
+                : `<div class="pill-actions">
+                     <input name="subscriptionKey" type="text" value="${escapeHtml(cfg.subscriptionKey)}" placeholder="Paste your key" class="${state.keyTest === "fail" ? "key-bad" : ""}" autocomplete="off" spellcheck="false" ${keyRequired ? `required aria-required="true"` : ""}>
+                     <button class="ghost small" type="button" data-action="fetchRealtime">Test</button>
+                   </div>
+                   <div class="pill-sub">Free from the <a href="https://dev-portal.at.govt.nz/" target="_blank" rel="noopener">AT Developer Portal &#8599;</a></div>`}
+            </div>
+          </div>
+          <div class="mode-explainer"><span class="mode-dot ${setupModeId}"></span><div><strong>${setupModeLabel}</strong><br>${setupModeDetail}${!keySet && keyRequired ? " Disable the key requirement in Advanced to open in this mode." : ""}</div></div>
+          <div class="preset-bar">
+            <label for="board-preset">Preset</label>
+            <select id="board-preset" name="presetChoice">
+              <option value="" ${activePresetId ? "" : "selected"} disabled>Custom settings</option>
+              ${Object.entries(PRESETS).map(([id, preset]) => `<option value="${escapeHtml(id)}" ${activePresetId === id ? "selected" : ""}>${escapeHtml(preset.label)}</option>`).join("")}
+            </select>
+            <span class="preset-summary" data-preset-summary>${escapeHtml(presetSummary)}</span>
+          </div>
+
+          <div class="step focus">
+            <h2>Stops &amp; routes<span class="step-status">${stopList.length ? stopList.length + " stop" + (stopList.length !== 1 ? "s" : "") + " selected" : "pick at least one stop"}</span></h2>
+            ${gtfsReady
+              ? `<div class="field"><input name="stopSearch" placeholder="Search stop name or number, then click + to add…" value="${escapeHtml(state.stopSearch)}"></div>
+                 <div class="stop-results">${results.map(s => {
+                   const code = s.stop_code && s.stop_code !== s.stop_id ? "Stop " + s.stop_code : "";
+                   const meta = [code, s.stop_desc || ""].filter(Boolean).join(" · ");
+                   return `<div class="stop-item"><button class="ghost small" type="button" data-stop="${escapeHtml(s.stop_id)}">+</button><span class="name">${escapeHtml(s.stop_name || s.stop_id)}${meta ? `<span class="meta">${escapeHtml(meta)}</span>` : ""}</span><span class="id">${escapeHtml(s.stop_id)}</span></div>`;
+                 }).join("")}</div>`
+              : `<p class="hint">Load timetable data first to search stops by name.</p>`}
+            <div class="chips">${stopList.length
+              ? stopList.map(id => `<span class="chip">${escapeHtml(stopDisplayName(id))}<span class="chip-id">${escapeHtml(id)}</span><button type="button" data-removestop="${escapeHtml(id)}" title="Remove stop">&times;</button></span>`).join("")
+              : `<span class="hint">No stops selected yet.</span>`}</div>
+            <div class="field"><label class="checkbox-label"><input name="dualStopMode" type="checkbox" ${cfg.dualStopMode ? "checked" : ""}> Show two stops side by side</label><div class="hint">Each stop gets its own vertical band. Add at least two stops above, then choose which appears on each side.</div></div>
+            ${cfg.dualStopMode ? `<div class="dual-stop-settings">
+              ${[["Left", leftStopId, "dualStopLeftId", "dualStopLeftLabel", cfg.dualStopLeftLabel], ["Right", rightStopId, "dualStopRightId", "dualStopRightLabel", cfg.dualStopRightLabel]].map(([side, selectedId, idName, labelName, label]) => `<div class="field"><label>${side} stop</label><select name="${idName}">${stopList.map(id => `<option value="${escapeHtml(id)}" ${id === selectedId ? "selected" : ""}>${escapeHtml(stopDisplayName(id))} · ${escapeHtml(id.split("-")[0])}</option>`).join("")}</select><input name="${labelName}" value="${escapeHtml(label)}" placeholder="Optional direction label" aria-label="${side} direction label"><div class="hint">Blank uses the stop name.</div></div>`).join("")}
+            </div>` : ""}
+            <div class="row">
+              <div class="field"><label>Only show these routes (comma-separated, blank = all)</label><input name="routeAllowlist" value="${escapeHtml(cfg.routeAllowlist)}"></div>
+              <div class="field"><label>Frequent routes — solid cyan pill (blank = all)</label><input name="frequentRoutes" value="${escapeHtml(cfg.frequentRoutes)}"></div>
+            </div>
+            ${renderPreview()}
+          </div>
+
+          <div class="cta-row">
+            <button class="primary" data-action="go" ${canGo ? "" : "disabled"} title="${escapeHtml(ctaBlocked || "Open the board")}">${gtfsReady ? (state.bundle ? "Rebuild &amp; open board" : "Build &amp; open board") : state.bundle ? "Open board" : "Build &amp; open board"}</button>
+            ${state.bundle && gtfsReady ? `<button class="ghost" data-action="openOnly" ${keyUsable && dualReady && savedBoardReady ? "" : "disabled"} title="${escapeHtml(keyUsable && dualReady && savedBoardReady ? "Open the saved board without rebuilding" : ctaBlocked)}">Open without rebuilding</button>` : ""}
+            <button class="ghost" type="button" data-action="colorDemo">Preview route colours</button>
+            <button class="ghost" type="button" data-action="switchMotat">MOTAT Trams</button>
+          </div>
+
+          ${collapsible("advanced", "Advanced", `
+            <div class="field"><label>GTFS zip file path or URL</label><input name="gtfsUrl" value="${escapeHtml(cfg.gtfsUrl)}"><div class="hint">Defaults to the Auckland GTFS feed hosted in your GitHub repository.</div></div>
+            <div class="field"><label>Route colours</label><textarea name="routeColors" spellcheck="false">${escapeHtml(cfg.routeColors)}</textarea><div class="hint">One per line: <code>ROUTE: #BACKGROUND / #TEXT</code>. These override the standard cyan and outline styles.</div></div>
+            <div class="field"><label>Departures API URL (limited per-stop predictions)</label><input name="departuresUrl" value="${escapeHtml(cfg.departuresUrl)}"><div class="hint">Uses the built-in departures credential. Coverage is incomplete; trips without an expected time remain scheduled.</div></div>
+            <div class="field"><label>GTFS-RT trip updates URL</label><input name="realtimeUrl" value="${escapeHtml(cfg.realtimeUrl)}"></div>
+            <div class="row">
+              <div class="field"><label>Service alerts URL</label><input name="alertsUrl" value="${escapeHtml(cfg.alertsUrl)}"></div>
+              <div class="field"><label>Vehicle positions URL (occupancy)</label><input name="vehiclesUrl" value="${escapeHtml(cfg.vehiclesUrl)}"></div>
+            </div>
+            <div class="field"><label>Stop IDs (raw, comma-separated)</label><textarea name="stopIds">${escapeHtml(cfg.stopIds)}</textarea></div>
+            <div class="row">
+              <div class="field"><label>Poll interval (sec)</label><input name="pollSeconds" type="number" value="${cfg.pollSeconds}"></div>
+              <div class="field"><label>Rows per page</label><input name="pageSize" type="number" value="${cfg.pageSize}"></div>
+            </div>
+            <div class="row">
+              <div class="field"><label>Page rotation (sec)</label><input name="rotateSeconds" type="number" value="${cfg.rotateSeconds}"></div>
+              <div class="field"><label>Lookahead (hours)</label><input name="lookaheadHours" type="number" value="${cfg.lookaheadHours}"></div>
+            </div>
+            <div class="field"><label style="display:flex;align-items:center;gap:.45rem;cursor:pointer"><input name="lockFirstPage" type="checkbox" ${cfg.lockFirstPage ? "checked" : ""} style="width:auto;margin:0"> Lock board to page 1 (never rotate pages)</label></div>
+            <div class="field"><label style="display:flex;align-items:center;gap:.45rem;cursor:pointer"><input name="requireSubscriptionKey" type="checkbox" ${cfg.requireSubscriptionKey !== false ? "checked" : ""} style="width:auto;margin:0"> Require a personal AT key before opening the board</label><div class="hint">On: a personal key is required and the board will request Full live mode; feed failures are still surfaced as Degraded. Off: the board can open in Limited live mode, where only some trips receive ETAs and all others show scheduled clock times.</div></div>
+            <div class="row">
+              <div class="field"><label>Relative time cutoff (min)</label><input name="relativeCutoffMinutes" type="number" value="${cfg.relativeCutoffMinutes}"><div class="hint">Show "12" up to this many minutes out; beyond it show clock time like "14:35".</div></div>
+              <div class="field"><label>Stale after (× poll intervals)</label><input name="staleMultiplier" type="number" value="${cfg.staleMultiplier}"></div>
+            </div>
+            <div class="field"><label>Timezone (IANA)</label><input name="timezone" value="${escapeHtml(cfg.timezone)}"></div>
+            ${renderDiagnostics()}
+            <div><button class="danger small" type="button" data-action="reset">Reset everything</button></div>
+          `, "endpoints · timing · diagnostics")}
+        </main>`;
+      app.innerHTML = html;
+      wireSetup();
+    }
+
+    // Same layout as the AT setup, with the tracker in place of the GTFS zip + API key.
+    function autoTestMotat() {
+      if (motat.test || motat.lastOk) return;
+      motat.test = "testing";
+      motatRefresh().then(() => {
+        motat.test = motat.error ? "fail" : "ok";
+        if (isMotat() && state.config.mode === "setup") renderSetup();
+      });
+    }
+    function renderMotatSetup() {
+      const cfg = state.config;
+      state.now = new Date();
+      const search = state.stopSearch.trim().toLowerCase();
+      const results = MOTAT_STOPS.filter(s => !search || s.name.toLowerCase().includes(search));
+      const stopList = splitList(cfg.stopIds).filter(id => MOTAT_STOP_BY_ID[id]);
+      const [leftStopId, rightStopId] = dualStopIds(cfg);
+      const dualReady = !cfg.dualStopMode || Boolean(leftStopId && rightStopId);
+      const canGo = stopList.length > 0 && dualReady;
+      const fresh = motatFresh(Date.now());
+      const trackerState = motat.test === "testing" ? "testing…" : motat.test === "fail" || (!fresh && motat.error) ? "&#10007; failed" : fresh || motat.test === "ok" ? "&#10003; connected" : "untested";
+      const trackerOk = motat.test === "ok" || (fresh && motat.test !== "fail");
+      const trackerBad = motat.test === "fail" || (!fresh && Boolean(motat.error));
+      const reporting = motatActiveTrams(Date.now()).filter(a => a.onLine).length;
+      const ctaBlocked = !stopList.length ? "Pick at least one stop" : !dualReady ? "Select at least two stops for dual-stop mode" : "";
+      app.innerHTML = `
+        <main class="setup">
+          <div class="setup-header">
+            <h1>MOTAT Trams</h1>
+            <p>Western Springs Tramway, Great North Road to Aviation Hall. Pick your stops, open the board.</p>
+          </div>
+          <div class="status-bar ${state.error ? "error" : ""}">${escapeHtml(state.error || state.status || (canGo ? "Board ready — open it below, or adjust stops." : "Pick your stops, then open the board."))}</div>
+
+          <div class="connect">
+            <div class="connect-pill done">
+              <div class="pill-head"><span class="pill-title">Timetable</span><span class="pill-state ok">&#10003; built in</span></div>
+              <div class="pill-sub">MOTAT tram timetables (June 2026) · ${MOTAT_STOPS.length} stops</div>
+            </div>
+            <div class="connect-pill ${trackerOk ? "done" : trackerBad ? "bad" : ""}">
+              <div class="pill-head">
+                <span class="pill-title">Tram tracker</span>
+                <span class="pill-state ${trackerOk ? "ok" : trackerBad ? "bad" : ""}">${trackerState}</span>
+              </div>
+              <div class="pill-actions"><button class="ghost small" type="button" data-action="motatTest">Test</button></div>
+              <div class="pill-sub">${trackerBad ? escapeHtml(motat.error) : trackerOk ? reporting + " tram" + (reporting === 1 ? "" : "s") + " on the line right now" : "Live positions from tramtracker.motat.nz"}</div>
+            </div>
+          </div>
+          <div class="mode-explainer"><span class="mode-dot ${trackerBad ? "scheduled" : "full"}"></span><div><strong>${trackerBad ? "Scheduled" : "Full live"}</strong><br>${trackerBad
+            ? "The tram tracker can't be reached from this browser, so the board shows MOTAT's published timetable."
+            : "Trams on the line get live ETAs from their GPS position. Their later runs, and times when no tram is out, show fixed clock times."}</div></div>
+
+          <div class="step focus">
+            <h2>Stops<span class="step-status">${stopList.length ? stopList.length + " stop" + (stopList.length !== 1 ? "s" : "") + " selected" : "pick at least one stop"}</span></h2>
+            <div class="field"><input name="stopSearch" placeholder="Filter stops, then click + to add…" value="${escapeHtml(state.stopSearch)}"></div>
+            <div class="stop-results">${results.map(s => `<div class="stop-item"><button class="ghost small" type="button" data-stop="${escapeHtml(s.id)}">+</button><span class="name">${escapeHtml(s.name)}${s.request ? `<span class="meta">Request stop</span>` : ""}</span><span class="id"></span></div>`).join("")}</div>
+            <div class="chips">${stopList.length
+              ? stopList.map(id => `<span class="chip">${escapeHtml(stopDisplayName(id))}<button type="button" data-removestop="${escapeHtml(id)}" title="Remove stop">&times;</button></span>`).join("")
+              : `<span class="hint">No stops selected yet.</span>`}</div>
+            <div class="field"><label class="checkbox-label"><input name="dualStopMode" type="checkbox" ${cfg.dualStopMode ? "checked" : ""}> Show two stops side by side</label><div class="hint">Each stop gets its own vertical band. Add at least two stops above, then choose which appears on each side.</div></div>
+            ${cfg.dualStopMode ? `<div class="dual-stop-settings">
+              ${[["Left", leftStopId, "dualStopLeftId", "dualStopLeftLabel", cfg.dualStopLeftLabel], ["Right", rightStopId, "dualStopRightId", "dualStopRightLabel", cfg.dualStopRightLabel]].map(([side, selectedId, idName, labelName, label]) => `<div class="field"><label>${side} stop</label><select name="${idName}">${stopList.map(id => `<option value="${escapeHtml(id)}" ${id === selectedId ? "selected" : ""}>${escapeHtml(stopDisplayName(id))}</option>`).join("")}</select><input name="${labelName}" value="${escapeHtml(label)}" placeholder="Optional direction label" aria-label="${side} direction label"><div class="hint">Blank uses the stop name.</div></div>`).join("")}
+            </div>` : ""}
+            ${renderPreview()}
+          </div>
+
+          <div class="cta-row">
+            <button class="primary" data-action="motatGo" ${canGo ? "" : "disabled"} title="${escapeHtml(ctaBlocked || "Open the board")}">Open board</button>
+            <button class="ghost" type="button" data-action="switchAt">Auckland Transport board</button>
+          </div>
+
+          ${collapsible("advanced", "Advanced", `
+            <div class="field"><label>Tram tracker URL</label><input name="trackerUrl" value="${escapeHtml(cfg.trackerUrl)}"></div>
+            <div class="field"><label>Tracker share token</label><input name="trackerToken" value="${escapeHtml(cfg.trackerToken)}" autocomplete="off" spellcheck="false"><div class="hint">The read-only token behind the public map at tramtracker.motat.nz.</div></div>
+            <div class="field"><label>Route colours</label><textarea name="routeColors" spellcheck="false">${escapeHtml(cfg.routeColors)}</textarea><div class="hint">Format: <code>TRAM: #BACKGROUND / #TEXT</code>.</div></div>
+            <div class="field"><label>Closed dates</label><input name="closedDates" value="${escapeHtml(cfg.closedDates)}"><div class="hint">Comma-separated days or ranges, e.g. <code>2026-10-12..2026-10-16, 2026-12-25</code>. See <a href="https://www.motat.nz/visit/tram-information/" target="_blank" rel="noopener">MOTAT tram information &#8599;</a>.</div></div>
+            <div class="row">
+              <div class="field"><label>Poll interval (sec)</label><input name="pollSeconds" type="number" value="${cfg.pollSeconds}"></div>
+              <div class="field"><label>Rows per page</label><input name="pageSize" type="number" value="${cfg.pageSize}"></div>
+            </div>
+            <div class="row">
+              <div class="field"><label>Page rotation (sec)</label><input name="rotateSeconds" type="number" value="${cfg.rotateSeconds}"></div>
+              <div class="field"><label>Lookahead (hours)</label><input name="lookaheadHours" type="number" value="${cfg.lookaheadHours}"></div>
+            </div>
+            <div class="field"><label style="display:flex;align-items:center;gap:.45rem;cursor:pointer"><input name="lockFirstPage" type="checkbox" ${cfg.lockFirstPage ? "checked" : ""} style="width:auto;margin:0"> Lock board to page 1 (never rotate pages)</label></div>
+            <div class="row">
+              <div class="field"><label>Relative time cutoff (min)</label><input name="relativeCutoffMinutes" type="number" value="${cfg.relativeCutoffMinutes}"><div class="hint">Show "12" up to this many minutes out; beyond it show clock time like "14:35".</div></div>
+              <div class="field"><label>Stale after (× poll intervals)</label><input name="staleMultiplier" type="number" value="${cfg.staleMultiplier}"></div>
+            </div>
+            <div class="field"><label>Timezone (IANA)</label><input name="timezone" value="${escapeHtml(cfg.timezone)}"></div>
+          `, "tracker · timing · closures")}
+        </main>`;
+      wireSetup();
+      const q = s => document.querySelector(s);
+      q("[data-action=motatGo]")?.addEventListener("click", () => { readFormIntoConfig(); saveConfig({ mode: "board" }); render(); });
+      q("[data-action=switchAt]")?.addEventListener("click", () => { readFormIntoConfig(); saveConfig(); switchSource("at"); });
+      q("[data-action=motatTest]")?.addEventListener("click", async () => {
+        readFormIntoConfig();
+        saveConfig();
+        motat.test = "testing";
+        renderMotatSetup();
+        await motatRefresh();
+        motat.test = motat.error ? "fail" : "ok";
+        renderMotatSetup();
+      });
+    }
+
+    function collapsible(id, title, body, statusText) {
+      const open = state.expandedSections[id];
+      const status = statusText ? `<span class="section-status">— ${escapeHtml(statusText)}</span>` : "";
+      return `<div class="section"><div class="section-header" data-toggle="${id}"><span>${title}${status}</span><span class="arrow ${open ? "open" : ""}">&#9654;</span></div><div class="section-body ${open ? "" : "hidden"}">${body}</div></div>`;
+    }
+
+    function wireSetup() {
+      document.querySelectorAll("[data-toggle]").forEach(el => {
+        el.addEventListener("click", () => {
+          state.expandedSections[el.dataset.toggle] = !state.expandedSections[el.dataset.toggle];
+          renderSetup();
+        });
+      });
+      const q = s => document.querySelector(s);
+      const syncPresetUi = () => {
+        const id = matchingPresetId(state.config);
+        const select = q("[name=presetChoice]");
+        if (select) select.value = id;
+        const summary = q("[data-preset-summary]");
+        if (summary) summary.textContent = id ? PRESETS[id].summary : "Custom settings — choose a preset to replace timing, layout and colour defaults.";
+      };
+      const setStops = ids => {
+        readFormIntoConfig();
+        state.config.stopIds = Array.from(ids).join(", ");
+        saveConfig();
+        renderSetup();
+      };
+      q("[data-action=go]")?.addEventListener("click", () => {
+        readFormIntoConfig();
+        saveConfig();
+        if (state.gtfs) buildBundle();
+        else if (state.bundle) { saveConfig({ mode: "board" }); render(); }
+      });
+      q("[data-action=openOnly]")?.addEventListener("click", () => { readFormIntoConfig(); saveConfig({ mode: "board" }); render(); });
+      q("[data-action=colorDemo]")?.addEventListener("click", () => {
+        readFormIntoConfig();
+        saveConfig();
+        state.colorDemo = true;
+        state.page = 0;
+        render();
+      });
+      q("[data-action=switchMotat]")?.addEventListener("click", () => { readFormIntoConfig(); saveConfig(); switchSource("motat"); });
+      q("[data-action=reset]")?.addEventListener("click", resetAll);
+      q("[data-action=fetchGtfs]")?.addEventListener("click", () => { readFormIntoConfig(); saveConfig(); fetchGtfs(); });
+      q("[name=presetChoice]")?.addEventListener("change", e => applyPreset(e.target.value));
+      q("[data-action=editKey]")?.addEventListener("click", () => { state.keyTest = null; renderSetup(); });
+      q("[data-action=fetchRealtime]")?.addEventListener("click", () => {
+        readFormIntoConfig();
+        saveConfig();
+        state.keyTest = "testing";
+        renderSetup();
+        refreshRealtime().then(() => {
+          // Judge the user's key by its own feeds, not by whether every feed (incl. AT's
+          // flaky alerts/vehicles endpoints) came back clean.
+          state.keyTest = state.subKeyOk ? "ok" : "fail";
+          renderSetup();
+        });
+      });
+      q("[name=subscriptionKey]")?.addEventListener("input", e => {
+        state.config.subscriptionKey = e.target.value;
+        state.keyTest = null;
+        e.target.classList.remove("key-bad");
+        const enabled = (Boolean(e.target.value.trim()) || state.config.requireSubscriptionKey === false)
+          && (!state.config.dualStopMode || dualStopIds().every(Boolean));
+        const go = q("[data-action=go]"); if (go) go.disabled = !enabled || !(state.gtfs || bundleHasSelectedStops());
+        const openOnly = q("[data-action=openOnly]"); if (openOnly) openOnly.disabled = !enabled || !bundleHasSelectedStops();
+      });
+      document.querySelectorAll("[name=pollSeconds], [name=pageSize], [name=rotateSeconds], [name=lookaheadHours], [name=frequentRoutes]").forEach(el => {
+        el.addEventListener("input", () => { readFormIntoConfig(); syncPresetUi(); });
+      });
+      q("[name=requireSubscriptionKey]")?.addEventListener("change", () => { readFormIntoConfig(); saveConfig(); renderSetup(); });
+      q("[name=dualStopMode]")?.addEventListener("change", () => { readFormIntoConfig(); saveConfig(); renderSetup(); });
+      document.querySelectorAll("[name=dualStopLeftId], [name=dualStopRightId]").forEach(el => {
+        el.addEventListener("change", () => { readFormIntoConfig(); saveConfig(); renderSetup(); });
+      });
+      q("[name=gtfsFile]")?.addEventListener("change", e => { readFormIntoConfig(); saveConfig(); uploadGtfs(e.target.files[0]); });
+      q("[name=stopSearch]")?.addEventListener("input", e => {
+        state.stopSearch = e.target.value;
+        renderSetup();
+        const el = document.querySelector("[name=stopSearch]");
+        if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); }
+      });
+      document.querySelectorAll("[data-stop]").forEach(btn => btn.addEventListener("click", () => {
+        const ids = new Set(splitList(state.config.stopIds));
+        ids.add(btn.dataset.stop);
+        setStops(ids);
+      }));
+      document.querySelectorAll("[data-removestop]").forEach(btn => btn.addEventListener("click", () => {
+        const ids = new Set(splitList(state.config.stopIds));
+        ids.delete(btn.dataset.removestop);
+        setStops(ids);
+      }));
+      // Fields save themselves — no separate "Save Settings" button.
+      document.querySelectorAll(".setup input[name]:not([name=gtfsFile]):not([name=stopSearch]), .setup textarea[name]").forEach(el => {
+        el.addEventListener("change", () => { readFormIntoConfig(); saveConfig(); syncPresetUi(); });
+      });
+    }
+
+    function readFormIntoConfig() {
+      const get = n => { const el = document.querySelector(`[name="${n}"]`); return el ? el.value : undefined; };
+      const cfg = state.config;
+      const v = n => get(n);
+      if (v("timezone") !== undefined) cfg.timezone = safeTimezone(v("timezone"));
+      if (v("gtfsUrl") !== undefined) cfg.gtfsUrl = v("gtfsUrl");
+      if (v("realtimeUrl") !== undefined) cfg.realtimeUrl = v("realtimeUrl");
+      if (v("alertsUrl") !== undefined) cfg.alertsUrl = v("alertsUrl");
+      if (v("vehiclesUrl") !== undefined) cfg.vehiclesUrl = v("vehiclesUrl");
+      if (v("departuresUrl") !== undefined) cfg.departuresUrl = v("departuresUrl");
+      if (v("frequentRoutes") !== undefined) cfg.frequentRoutes = v("frequentRoutes");
+      const dualModeEl = document.querySelector('[name="dualStopMode"]');
+      if (dualModeEl) cfg.dualStopMode = dualModeEl.checked;
+      if (v("dualStopLeftId") !== undefined) cfg.dualStopLeftId = v("dualStopLeftId");
+      if (v("dualStopRightId") !== undefined) cfg.dualStopRightId = v("dualStopRightId");
+      if (v("dualStopLeftLabel") !== undefined) cfg.dualStopLeftLabel = v("dualStopLeftLabel");
+      if (v("dualStopRightLabel") !== undefined) cfg.dualStopRightLabel = v("dualStopRightLabel");
+      if (v("routeColors") !== undefined) cfg.routeColors = v("routeColors");
+      if (v("subscriptionKey") !== undefined) cfg.subscriptionKey = v("subscriptionKey");
+      if (v("pollSeconds") !== undefined) cfg.pollSeconds = clampNumber(v("pollSeconds"), DEFAULT_CONFIG.pollSeconds, 5, 3600);
+      if (v("pageSize") !== undefined) cfg.pageSize = Math.round(clampNumber(v("pageSize"), DEFAULT_CONFIG.pageSize, 1, 50));
+      if (v("rotateSeconds") !== undefined) cfg.rotateSeconds = clampNumber(v("rotateSeconds"), DEFAULT_CONFIG.rotateSeconds, 3, 3600);
+      const lockEl = document.querySelector('[name="lockFirstPage"]');
+      if (lockEl) { cfg.lockFirstPage = lockEl.checked; state.pageLocked = lockEl.checked; }
+      const reqKeyEl = document.querySelector('[name="requireSubscriptionKey"]');
+      if (reqKeyEl) cfg.requireSubscriptionKey = reqKeyEl.checked;
+      if (v("lookaheadHours") !== undefined) cfg.lookaheadHours = clampNumber(v("lookaheadHours"), DEFAULT_CONFIG.lookaheadHours, 1, 48);
+      if (v("relativeCutoffMinutes") !== undefined) cfg.relativeCutoffMinutes = clampNumber(v("relativeCutoffMinutes"), 20, 0, 180);
+      if (v("staleMultiplier") !== undefined) cfg.staleMultiplier = clampNumber(v("staleMultiplier"), 2, 1, 20);
+      if (v("routeAllowlist") !== undefined) cfg.routeAllowlist = v("routeAllowlist");
+      if (v("stopIds") !== undefined) cfg.stopIds = v("stopIds");
+      if (v("trackerUrl") !== undefined) cfg.trackerUrl = v("trackerUrl").trim() || MOTAT_DEFAULT_CONFIG.trackerUrl;
+      if (v("trackerToken") !== undefined && v("trackerToken").trim() !== cfg.trackerToken) { cfg.trackerToken = v("trackerToken").trim(); motat.loggedIn = false; }
+      if (v("closedDates") !== undefined) cfg.closedDates = v("closedDates");
+    }
+
+    // True when AT is publishing live predictions for our stops but none of them matched
+    // a trip in the bundle — the signature of a board built from an outdated GTFS zip.
+    function timetableOutdated(rows) {
+      if (isMotat()) return false;
+      const movements = state.realtime && state.realtime.movements;
+      if (!movements || !state.bundle) return false;
+      const liveMovements = Object.values(movements).filter(m => m.expected).length;
+      if (liveMovements < 2) return false;
+      return !rows.some(r => r.predictedSource === "at-api");
+    }
+
+    function renderDualStopBoards(rows, cfg) {
+      const ids = dualStopIds(cfg);
+      const labels = [cfg.dualStopLeftLabel, cfg.dualStopRightLabel];
+      const stopPages = ids.map(stopId => {
+        const stopRows = rows.filter(row => row.stopId === stopId);
+        const pages = [];
+        for (let i = 0; i < stopRows.length; i += cfg.pageSize) pages.push(stopRows.slice(i, i + cfg.pageSize));
+        if (!pages.length) pages.push([]);
+        return pages;
+      });
+      const pageCount = Math.max(...stopPages.map(pages => pages.length));
+      state.page %= pageCount;
+      const bands = ids.map((stopId, index) => {
+        const pages = stopPages[index];
+        const pageIndex = state.pageLocked ? 0 : state.page % pages.length;
+        const pageRows = pages[pageIndex];
+        const stop = state.bundle && state.bundle.stops[stopId];
+        const name = String(labels[index] || "").trim() || (stop && stop.name) || stopDisplayName(stopId);
+        return {
+          pageRows, pageCount: pages.length,
+          html: `<section class="dual-band" aria-label="${escapeHtml(name)} departures">
+            <div class="dual-band-header"><div><span class="dual-direction">${escapeHtml(name)}</span>${isMotat() ? "" : `<span class="dual-stop-code">Stop ${escapeHtml(stopId.split("-")[0])}</span>`}</div>${pages.length > 1 ? `<span class="dual-page">${pageIndex + 1}/${pages.length}</span>` : ""}</div>
+            ${pageRows.length ? renderTable(pageRows, cfg) : `<div class="empty-state"><div><strong>No departures</strong><br><span>Nothing scheduled in the next ${cfg.lookaheadHours}h.</span></div></div>`}
+          </section>`
+        };
+      });
+      return { html: `<div class="dual-bands">${bands.map(b => b.html).join("")}</div>`, pageRows: bands.flatMap(b => b.pageRows), pageCount };
+    }
+
+    function fitDualDestinations() {
+      document.querySelectorAll(".dual-band .dest-cell strong").forEach(label => {
+        label.title = label.textContent;
+        const availableHeight = label.parentElement.clientHeight;
+        if (!availableHeight) return;
+        const preferredSize = parseFloat(getComputedStyle(label).fontSize);
+        for (let size = Math.floor(preferredSize); size >= 12; size--) {
+          label.style.fontSize = size + "px";
+          label.style.maxHeight = "none";
+          label.style.overflow = "visible";
+          const naturalHeight = label.getBoundingClientRect().height;
+          if (naturalHeight <= size * 2.1 + 2 && naturalHeight <= availableHeight + 1) break;
+        }
+        label.style.maxHeight = Math.min(parseFloat(label.style.fontSize) * 2.1, availableHeight) + "px";
+        label.style.overflow = "hidden";
+      });
+    }
+
+    function renderBoard() {
+      const cfg = state.config;
+      const rows = deriveDepartures();
+      if (state.pageLocked) state.page = 0;
+      let pageRows, pageLabel, boardContent;
+      if (cfg.dualStopMode) {
+        const dual = renderDualStopBoards(rows, cfg);
+        pageRows = dual.pageRows;
+        pageLabel = dual.pageCount > 1 ? " " + (state.page + 1) + "/" + dual.pageCount : "";
+        boardContent = dual.html;
+      } else {
+        const pages = [];
+        for (let i = 0; i < rows.length; i += cfg.pageSize) pages.push(rows.slice(i, i + cfg.pageSize));
+        if (!pages.length) pages.push([]);
+        state.page %= pages.length;
+        pageRows = pages[state.page] || [];
+        pageLabel = pages.length > 1 ? " " + (state.page + 1) + "/" + pages.length : "";
+        boardContent = pageRows.length ? renderTable(pageRows, cfg) : `<div class="empty-state"><div><strong>No departures</strong><br><span>Nothing scheduled in the next ${cfg.lookaheadHours}h.</span></div></div>`;
+      }
+      const hasRT = Boolean(cfg.departuresUrl || (String(cfg.subscriptionKey || "").trim() && (cfg.realtimeUrl || cfg.alertsUrl)));
+      const stale = isMotat() ? !motatFresh(Date.now()) : hasRT && !realtimeFresh(state.realtime, cfg, Date.now());
+      const mode = operatingMode(pageRows);
+      const ambientStatus = mode.id === "full" ? "good" : mode.id === "limited" || mode.label === "Connecting" ? "warn" : "bad";
+      const alerts = Array.from(new Set(boardAlerts().map(a => a.header)));
+      const frameless = Boolean(cfg.chromeHidden);
+
+      app.innerHTML = `
+        <main class="board ${frameless ? "frameless" : ""} ${cfg.dualStopMode ? "dual-mode" : ""}">
+          <button class="ghost chrome-toggle" data-action="toggleChrome" title="${frameless ? "Show frame and controls" : "Hide frame and controls"}">${frameless ? "+" : "-"}</button>
+          <section class="board-shell ${frameless ? "frameless" : ""}">
+            <header class="board-header">
+              <div class="board-meta">
+                <div class="board-meta-top">
+                  <span>${escapeHtml(mode.label)}${pageLabel} · ${escapeHtml(mode.coverage)}</span>
+                </div>
+                <div class="board-controls">
+                  <button class="ghost small" data-action="refresh" title="Refresh now">Refresh</button>
+                  <button class="${state.pageLocked ? "primary" : "ghost"} small" data-action="lockPage" title="${state.pageLocked ? "Resume rotation through pages" : "Stop on page 1 (no rotation)"}">${state.pageLocked ? "Locked to 1" : "Lock page"}</button>
+                  <button class="ghost small" data-action="setup">Settings</button>
+                </div>
+              </div>
+            </header>
+            ${!frameless && stale ? `<div class="alert-banner bad">Live data unavailable - showing scheduled times.</div>` : ""}
+            ${!frameless && !stale && (state.error || mode.id === "degraded") ? `<div class="alert-banner warn">${escapeHtml(state.error || mode.detail)}</div>` : ""}
+            ${!frameless && !stale && timetableOutdated(rows) ? `<div class="alert-banner warn">Timetable data looks outdated - live times can't be matched. Refreshing it automatically; if this persists, update gtfs.zip and rebuild in Settings.</div>` : ""}
+            ${!frameless && alerts.length ? `<div class="alert-banner warn">${escapeHtml(alerts[0])}</div>` : ""}
+            <div class="board-body">
+              ${boardContent}
+            </div>
+            <footer class="board-footer">
+              ${isMotat()
+                ? (tramColor => `<div class="legend"><span class="legend-swatch"${tramColor ? ` style="background:${tramColor.background}"` : ""}></span>Heritage trams</div>`)(parseRouteColors(cfg.routeColors).get("tram"))
+                : `<div class="legend"><span class="legend-swatch"></span>Frequent services</div>`}
+              <div class="ticker">${isMotat() ? escapeHtml(motatTickerText()) : alerts.length ? escapeHtml(alerts.join(" · ")) : ""}</div>
+              <div class="mode-indicator ${mode.id}" title="${escapeHtml(mode.detail)}"><span class="mode-dot ${mode.id}"></span>${escapeHtml(mode.label)} · ${escapeHtml(mode.coverage)}</div>
+              <span class="ambient-status ${ambientStatus}" role="status" aria-label="${escapeHtml(mode.label + ": " + mode.coverage)}" title="${escapeHtml(mode.label + ": " + mode.coverage)}"></span>
+              <div class="clock">${clockLabel(state.now, cfg.timezone)}</div>
+            </footer>
+          </section>
+        </main>`;
+      if (cfg.dualStopMode) fitDualDestinations();
+      document.querySelector("[data-action=toggleChrome]")?.addEventListener("click", () => { saveConfig({ chromeHidden: !state.config.chromeHidden }); renderBoard(); });
+      document.querySelector("[data-action=setup]")?.addEventListener("click", () => { saveConfig({ mode: "setup" }); render(); });
+      document.querySelector("[data-action=refresh]")?.addEventListener("click", () => { refreshRealtime().then(() => renderBoard()); });
+      document.querySelector("[data-action=lockPage]")?.addEventListener("click", () => { state.pageLocked = !state.pageLocked; saveConfig({ lockFirstPage: state.pageLocked }); if (state.pageLocked) state.page = 0; renderBoard(); });
+    }
+
+    function renderColorDemo() {
+      const cfg = state.config;
+      state.now = new Date();
+      const colors = Array.from(parseRouteColors(cfg.routeColors).values());
+      const rows = colors.map((color, index) => {
+        const scheduled = state.now.getTime() + (index + 1) * 5 * 60000;
+        return {
+          routeLabel: color.route,
+          destination: "Route Colour Preview",
+          occupancy: 0,
+          status: "scheduled",
+          scheduled,
+          effective: scheduled
+        };
+      });
+      const pageSize = Math.max(1, cfg.pageSize);
+      const pages = [];
+      for (let i = 0; i < rows.length; i += pageSize) pages.push(rows.slice(i, i + pageSize));
+      if (!pages.length) pages.push([]);
+      state.page = ((state.page % pages.length) + pages.length) % pages.length;
+      const pageRows = pages[state.page];
+
+      app.innerHTML = `
+        <main class="board">
+          <section class="board-shell">
+            <header class="board-header">
+              <div class="board-meta">
+                <div class="board-meta-top"><span>Route colour preview ${state.page + 1}/${pages.length}</span></div>
+                <div class="board-controls">
+                  <button class="ghost small" data-action="previousDemo">Previous</button>
+                  <button class="primary small" data-action="nextDemo">Next colours</button>
+                  <button class="ghost small" data-action="setup">Back to settings</button>
+                </div>
+              </div>
+            </header>
+            <div class="alert-banner warn">Preview only — no timetable or live data is being used.</div>
+            <div class="board-body">
+              ${pageRows.length ? renderTable(pageRows, cfg) : `<div class="empty-state"><div><strong>No route colours configured</strong><br><span>Add colours in Advanced settings to preview them here.</span></div></div>`}
+            </div>
+            <footer class="board-footer">
+              <div class="legend"><span class="legend-swatch"></span>Configured route colours</div>
+              <div class="ticker">Edit the palette in Advanced settings</div>
+              <div class="clock">${clockLabel(state.now, cfg.timezone)}</div>
+            </footer>
+          </section>
+        </main>`;
+      document.querySelector("[data-action=previousDemo]")?.addEventListener("click", () => { state.page--; renderColorDemo(); });
+      document.querySelector("[data-action=nextDemo]")?.addEventListener("click", () => { state.page++; renderColorDemo(); });
+      document.querySelector("[data-action=setup]")?.addEventListener("click", () => { state.colorDemo = false; state.page = 0; render(); });
+    }
+
+    function renderTable(rows, cfg) {
+      const frequent = new Set(splitList(cfg.frequentRoutes).map(normLabel));
+      const routeColors = parseRouteColors(cfg.routeColors);
+      return `<div class="dep-table"><div class="dep-head"><div>Route</div><div>Destination</div><div>Occupancy</div><div>Due</div></div><div class="dep-rows" style="--row-count:${cfg.dualStopMode ? cfg.pageSize : rows.length}">${rows.map(r => {
+        // Blank frequent-routes list = every pill filled cyan; otherwise only listed routes are filled, the rest outlined (matches AT PID styling).
+        const customColor = routeColors.get(normLabel(r.routeLabel));
+        const pillClass = customColor || !frequent.size || frequent.has(normLabel(r.routeLabel)) ? "" : " outline";
+        const pillStyle = customColor ? ` style="background:${customColor.background};color:${customColor.text};border-color:${customColor.background}"` : "";
+        const cancelled = r.status === "cancelled";
+        const middle = cancelled ? `<span class="badge cancelled">Cancelled</span>` : occupancyIcons(r.occupancy);
+        // Live rows (a real prediction) show the moving countdown; rows with no ETA show
+        // their fixed scheduled clock time — so a glance tells live from scheduled, the way
+        // AT's PID boards do ("3 min" vs "23:15"). Cancelled rows keep their scheduled time.
+        const due = (cancelled || r.status === "scheduled")
+          ? timeLabel(r.scheduled, cfg.timezone)
+          : formatDue(r.effective, state.now.getTime(), cfg);
+        return `<div class="dep-row"><div><span class="route-pill${pillClass}"${pillStyle}>${escapeHtml(r.routeLabel)}</span></div><div><div class="dest-cell"><strong>${escapeHtml(normalizeDestinationLabel(r.destination))}</strong></div></div><div>${middle}</div><div class="due-cell">${due}</div></div>`;
+      }).join("")}</div></div>`;
+    }
+
+    // A board built from an old GTFS zip is useless with today's realtime: AT rotates
+    // trip ids every release, so nothing matches and every row silently degrades to the
+    // stale schedule. Rebuild automatically from the configured GTFS URL when the bundle ages.
+    const BUNDLE_MAX_AGE_MS = 3 * 24 * 3600000;
+    let bundleRefreshAttempted = false;
+    async function maybeRebuildStaleBundle() {
+      if (bundleRefreshAttempted || !state.bundle) return;
+      const builtAt = Date.parse(state.bundle.generatedAt || "") || 0;
+      if (Date.now() - builtAt < BUNDLE_MAX_AGE_MS) return;
+      bundleRefreshAttempted = true;
+      console.info("[bundle] saved board is " + Math.round((Date.now() - builtAt) / 86400000) + " days old - refreshing from GTFS zip");
+      if (await fetchGtfs({ quiet: true })) buildBundle();
+      else console.warn("[bundle] automatic refresh failed - keeping the old board");
+    }
+
+    function autoLoadGtfs() {
+      if (state.autoGtfsAttempted || state.gtfs) return;
+      state.autoGtfsAttempted = true;
+      fetchGtfs({ quiet: true }).then(ok => { if (ok && state.config.mode === "setup") renderSetup(); });
+    }
+
+    // Runtime
+    function startRuntime() {
+      clearTimers();
+      timers.push(setInterval(() => { state.now = new Date(); if (state.config.mode === "board") renderBoard(); }, 1000));
+      timers.push(setInterval(() => { if (state.config.mode === "board") refreshRealtime().then(() => renderBoard()); }, Math.max(5, state.config.pollSeconds) * 1000));
+      timers.push(setInterval(() => { if (state.config.mode === "board" && !state.pageLocked) { state.page++; renderBoard(); } }, Math.max(3, state.config.rotateSeconds) * 1000));
+      refreshRealtime().then(() => { if (state.config.mode === "board") renderBoard(); });
+    }
+
+    function render() {
+      clearTimers();
+      if (state.colorDemo) {
+        renderColorDemo();
+        timers.push(setInterval(() => { state.page++; renderColorDemo(); }, Math.max(3, state.config.rotateSeconds) * 1000));
+        return;
+      }
+      const keySet = Boolean(String(state.config.subscriptionKey || "").trim());
+      const keyOk = keySet || state.config.requireSubscriptionKey === false || isMotat();
+      if (state.config.mode === "board" && bundleHasSelectedStops() && keyOk && (!state.config.dualStopMode || dualStopIds().every(Boolean))) { renderBoard(); startRuntime(); if (!isMotat()) maybeRebuildStaleBundle(); }
+      else { state.config.mode = "setup"; renderSetup(); if (!isMotat()) autoLoadGtfs(); else autoTestMotat(); }
+    }
+
+    window.addEventListener("error", e => { state.status = "Error: " + (e.message || "unknown"); try { render(); } catch {} });
+    window.addEventListener("unhandledrejection", e => { state.status = "Error: " + (e.reason?.message || e.reason || "unknown"); try { render(); } catch {} });
+
+    // Debug helpers exposed for console use.
+    // Usage: dumpTrip("1033-32504-...") to inspect raw realtime data for a trip.
+    //        dumpRows() to see every currently-rendered row with its predictedSource.
+    window.dumpTrip = function (tripId) {
+      const t = state.realtime && state.realtime.trips && state.realtime.trips[tripId];
+      if (!t) { console.log("no realtime trip for", tripId); return null; }
+      console.log("trip", tripId, "tripDelay:", t.tripDelay, "s, scheduleRel:", t.scheduleRelationship);
+      console.table((t.orderedUpdates || []).map(u => ({
+        seq: u.stopSequence, stopId: u.stopId, rel: u.scheduleRelationship,
+        arrDelay: u.arrivalDelay, depDelay: u.departureDelay,
+        arrTime: u.arrivalTime ? new Date(u.arrivalTime).toLocaleTimeString() : "",
+        depTime: u.departureTime ? new Date(u.departureTime).toLocaleTimeString() : ""
+      })));
+      return t;
+    };
+    window.dumpRows = function () {
+      const rows = deriveDepartures();
+      console.table(rows.slice(0, 20).map(r => ({
+        route: r.routeLabel, tripId: r.tripId, stopId: r.stopId,
+        sched: new Date(r.scheduled).toLocaleTimeString(),
+        pred: r.predicted ? new Date(r.predicted).toLocaleTimeString() : "",
+        dueMin: Math.round((r.effective - state.now.getTime()) / 60000),
+        deltaSec: r.predicted ? Math.round((r.predicted - r.scheduled) / 1000) : null,
+        source: r.predictedSource || "scheduled-only", status: r.status
+      })));
+      return rows;
+    };
+
+    render();
+  </script>
+</body>
+</html>
