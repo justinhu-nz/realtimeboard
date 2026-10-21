@@ -852,6 +852,9 @@
     // feeds. Kept as a fallback if config migration removes departuresKey.
     const DEPARTURES_KEY = "0526f69dcb074a4b8df741eef46121fc";
     const DEFAULT_GTFS_URL = "https://raw.githubusercontent.com/justinhu-nz/auckland-gtfs/refs/heads/main/gtfs.zip";
+    // Same feed as plain .txt files, for browsers without DecompressionStream (older Safari/Firefox).
+    // Any GTFS URL ending in "/" is treated as a folder of unpacked files.
+    const DEFAULT_GTFS_UNPACKED_URL = "https://raw.githubusercontent.com/justinhu-nz/auckland-gtfs/refs/heads/main/gtfs/";
     const LEGACY_GTFS_URLS = new Set([
       "https://gtfs.at.govt.nz/gtfs.zip",
       "https://github.com/justinhu-nz/auckland-gtfs/raw/refs/heads/main/gtfs.zip",
@@ -1071,10 +1074,13 @@ S-C: #D03A2E / #FFFFFF`;
       } catch { return "#"; }
     }
     function gtfsFetchCandidates(primary = state.config.gtfsUrl) {
-      const values = [primary, DEFAULT_GTFS_URL]
+      const values = [primary, DEFAULT_GTFS_URL, DEFAULT_GTFS_UNPACKED_URL]
         .map(v => String(v || "").trim())
         .filter(Boolean);
       return Array.from(new Set(values));
+    }
+    function isUnpackedGtfsUrl(url) {
+      return /\/$/.test(String(url).split(/[?#]/)[0]);
     }
 
     // CSV parser
@@ -1136,6 +1142,27 @@ S-C: #D03A2E / #FFFFFF`;
       return output;
     }
 
+    // Unpacked reader: same output as readZipEntries, but fetches each .txt from a folder URL
+    // (baseUrl must be absolute, since this also runs inside the worker). Missing optional
+    // files are skipped, like absent zip entries.
+    async function readUnpackedEntries(baseUrl, names) {
+      const output = {};
+      await Promise.all(names.map(async name => {
+        const res = await fetch(new URL(name, baseUrl).href);
+        if (res.ok) output[name] = await res.text();
+        else if (res.status !== 404) throw new Error(name + " fetch failed: " + res.status);
+      }));
+      return output;
+    }
+
+    // A loaded feed is either { buffer } (zip) or { baseUrl } (unpacked folder).
+    function readGtfsEntries(feed, names) {
+      return feed.buffer ? readZipEntries(feed.buffer, names) : readUnpackedEntries(feed.baseUrl, names);
+    }
+    function gtfsWorkerFeed(feed) {
+      return feed.buffer ? { buffer: feed.buffer.slice(0) } : { baseUrl: feed.baseUrl };
+    }
+
     // GTFS ingestion. stop_times.txt in a full AT feed is ~80 MB / 1.7M rows; parsing it
     // all into objects froze the page for minutes. Instead, work happens in an inline
     // Web Worker, and stop_times is never fully parsed: the worker scans it line by line
@@ -1175,17 +1202,18 @@ S-C: #D03A2E / #FFFFFF`;
 
     function gtfsWorkerTask(message) {
       return new Promise((resolve, reject) => {
-        const src = csvParse.toString() + "\n" + readZipEntries.toString() + "\n" + stopTimesFilterSource() + `
+        const src = csvParse.toString() + "\n" + readZipEntries.toString() + "\n" + readUnpackedEntries.toString() + "\n" + stopTimesFilterSource() + `
           self.onmessage = async e => {
             try {
-              const { kind, buffer, names, stopIds } = e.data;
-              const files = await readZipEntries(buffer, kind === "tables" ? names : ["stop_times.txt"]);
+              const { kind, buffer, baseUrl, names, stopIds } = e.data;
+              const wanted = kind === "tables" ? names : ["stop_times.txt"];
+              const files = baseUrl ? await readUnpackedEntries(baseUrl, wanted) : await readZipEntries(buffer, wanted);
               let out;
               if (kind === "tables") {
                 out = {};
                 for (const k of Object.keys(files)) out[k] = csvParse(files[k]);
               } else {
-                if (!files["stop_times.txt"]) throw new Error("GTFS zip missing stop_times.txt");
+                if (!files["stop_times.txt"]) throw new Error("GTFS feed missing stop_times.txt");
                 out = filterStopTimes(files["stop_times.txt"], stopIds);
               }
               self.postMessage({ ok: true, out });
@@ -1196,28 +1224,28 @@ S-C: #D03A2E / #FFFFFF`;
         const done = fn => v => { URL.revokeObjectURL(url); w.terminate(); fn(v); };
         w.onmessage = e => (e.data.ok ? done(resolve)(e.data.out) : done(reject)(new Error(e.data.error)));
         w.onerror = e => done(reject)(new Error((e && e.message) || "Worker failed"));
-        w.postMessage(message, [message.buffer]);
+        w.postMessage(message, message.buffer ? [message.buffer] : []);
       });
     }
 
-    async function ingestGtfs(buffer, source) {
+    async function ingestGtfs(feed, source) {
       const tables = ["stops.txt", "routes.txt", "trips.txt", "calendar.txt", "calendar_dates.txt", "feed_info.txt"];
       setStatus("Reading timetable data...");
       let parsed;
       try {
-        parsed = await gtfsWorkerTask({ kind: "tables", buffer: buffer.slice(0), names: tables });
+        parsed = await gtfsWorkerTask({ kind: "tables", ...gtfsWorkerFeed(feed), names: tables });
       } catch (err) {
         console.warn("[gtfs] worker parse failed, parsing on main thread:", err && err.message || err);
-        const files = await readZipEntries(buffer, tables);
+        const files = await readGtfsEntries(feed, tables);
         parsed = {};
         for (const name of Object.keys(files)) parsed[name] = csvParse(files[name]);
       }
       for (const name of ["stops.txt", "routes.txt", "trips.txt"]) {
-        if (!parsed[name]) throw new Error("GTFS zip missing " + name);
+        if (!parsed[name]) throw new Error("GTFS feed missing " + name);
       }
       state.gtfs = {
         source,
-        buffer, // kept so buildBundle can filter stop_times on demand
+        feed, // kept so buildBundle can filter stop_times on demand
         feedInfo: parsed["feed_info.txt"] || [],
         stops: parsed["stops.txt"],
         routes: parsed["routes.txt"],
@@ -1230,11 +1258,11 @@ S-C: #D03A2E / #FFFFFF`;
 
     async function selectedStopTimesFor(stopIds) {
       try {
-        return await gtfsWorkerTask({ kind: "stopTimes", buffer: state.gtfs.buffer.slice(0), stopIds: Array.from(stopIds) });
+        return await gtfsWorkerTask({ kind: "stopTimes", ...gtfsWorkerFeed(state.gtfs.feed), stopIds: Array.from(stopIds) });
       } catch (err) {
         console.warn("[gtfs] worker stop_times filter failed, falling back to main thread:", err && err.message || err);
-        const files = await readZipEntries(state.gtfs.buffer, ["stop_times.txt"]);
-        if (!files["stop_times.txt"]) throw new Error("GTFS zip missing stop_times.txt");
+        const files = await readGtfsEntries(state.gtfs.feed, ["stop_times.txt"]);
+        if (!files["stop_times.txt"]) throw new Error("GTFS feed missing stop_times.txt");
         return csvParse(files["stop_times.txt"]).filter(st => stopIds.has(st.stop_id));
       }
     }
@@ -1246,13 +1274,19 @@ S-C: #D03A2E / #FFFFFF`;
       state.gtfsLoading = true;
       if (state.config.mode === "setup") renderSetup();
       try {
-        if (!options.quiet) setStatus("Fetching GTFS zip...");
+        if (!options.quiet) setStatus("Fetching GTFS...");
         for (const candidate of candidates) {
           try {
-            const res = await fetch(candidate);
-            if (!res.ok) throw new Error("Fetch failed: " + res.status);
-            await ingestGtfs(await res.arrayBuffer(), candidate);
-            if (candidate !== state.config.gtfsUrl) saveConfig({ gtfsUrl: candidate });
+            if (isUnpackedGtfsUrl(candidate)) {
+              await ingestGtfs({ baseUrl: new URL(candidate, location.href).href }, candidate);
+            } else {
+              if (!("DecompressionStream" in globalThis)) throw new Error("no unzip support in this browser");
+              const res = await fetch(candidate);
+              if (!res.ok) throw new Error("Fetch failed: " + res.status);
+              await ingestGtfs({ buffer: await res.arrayBuffer() }, candidate);
+            }
+            // Don't pin the unpacked fallback, so a browser that gains unzip support goes back to the zip.
+            if (candidate !== state.config.gtfsUrl && candidate !== DEFAULT_GTFS_UNPACKED_URL) saveConfig({ gtfsUrl: candidate });
             return true;
           } catch (err) {
             errors.push(candidate + " (" + (err && err.message || err) + ")");
@@ -1272,7 +1306,7 @@ S-C: #D03A2E / #FFFFFF`;
       if (!file) return;
       try {
         setStatus("Reading GTFS zip...");
-        await ingestGtfs(await file.arrayBuffer(), file.name);
+        await ingestGtfs({ buffer: await file.arrayBuffer() }, file.name);
       } catch (err) { setStatus(friendlyError(err, "GTFS upload"), true); }
     }
 
@@ -1882,7 +1916,7 @@ S-C: #D03A2E / #FFFFFF`;
       return [
         ["Run mode", runMode()],
         ["Board mode", mode.label + " · " + mode.coverage],
-        ["GTFS unzip support", ("DecompressionStream" in window) ? "Ready" : "Missing"],
+        ["GTFS unzip support", ("DecompressionStream" in window) ? "Ready" : "Missing (using unpacked files)"],
         ["Saved board", state.bundle ? bundleDepartureCount().toLocaleString() + " departures" : "Not built"],
         ["Loaded GTFS", state.gtfs ? state.gtfs.stops.length.toLocaleString() + " stops" : "Not loaded"],
         ["Realtime feed", realtimeSummary()],
@@ -2076,7 +2110,7 @@ S-C: #D03A2E / #FFFFFF`;
           </div>
 
           ${collapsible("advanced", "Advanced", `
-            <div class="field"><label>GTFS zip file path or URL</label><input name="gtfsUrl" value="${escapeHtml(cfg.gtfsUrl)}"><div class="hint">Defaults to the Auckland GTFS feed hosted in your GitHub repository.</div></div>
+            <div class="field"><label>GTFS zip or folder URL</label><input name="gtfsUrl" value="${escapeHtml(cfg.gtfsUrl)}"><div class="hint">Defaults to the Auckland GTFS feed hosted in your GitHub repository. A URL ending in / loads unpacked .txt files instead of a zip.</div></div>
             <div class="field"><label>Route colours</label><textarea name="routeColors" spellcheck="false">${escapeHtml(cfg.routeColors)}</textarea><div class="hint">One per line: <code>ROUTE: #BACKGROUND / #TEXT</code>. These override the standard cyan and outline styles.</div></div>
             <div class="field"><label>Departures API URL (limited per-stop predictions)</label><input name="departuresUrl" value="${escapeHtml(cfg.departuresUrl)}"><div class="hint">Uses the built-in departures credential. Coverage is incomplete; trips without an expected time remain scheduled.</div></div>
             <div class="field"><label>GTFS-RT trip updates URL</label><input name="realtimeUrl" value="${escapeHtml(cfg.realtimeUrl)}"></div>
