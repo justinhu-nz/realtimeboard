@@ -919,6 +919,9 @@ S-C: #D03A2E / #FFFFFF`;
         }
       }
     };
+    // Filled in at deploy time from the AT_API_KEY GitHub secret (see .github/workflows/deploy.yml).
+    const BUILTIN_AT_KEY = "__AT_API_KEY__";
+    const HAS_BUILTIN_KEY = !BUILTIN_AT_KEY.startsWith("__");
     const DEFAULT_CONFIG = {
       timezone: "Pacific/Auckland",
       gtfsUrl: DEFAULT_GTFS_URL,
@@ -2431,6 +2434,7 @@ S-C: #D03A2E / #FFFFFF`;
                 : `<div class="pill-actions">
                      <input name="subscriptionKey" type="text" value="${escapeHtml(cfg.subscriptionKey)}" placeholder="Paste your key" class="${state.keyTest === "fail" ? "key-bad" : ""}" autocomplete="off" spellcheck="false" ${keyRequired ? `required aria-required="true"` : ""}>
                      <button class="ghost small" type="button" data-action="fetchRealtime">Test</button>
+                     ${HAS_BUILTIN_KEY ? `<button class="ghost small" type="button" data-action="useBuiltinKey" title="Use the built-in AT key">Auto</button>` : ""}
                    </div>
                    <div class="pill-sub">Free from the <a href="https://dev-portal.at.govt.nz/" target="_blank" rel="noopener">AT Developer Portal &#8599;</a></div>`}
             </div>
@@ -2660,6 +2664,10 @@ S-C: #D03A2E / #FFFFFF`;
       q("[data-action=fetchGtfs]")?.addEventListener("click", () => { readFormIntoConfig(); saveConfig(); fetchGtfs(); });
       q("[name=presetChoice]")?.addEventListener("change", e => applyPreset(e.target.value));
       q("[data-action=editKey]")?.addEventListener("click", () => { state.keyTest = null; renderSetup(); });
+      q("[data-action=useBuiltinKey]")?.addEventListener("click", () => {
+        state.config.subscriptionKey = BUILTIN_AT_KEY; state.keyTest = null; saveConfig(); renderSetup();
+        q("[data-action=fetchRealtime]")?.click();
+      });
       q("[data-action=fetchRealtime]")?.addEventListener("click", () => {
         readFormIntoConfig();
         saveConfig();
