@@ -552,8 +552,16 @@
     }
     /* Scale every dual-board column from the same unit as the CSS viewport narrows at page zoom. */
     .dual-mode { --dual-unit: clamp(.625rem, 1.25vw, 1rem); }
-    .dual-mode.board:not(.frameless) { padding: calc(1.25 * var(--dual-unit)); }
-    .dual-mode .board-shell:not(.frameless) { padding: calc(.7 * var(--dual-unit)); gap: calc(.6 * var(--dual-unit)); }
+    .dual-mode.board:not(.frameless) { padding: calc(.5 * var(--dual-unit)); }
+    .dual-mode .board-shell:not(.frameless) { padding: calc(.4 * var(--dual-unit)); gap: calc(.35 * var(--dual-unit)); }
+    /* Dual mode: the top bar is controls only. Status lives in the footer pill and page
+       numbers in each column header, so the meta line would just repeat them. */
+    .dual-mode .board-header { padding: 0; }
+    .dual-mode .board-meta { flex-direction: row; justify-content: flex-end; gap: 0; }
+    .dual-mode .board-meta-top { display: none; }
+    .dual-mode .board-controls { margin-right: 2rem; } /* clear the corner frame toggle */
+    .dual-mode .board-controls button { padding: calc(.18 * var(--dual-unit)) calc(.55 * var(--dual-unit)); font-size: calc(.78 * var(--dual-unit)); line-height: 1.2; }
+    .dual-mode .alert-banner { padding: calc(.3 * var(--dual-unit)) calc(.7 * var(--dual-unit)); font-size: calc(.85 * var(--dual-unit)); }
     .dual-bands {
       flex: 1;
       min-height: 0;
@@ -593,19 +601,19 @@
     .placeholder-row > span { grid-column: 1 / -1; }
     .four-way-settings { padding-bottom: .8rem; border-bottom: 1px solid rgba(185, 200, 216, .2); margin-bottom: .8rem; }
     .dual-band-header {
-      min-height: calc(4.25 * var(--dual-unit));
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: calc(.6 * var(--dual-unit));
-      padding: calc(.55 * var(--dual-unit)) calc(.8 * var(--dual-unit));
+      padding: calc(.28 * var(--dual-unit)) calc(.7 * var(--dual-unit));
       background: rgba(98, 221, 244, .12);
       border-bottom: 1px solid rgba(98, 221, 244, .25);
     }
     .dual-band:nth-child(2) .dual-band-header { background: rgba(241, 198, 102, .1); border-color: rgba(241, 198, 102, .25); }
-    .dual-band-header > div { min-width: 0; }
-    .dual-direction { display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: calc(2 * var(--dual-unit)); font-weight: 800; line-height: 1.15; }
-    .dual-stop-code { display: block; color: var(--muted); font-size: calc(.85 * var(--dual-unit)); }
+    /* Direction and stop number share one line. */
+    .dual-band-header > div { min-width: 0; display: flex; align-items: baseline; gap: calc(.6 * var(--dual-unit)); }
+    .dual-direction { display: block; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: calc(1.6 * var(--dual-unit)); font-weight: 800; line-height: 1.15; }
+    .dual-stop-code { display: block; flex: none; color: var(--muted); font-size: calc(.85 * var(--dual-unit)); white-space: nowrap; }
     .dual-page { color: var(--muted); font-size: calc(1 * var(--dual-unit)); font-weight: 700; white-space: nowrap; }
     .dual-mode .dual-band .dep-table { border-radius: 0; }
     .dual-mode .dual-band .dep-head,
@@ -614,7 +622,7 @@
       column-gap: calc(.25 * var(--dual-unit));
     }
     .dual-mode .dual-band .dep-row { padding: calc(.45 * var(--dual-unit)) calc(.6 * var(--dual-unit)); }
-    .dual-mode .dual-band .dep-head { padding: calc(.3 * var(--dual-unit)) calc(.6 * var(--dual-unit)); font-size: calc(.98 * var(--dual-unit)); }
+    .dual-mode .dual-band .dep-head { padding: calc(.12 * var(--dual-unit)) calc(.6 * var(--dual-unit)); font-size: calc(.8 * var(--dual-unit)); line-height: 1.2; }
     .dual-mode .dual-band .route-pill {
       width: calc(6.65 * var(--dual-unit));
       height: calc(2.85 * var(--dual-unit));
@@ -635,11 +643,11 @@
     .dual-mode .dual-band .occ-cell svg { width: calc(.62 * var(--dual-unit)); height: calc(1.8 * var(--dual-unit)); }
     .dual-mode .dual-band .badge.cancelled { padding: calc(.2 * var(--dual-unit)) calc(.3 * var(--dual-unit)); font-size: calc(.75 * var(--dual-unit)); }
     .dual-mode .dual-band .due-cell { font-size: calc(2.4 * var(--dual-unit)); }
-    .dual-mode .board-footer { gap: calc(.75 * var(--dual-unit)); padding: calc(.75 * var(--dual-unit)) calc(.9 * var(--dual-unit)); }
-    .dual-mode .board-footer .legend { gap: calc(.55 * var(--dual-unit)); font-size: calc(1.2 * var(--dual-unit)); }
-    .dual-mode .board-footer .ticker { font-size: calc(1.15 * var(--dual-unit)); }
-    .dual-mode .board-footer .mode-indicator { font-size: calc(.98 * var(--dual-unit)); padding: calc(.3 * var(--dual-unit)) calc(.62 * var(--dual-unit)); }
-    .dual-mode .board-footer .clock { font-size: calc(2.1 * var(--dual-unit)); }
+    .dual-mode .board-footer { gap: calc(.75 * var(--dual-unit)); padding: calc(.25 * var(--dual-unit)) calc(.8 * var(--dual-unit)); }
+    .dual-mode .board-footer .legend { gap: calc(.45 * var(--dual-unit)); font-size: calc(.95 * var(--dual-unit)); }
+    .dual-mode .board-footer .ticker { font-size: calc(.95 * var(--dual-unit)); }
+    .dual-mode .board-footer .mode-indicator { font-size: calc(.8 * var(--dual-unit)); padding: calc(.08 * var(--dual-unit)) calc(.55 * var(--dual-unit)); }
+    .dual-mode .board-footer .clock { font-size: calc(1.25 * var(--dual-unit)); }
     @media (max-width: 800px) and (orientation: landscape) {
       .dual-mode .dual-band .dep-head,
       .dual-mode .dual-band .dep-row {
