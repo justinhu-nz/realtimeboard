@@ -121,8 +121,12 @@
     /* Stop-level notices from AT take over the footer and scroll, like AT's own boards. */
     .board-footer.notice .legend,
     .board-footer.notice .mode-indicator { display: none; }
-    .board-footer.notice .ambient-status { display: inline-block; } /* keep a live-status cue */
     .board-footer.notice .ticker { text-align: left; text-overflow: clip; font-weight: 700; }
+    /* Soft fade where the message meets the clock (and as it enters), like AT's boards. */
+    .board-footer.notice .ticker {
+      -webkit-mask-image: linear-gradient(to right, transparent 0, #000 2rem, #000 calc(100% - 5rem), transparent 100%);
+      mask-image: linear-gradient(to right, transparent 0, #000 2rem, #000 calc(100% - 5rem), transparent 100%);
+    }
     .board-footer.notice-high { background: #e6007e; border-color: #ff4fb0; }
     .board-footer.notice-high .ticker,
     .board-footer.notice-high .clock { color: #fff; }
@@ -631,7 +635,7 @@
     .dual-band:nth-child(2) .dual-band-header { background: rgba(241, 198, 102, .1); border-color: rgba(241, 198, 102, .25); }
     /* Direction and stop number share one line. */
     .dual-band-header > div { min-width: 0; display: flex; align-items: baseline; gap: calc(.6 * var(--dual-unit)); }
-    .dual-direction { display: block; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: calc(1.6 * var(--dual-unit)); font-weight: 800; line-height: 1.15; }
+    .dual-direction { display: block; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: calc(1.6 * var(--dual-unit)); font-weight: 800; line-height: 1.15; padding-bottom: .15em; margin-bottom: -.15em; } /* room for descenders (y, g) under overflow:hidden without changing layout */
     .dual-stop-code { display: block; flex: none; color: var(--muted); font-size: calc(.85 * var(--dual-unit)); white-space: nowrap; }
     .dual-page { color: var(--muted); font-size: calc(1 * var(--dual-unit)); font-weight: 700; white-space: nowrap; }
     .dual-mode .dual-band .dep-table { border-radius: 0; }
@@ -890,7 +894,6 @@
     .ambient-status.warn { background: var(--warn); box-shadow: 0 0 .72rem rgba(241, 198, 102, .68); }
     .ambient-status.bad { background: var(--bad); box-shadow: 0 0 .72rem rgba(238, 76, 164, .68); }
     .board-shell.frameless .mode-indicator { display: none; }
-    .board-shell.frameless .ambient-status { display: inline-block; }
     .clock {
       font-weight: 700;
       /* A reference clock, not a headline: sized just above the ticker text. */
@@ -3172,7 +3175,6 @@ S-C: #D03A2E / #FFFFFF`;
       const hasRT = Boolean(cfg.departuresUrl || (String(cfg.subscriptionKey || "").trim() && (cfg.realtimeUrl || cfg.alertsUrl)));
       const stale = isMotat() ? !motatFresh(Date.now()) : hasRT && !realtimeFresh(state.realtime, cfg, Date.now());
       const mode = operatingMode(pageRows);
-      const ambientStatus = mode.id === "full" ? "good" : mode.id === "limited" || mode.label === "Connecting" ? "warn" : "bad";
       const alerts = Array.from(new Set(boardAlerts().map(a => a.header)));
       const notice = stopNotices();
       const frameless = Boolean(cfg.chromeHidden);
@@ -3207,7 +3209,6 @@ S-C: #D03A2E / #FFFFFF`;
                 : `<div class="legend"><span class="legend-swatch"></span>Frequent services</div>`}
               <div class="ticker">${isMotat() ? escapeHtml(motatTickerText()) : notice ? noticeMarquee(notice) : ""}</div>
               <div class="mode-indicator ${mode.id}" title="${escapeHtml(mode.detail)}"><span class="mode-dot ${mode.id}"></span>${escapeHtml(mode.label)} · ${escapeHtml(mode.coverage)}</div>
-              <span class="ambient-status ${ambientStatus}" role="status" aria-label="${escapeHtml(mode.label + ": " + mode.coverage)}" title="${escapeHtml(mode.label + ": " + mode.coverage)}"></span>
               <div class="clock">${clockLabel(state.now, cfg.timezone)}</div>
             </footer>
           </section>
