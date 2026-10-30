@@ -3141,6 +3141,20 @@ S-C: #D03A2E / #FFFFFF`;
         const availableHeight = label.parentElement.clientHeight;
         if (!availableHeight) return;
         const preferredSize = parseFloat(getComputedStyle(label).fontSize);
+        label.style.maxHeight = "none";
+        label.style.overflow = "visible";
+        // A name that only just misses one line (e.g. "Manukau via City") reads better slightly
+        // smaller on one line than wrapped at full size: allow up to ~12% shrink for that.
+        let oneLine = 0;
+        for (let size = Math.floor(preferredSize); size >= Math.max(12, Math.floor(preferredSize * 0.88)); size--) {
+          label.style.fontSize = size + "px";
+          if (label.getBoundingClientRect().height <= size * 1.5) { oneLine = size; break; }
+        }
+        if (oneLine) {
+          label.style.maxHeight = Math.min(oneLine * 2.1, availableHeight) + "px";
+          label.style.overflow = "hidden";
+          return;
+        }
         for (let size = Math.floor(preferredSize); size >= 12; size--) {
           label.style.fontSize = size + "px";
           label.style.maxHeight = "none";
