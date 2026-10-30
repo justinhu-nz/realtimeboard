@@ -96,6 +96,28 @@
     .setup-layout {
       display: block;
     }
+    /* Advanced section */
+    .adv-group { border: 1px solid var(--border); border-radius: var(--radius); padding: .55rem .65rem; display: grid; gap: .45rem; background: rgba(255,255,255,.015); }
+    .adv-head { display: flex; justify-content: space-between; align-items: baseline; gap: .5rem; }
+    .adv-group h3 { margin: 0; font-size: .9rem; font-weight: 700; color: var(--text); }
+    .adv-count { font-size: .75rem; font-weight: 400; color: var(--muted); margin-left: .35rem; }
+    .adv-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: .45rem; }
+    .unit-input { display: flex; align-items: center; border: 1px solid var(--border); border-radius: 8px; background: var(--surface2, transparent); overflow: hidden; }
+    .unit-input input { border: 0 !important; margin: 0 !important; min-width: 0; flex: 1; background: transparent; }
+    .unit-input span { padding: 0 .6rem; font-size: .78rem; color: var(--muted); white-space: nowrap; }
+    .unit-input:focus-within { border-color: var(--accent); }
+    .checkbox-label.plain { font-weight: 400 !important; font-size: .9rem; }
+    .adv-group .four-way-settings { padding-bottom: 0; border-bottom: 0; margin-bottom: 0; }
+    .adv-details > summary { list-style: none; cursor: pointer; display: flex; align-items: baseline; gap: .6rem; }
+    .adv-details > summary::-webkit-details-marker { display: none; }
+    .adv-details > summary::before { content: "\25B6"; font-size: .65rem; color: var(--muted); transition: transform .2s; }
+    .adv-details[open] > summary::before { transform: rotate(90deg); }
+    .adv-details > summary .hint { margin: 0; }
+    .adv-details-body { display: grid; gap: .45rem; margin-top: .45rem; }
+    .adv-danger { display: flex; justify-content: space-between; align-items: center; gap: .8rem; border-color: rgba(255, 99, 132, .35); }
+    .adv-danger .hint { margin-top: .1rem; }
+    button.danger.confirming { background: #c0304a; color: #fff; }
+    .adv-group textarea[name=routeColors] { min-height: 0; height: 7.2rem; resize: vertical; }
     .debug-grid {
       display: flex;
       flex-wrap: wrap;
@@ -489,6 +511,21 @@
       gap: .7rem;
       width: 100%;
     }
+    .share-dialog {
+      margin: auto;
+      width: min(36rem, calc(100vw - 2rem));
+      padding: 1.4rem;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--surface);
+      color: var(--text);
+      box-shadow: 0 1rem 4rem #0008;
+    }
+    .share-dialog::backdrop { background: #0009; }
+    .shared-board-notice { color: var(--accent); font-size: .9rem; margin: .5rem 0; }
+    .share-dialog p { margin: .7rem 0; }
+    .share-dialog input { width: 100%; margin-top: .35rem; }
+    .share-dialog-actions { display: flex; gap: .5rem; margin-top: 1rem; }
     .board-controls {
       display: flex;
       gap: .3rem;
@@ -534,6 +571,27 @@
       border-radius: var(--radius);
       background: var(--surface);
     }
+    .four-way-band > .dual-band-header { flex-shrink: 0; }
+    .four-way-band > .dep-table { flex: var(--section-rows) 1 0; }
+    .four-way-band > .train-table { grid-template-rows: minmax(0, 1fr); }
+    .train-station-strip {
+      flex: 0 0 auto;
+      display: flex;
+      justify-content: space-between;
+      gap: .5rem;
+      padding: .12rem calc(.6 * var(--dual-unit));
+      font-size: calc(.75 * var(--dual-unit));
+      line-height: 1.2;
+      color: #d9ecf7;
+      background: rgba(98, 221, 244, .1);
+      border-top: 1px solid rgba(185, 200, 216, .35);
+      overflow: hidden;
+      white-space: nowrap;
+    }
+    .train-station-strip span { color: var(--muted); }
+    .placeholder-row { color: var(--muted); font-size: calc(1 * var(--dual-unit)); }
+    .placeholder-row > span { grid-column: 1 / -1; }
+    .four-way-settings { padding-bottom: .8rem; border-bottom: 1px solid rgba(185, 200, 216, .2); margin-bottom: .8rem; }
     .dual-band-header {
       min-height: calc(4.25 * var(--dual-unit));
       display: flex;
@@ -948,6 +1006,12 @@ S-C: #D03A2E / #FFFFFF`;
       dualStopRightId: "",
       dualStopLeftLabel: "",
       dualStopRightLabel: "",
+      fourWayMode: false,
+      trainStationLabel: "",
+      trainLeftStopId: "",
+      trainRightStopId: "",
+      trainLeftRoutes: "",
+      trainRightRoutes: "",
       chromeHidden: false,
       mode: "setup"
     };
@@ -1380,10 +1444,41 @@ S-C: #D03A2E / #FFFFFF`;
         ? cfg.dualStopRightId : stops.find(id => id !== left);
       return [left, right];
     }
+    function fourWayEnabled(cfg = state.config) {
+      return Boolean(cfg.dualStopMode && cfg.fourWayMode) && !isMotat();
+    }
+    function trainPlatformIds(cfg = state.config) {
+      return [cfg.trainLeftStopId, cfg.trainRightStopId].map(id => String(id || "").trim());
+    }
+    function boardStopIds(cfg = state.config) {
+      const buses = cfg.dualStopMode ? dualStopIds(cfg) : splitList(cfg.stopIds);
+      return Array.from(new Set([...buses, ...(fourWayEnabled(cfg) ? trainPlatformIds(cfg) : [])]));
+    }
+    function trainRoutesMatch(route, filters) {
+      const allowed = new Set(splitList(filters).map(normLabel));
+      return !allowed.size || [route.shortName, route.longName, route.routeId].some(label => allowed.has(normLabel(label)));
+    }
+    function fourWayReady(cfg = state.config) {
+      return !fourWayEnabled(cfg) || trainPlatformIds(cfg).every(Boolean);
+    }
+    function renderFourWaySettings(cfg) {
+      const stops = state.gtfs ? state.gtfs.stops : Object.values(state.bundle?.stops || {}).map(s => ({ stop_id: s.stopId, stop_name: s.name, platform_code: s.platformCode }));
+      return `<div class="four-way-settings">
+        <label class="checkbox-label plain"><input name="fourWayMode" type="checkbox" ${cfg.fourWayMode ? "checked" : ""}> Show trains under each side (dual-stop mode)</label>
+        <p class="hint">In dual-stop mode, reserve the bottom two rows on each side for trains. Bus pages rotate above; trains always show the next two departures for that side’s platform. Rows per page includes the two train rows (minimum 3).</p>
+        ${cfg.fourWayMode ? `<div class="field"><label for="train-station-label">Thin station heading</label><input id="train-station-label" name="trainStationLabel" value="${escapeHtml(cfg.trainStationLabel)}" placeholder="e.g. Henderson Station"><div class="hint">Blank uses the platform’s stop name.</div></div>
+        <datalist id="train-platforms">${stops.filter(s => !s.location_type || s.location_type === "0").map(s => `<option value="${escapeHtml(s.stop_id)}">${escapeHtml(s.stop_name)}${s.platform_code ? " · Platform " + escapeHtml(s.platform_code) : ""} · ${escapeHtml(s.stop_code || s.stop_id.split("-")[0])}</option>`).join("")}</datalist>
+        <div class="row">${["Left", "Right"].map(side => `<div class="field"><label for="train-${side}-platform">${side} train platform</label><input id="train-${side}-platform" name="train${side}StopId" list="train-platforms" value="${escapeHtml(cfg['train' + side + 'StopId'])}" placeholder="Search station/platform or paste stop ID"><label for="train-${side}-routes">${side} train services</label><input id="train-${side}-routes" name="train${side}Routes" value="${escapeHtml(cfg['train' + side + 'Routes'])}" placeholder="All train services"><div class="hint">Comma-separated route names or IDs from the timetable. Blank includes every train service at this platform.</div></div>`).join("")}</div>
+        <p class="hint">Choose the individual platform stop for each direction, then rebuild the board. Train services have their own filters; the bus route filter does not affect them.</p>` : ""}
+      </div>`;
+    }
+
     function bundleHasSelectedStops(cfg = state.config) {
       if (isMotat()) return (cfg.dualStopMode ? dualStopIds(cfg) : splitList(cfg.stopIds)).every(id => Boolean(id && MOTAT_STOP_BY_ID[id]));
       if (!state.bundle) return false;
-      const ids = cfg.dualStopMode ? dualStopIds(cfg) : splitList(cfg.stopIds);
+      const ids = boardStopIds(cfg);
+      // Older saved bundles did not retain route types; rebuild before using them for trains.
+      if (fourWayEnabled(cfg) && !trainPlatformIds(cfg).every(id => (state.bundle.stopTimesByStop?.[id] || []).some(st => Number(state.bundle.routes[st.routeId]?.type) === 2))) return false;
       return ids.every(id => Boolean(state.bundle.stops && state.bundle.stops[id]));
     }
     function gtfsRtArray(value) {
@@ -1714,7 +1809,13 @@ S-C: #D03A2E / #FFFFFF`;
           dualStopRightId: rightIndex >= 0 ? resolved[rightIndex] : resolved.find(id => id !== resolved[0]) || ""
         });
       }
-      const stopIds = new Set(resolved);
+      if (fourWayEnabled()) {
+        const platforms = trainPlatformIds().map(resolveStop);
+        if (!platforms.every(id => id && gtfsStopIds.has(id))) { setStatus("Choose a valid train platform for each side in Advanced.", true); return; }
+        saveConfig({ trainLeftStopId: platforms[0], trainRightStopId: platforms[1] });
+      }
+      const stopIds = new Set([...resolved, ...(fourWayEnabled() ? trainPlatformIds() : [])]);
+      const trainStops = new Set(fourWayEnabled() ? trainPlatformIds() : []);
       if (!stopIds.size) { setStatus("Add at least one stop.", true); return; }
       setStatus("Building board...");
       let candidateStopTimes;
@@ -1733,13 +1834,25 @@ S-C: #D03A2E / #FFFFFF`;
         const route = trip && routesById.get(trip.route_id);
         if (!trip || !route) continue;
         const labels = [route.route_short_name, route.route_long_name, route.route_id].filter(Boolean);
-        if (routeAllow.size && !labels.some(label => routeAllow.has(normLabel(label)))) continue;
+        if (trainStops.has(st.stop_id)) {
+          if (Number(route.route_type) !== 2) continue;
+        } else if (routeAllow.size && !labels.some(label => routeAllow.has(normLabel(label)))) continue;
         selectedStopTimes.push(st);
         tripIds.add(st.trip_id); routeIds.add(trip.route_id); serviceIds.add(trip.service_id);
       }
       if (!selectedStopTimes.length) {
         setStatus("No departures matched these stop IDs and route filters. Check the stop IDs, route labels, or leave the route filter blank.", true);
         return;
+      }
+      if (fourWayEnabled()) {
+        for (const [index, id] of trainPlatformIds().entries()) {
+          const filters = index === 0 ? state.config.trainLeftRoutes : state.config.trainRightRoutes;
+          const matches = selectedStopTimes.some(st => {
+            const route = routesById.get(tripsById.get(st.trip_id).route_id);
+            return st.stop_id === id && trainRoutesMatch({ shortName: route.route_short_name, longName: route.route_long_name, routeId: route.route_id }, filters);
+          });
+          if (!matches) { setStatus("No train services match the " + (index === 0 ? "left" : "right") + " platform and service filter. Check Advanced settings.", true); return; }
+        }
       }
       const bundle = {
         schemaVersion: 1,
@@ -1752,11 +1865,11 @@ S-C: #D03A2E / #FFFFFF`;
       };
       for (const stopId of stopIds) {
         const s = stopsById.get(stopId);
-        if (s) bundle.stops[stopId] = { stopId, name: s.stop_name || stopId, lat: +s.stop_lat, lon: +s.stop_lon };
+        if (s) bundle.stops[stopId] = { stopId, name: s.stop_name || stopId, platformCode: s.platform_code || "", lat: +s.stop_lat, lon: +s.stop_lon };
       }
       for (const routeId of routeIds) {
         const r = routesById.get(routeId);
-        bundle.routes[routeId] = { routeId, shortName: r.route_short_name || r.route_long_name || routeId, longName: r.route_long_name || "", color: cleanColor(r.route_color), textColor: cleanColor(r.route_text_color) };
+        bundle.routes[routeId] = { routeId, type: Number(r.route_type), shortName: r.route_short_name || r.route_long_name || routeId, longName: r.route_long_name || "", color: cleanColor(r.route_color), textColor: cleanColor(r.route_text_color) };
       }
       for (const tripId of tripIds) {
         const t = tripsById.get(tripId);
@@ -1789,7 +1902,7 @@ S-C: #D03A2E / #FFFFFF`;
     function departureStopCodes() {
       // AT stop codes (the number on the sign, used by the departures API) are the
       // leading segment of GTFS stop ids like "3955-edf582eb".
-      const ids = state.config.dualStopMode ? dualStopIds() : splitList(state.config.stopIds);
+      const ids = boardStopIds();
       return Array.from(new Set(ids.filter(Boolean).map(id => id.split("-")[0])));
     }
 
@@ -2162,7 +2275,7 @@ S-C: #D03A2E / #FFFFFF`;
       const today = dateKeyFor(state.now, cfg.timezone);
       const dates = [shiftDateKey(today, -1), today, shiftDateKey(today, 1)];
       const rows = [];
-      for (const stopId of (cfg.dualStopMode ? dualStopIds(cfg) : splitList(cfg.stopIds))) {
+      for (const stopId of boardStopIds(cfg)) {
         const stop = bundle.stops[stopId];
         for (const st of (bundle.stopTimesByStop[stopId] || [])) {
           const trip = bundle.trips[st.tripId], route = bundle.routes[st.routeId];
@@ -2242,7 +2355,7 @@ S-C: #D03A2E / #FFFFFF`;
     function boardAlerts() {
       if (isMotat()) return [];
       if (!state.bundle || !state.realtime || !String(state.config.subscriptionKey || "").trim()) return [];
-      const stops = new Set(state.config.dualStopMode ? dualStopIds() : splitList(state.config.stopIds));
+      const stops = new Set(boardStopIds());
       const routes = new Set(Object.keys(state.bundle.routes));
       return (state.realtime.alerts || []).filter(a => (a.stopIds || []).some(s => stops.has(s)) || (a.routeIds || []).some(r => routes.has(r)));
     }
@@ -2311,6 +2424,17 @@ S-C: #D03A2E / #FFFFFF`;
       ];
     }
 
+    function splitRouteColorLines(text) {
+      return String(text || "").split(/\n/).filter(line => /\S+\s*:\s*#/.test(line)).length;
+    }
+    // Advanced → "Restore defaults" groups. Keys reset to DEFAULT_CONFIG values.
+    const ADVANCED_GROUPS = {
+      display: ["pageSize", "rotateSeconds", "lookaheadHours", "relativeCutoffMinutes", "lockFirstPage"],
+      live: ["pollSeconds", "staleMultiplier", "requireSubscriptionKey"],
+      colours: ["routeColors"],
+      sources: ["gtfsUrl", "departuresUrl", "realtimeUrl", "alertsUrl", "vehiclesUrl", "timezone"]
+    };
+
     function renderDiagnostics() {
       return `<div class="debug-grid">${diagnostics().map(([label, value]) => `<div class="debug-item"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>`).join("")}</div>`;
     }
@@ -2378,7 +2502,7 @@ S-C: #D03A2E / #FFFFFF`;
         : [];
       const stopList = splitList(cfg.stopIds);
       const [leftStopId, rightStopId] = dualStopIds(cfg);
-      const dualReady = !cfg.dualStopMode || Boolean(leftStopId && rightStopId);
+      const dualReady = (!cfg.dualStopMode || Boolean(leftStopId && rightStopId)) && fourWayReady(cfg);
       const gtfsReady = Boolean(state.gtfs);
       const savedBoardReady = bundleHasSelectedStops(cfg);
       const keySet = Boolean(String(cfg.subscriptionKey || "").trim());
@@ -2396,7 +2520,7 @@ S-C: #D03A2E / #FFFFFF`;
         : state.keyTest === "fail" ? "&#10007; failed"
         : state.keyTest === "testing" ? "testing…"
         : keyVal ? "untested" : (cfg.requireSubscriptionKey !== false ? "needed" : "optional");
-      const ctaBlocked = !dualReady ? "Select at least two stops for dual-stop mode"
+      const ctaBlocked = !fourWayReady(cfg) ? "Choose both train platforms in Advanced" : !dualReady ? "Select at least two stops for dual-stop mode"
         : (keyRequired && !keySet) ? "Enter your AT API key first"
         : !(gtfsReady || savedBoardReady) ? "Load the timetable and rebuild for the selected stops"
         : "";
@@ -2419,6 +2543,7 @@ S-C: #D03A2E / #FFFFFF`;
             <h1>Auckland Live Departures</h1>
             <p>Connect once, pick your stops, open the board.</p>
           </div>
+          ${state.sharedLinkNotice ? `<p class="shared-board-notice" role="status">${escapeHtml(state.sharedLinkNotice)}</p>` : ""}
           <div class="status-bar ${state.error ? "error" : ""}">${escapeHtml(state.error || state.status || defaultStatus)}</div>
 
           <div class="connect">
@@ -2492,38 +2617,75 @@ S-C: #D03A2E / #FFFFFF`;
           <div class="cta-row">
             <button class="primary" data-action="go" ${canGo ? "" : "disabled"} title="${escapeHtml(ctaBlocked || "Open the board")}">${gtfsReady ? (state.bundle ? "Rebuild &amp; open board" : "Build &amp; open board") : state.bundle ? "Open board" : "Build &amp; open board"}</button>
             ${state.bundle && gtfsReady ? `<button class="ghost" data-action="openOnly" ${keyUsable && dualReady && savedBoardReady ? "" : "disabled"} title="${escapeHtml(keyUsable && dualReady && savedBoardReady ? "Open the saved board without rebuilding" : ctaBlocked)}">Open without rebuilding</button>` : ""}
+            <button class="ghost" type="button" data-action="shareBoard">Share board</button>
             <button class="ghost" type="button" data-action="colorDemo">Preview route colours</button>
             <button class="ghost" type="button" data-action="switchMotat">MOTAT Trams</button>
           </div>
 
           ${collapsible("advanced", "Advanced", `
-            <div class="field"><label>GTFS zip or folder URL</label><input name="gtfsUrl" value="${escapeHtml(cfg.gtfsUrl)}"><div class="hint">Defaults to the Auckland GTFS feed hosted in your GitHub repository. A URL ending in / loads unpacked .txt files instead of a zip.</div></div>
-            <div class="field"><label>Route colours</label><textarea name="routeColors" spellcheck="false">${escapeHtml(cfg.routeColors)}</textarea><div class="hint">One per line: <code>ROUTE: #BACKGROUND / #TEXT</code>. These override the standard cyan and outline styles.</div></div>
-            <div class="field"><label>Departures API URL (limited per-stop predictions)</label><input name="departuresUrl" value="${escapeHtml(cfg.departuresUrl)}"><div class="hint">Uses the built-in departures credential. Coverage is incomplete; trips without an expected time remain scheduled.</div></div>
-            <div class="field"><label>GTFS-RT trip updates URL</label><input name="realtimeUrl" value="${escapeHtml(cfg.realtimeUrl)}"></div>
-            <div class="row">
-              <div class="field"><label>Service alerts URL</label><input name="alertsUrl" value="${escapeHtml(cfg.alertsUrl)}"></div>
-              <div class="field"><label>Vehicle positions URL (occupancy)</label><input name="vehiclesUrl" value="${escapeHtml(cfg.vehiclesUrl)}"></div>
+            <div class="adv-group">
+              <div class="adv-head"><h3>Board display</h3><button class="linkish" type="button" data-restore="display">Restore defaults</button></div>
+              <div class="adv-grid">
+                <div class="field"><label for="adv-pageSize">Rows per page</label><div class="unit-input"><input id="adv-pageSize" name="pageSize" type="number" min="1" max="50" step="1" value="${cfg.pageSize}"><span>rows</span></div></div>
+                <div class="field"><label for="adv-rotate">Page rotation</label><div class="unit-input"><input id="adv-rotate" name="rotateSeconds" type="number" min="3" max="3600" step="1" value="${cfg.rotateSeconds}"><span>sec</span></div></div>
+                <div class="field"><label for="adv-lookahead">Look ahead</label><div class="unit-input"><input id="adv-lookahead" name="lookaheadHours" type="number" min="1" max="48" step="1" value="${cfg.lookaheadHours}"><span>hours</span></div></div>
+                <div class="field"><label for="adv-cutoff">Show minutes until</label><div class="unit-input"><input id="adv-cutoff" name="relativeCutoffMinutes" type="number" min="0" max="180" step="1" value="${cfg.relativeCutoffMinutes}"><span>min</span></div><div class="hint">Further out shows a clock time, e.g. 14:35.</div></div>
+              </div>
+              <label class="checkbox-label plain"><input name="lockFirstPage" type="checkbox" ${cfg.lockFirstPage ? "checked" : ""}> Lock to page 1 (never rotate)</label>
             </div>
-            <div class="field"><label>Stop IDs (raw, comma-separated)</label><textarea name="stopIds">${escapeHtml(cfg.stopIds)}</textarea></div>
-            <div class="row">
-              <div class="field"><label>Poll interval (sec)</label><input name="pollSeconds" type="number" value="${cfg.pollSeconds}"></div>
-              <div class="field"><label>Rows per page</label><input name="pageSize" type="number" value="${cfg.pageSize}"></div>
+
+            <div class="adv-group">
+              <div class="adv-head"><h3>Live updates</h3><button class="linkish" type="button" data-restore="live">Restore defaults</button></div>
+              <div class="adv-grid">
+                <div class="field"><label for="adv-poll">Refresh every</label><div class="unit-input"><input id="adv-poll" name="pollSeconds" type="number" min="5" max="3600" step="1" value="${cfg.pollSeconds}"><span>sec</span></div></div>
+                <div class="field"><label for="adv-stale">Mark stale after</label><div class="unit-input"><input id="adv-stale" name="staleMultiplier" type="number" min="1" max="20" step="1" value="${cfg.staleMultiplier}"><span>missed refreshes</span></div></div>
+              </div>
+              <label class="checkbox-label plain"><input name="requireSubscriptionKey" type="checkbox" ${cfg.requireSubscriptionKey !== false ? "checked" : ""}> Require a personal AT key before opening</label>
+              <div class="hint">Off lets the board open in Limited live: some trips get ETAs, the rest show scheduled times.</div>
             </div>
-            <div class="row">
-              <div class="field"><label>Page rotation (sec)</label><input name="rotateSeconds" type="number" value="${cfg.rotateSeconds}"></div>
-              <div class="field"><label>Lookahead (hours)</label><input name="lookaheadHours" type="number" value="${cfg.lookaheadHours}"></div>
+
+            <div class="adv-group">
+              <div class="adv-head"><h3>Four-way bus + train</h3></div>
+              ${renderFourWaySettings(cfg)}
             </div>
-            <div class="field"><label style="display:flex;align-items:center;gap:.45rem;cursor:pointer"><input name="lockFirstPage" type="checkbox" ${cfg.lockFirstPage ? "checked" : ""} style="width:auto;margin:0"> Lock board to page 1 (never rotate pages)</label></div>
-            <div class="field"><label style="display:flex;align-items:center;gap:.45rem;cursor:pointer"><input name="requireSubscriptionKey" type="checkbox" ${cfg.requireSubscriptionKey !== false ? "checked" : ""} style="width:auto;margin:0"> Require a personal AT key before opening the board</label><div class="hint">On: a personal key is required and the board will request Full live mode; feed failures are still surfaced as Degraded. Off: the board can open in Limited live mode, where only some trips receive ETAs and all others show scheduled clock times.</div></div>
-            <div class="row">
-              <div class="field"><label>Relative time cutoff (min)</label><input name="relativeCutoffMinutes" type="number" value="${cfg.relativeCutoffMinutes}"><div class="hint">Show "12" up to this many minutes out; beyond it show clock time like "14:35".</div></div>
-              <div class="field"><label>Stale after (× poll intervals)</label><input name="staleMultiplier" type="number" value="${cfg.staleMultiplier}"></div>
+
+            <div class="adv-group">
+              <div class="adv-head"><h3>Route colours <span class="adv-count">${splitRouteColorLines(cfg.routeColors)} routes</span></h3><button class="linkish" type="button" data-restore="colours">Restore defaults</button></div>
+              <textarea name="routeColors" rows="5" spellcheck="false" aria-label="Route colours">${escapeHtml(cfg.routeColors)}</textarea>
+              <div class="hint">One per line: <code>ROUTE: #BACKGROUND / #TEXT</code>. Check them with <strong>Preview route colours</strong> above.</div>
             </div>
-            <div class="field"><label>Timezone (IANA)</label><input name="timezone" value="${escapeHtml(cfg.timezone)}"></div>
-            ${renderDiagnostics()}
-            <div><button class="danger small" type="button" data-action="reset">Reset everything</button></div>
-          `, "endpoints · timing · diagnostics")}
+
+            <details class="adv-group adv-details">
+              <summary><h3>Data sources</h3><span class="hint">timetable, API endpoints, timezone, raw stops</span></summary>
+              <div class="adv-details-body">
+                <div class="field"><label for="adv-gtfs">Timetable (GTFS zip or folder URL)</label><input id="adv-gtfs" name="gtfsUrl" value="${escapeHtml(cfg.gtfsUrl)}"><div class="hint">A URL ending in / loads unpacked .txt files.</div></div>
+                <div class="field"><label for="adv-dep">Stop predictions API</label><input id="adv-dep" name="departuresUrl" value="${escapeHtml(cfg.departuresUrl)}"><div class="hint">Uses the built-in credential; coverage is partial.</div></div>
+                <div class="field"><label for="adv-rt">Trip updates (GTFS-RT)</label><input id="adv-rt" name="realtimeUrl" value="${escapeHtml(cfg.realtimeUrl)}"></div>
+                <div class="row">
+                  <div class="field"><label for="adv-alerts">Service alerts</label><input id="adv-alerts" name="alertsUrl" value="${escapeHtml(cfg.alertsUrl)}"></div>
+                  <div class="field"><label for="adv-veh">Vehicle positions (occupancy)</label><input id="adv-veh" name="vehiclesUrl" value="${escapeHtml(cfg.vehiclesUrl)}"></div>
+                </div>
+                <div class="row">
+                  <div class="field"><label for="adv-tz">Timezone (IANA)</label><input id="adv-tz" name="timezone" value="${escapeHtml(cfg.timezone)}"></div>
+                  <div class="field"><label for="adv-stops">Stop IDs (raw, comma-separated)</label><input id="adv-stops" name="stopIds" value="${escapeHtml(cfg.stopIds)}" spellcheck="false"></div>
+                </div>
+                <div><button class="linkish" type="button" data-restore="sources">Restore default sources</button></div>
+              </div>
+            </details>
+
+            <details class="adv-group adv-details">
+              <summary><h3>Diagnostics</h3><span class="hint">what the board is doing right now</span></summary>
+              <div class="adv-details-body">
+                ${renderDiagnostics()}
+                <div><button class="ghost small" type="button" data-action="copyDiagnostics">Copy diagnostics</button></div>
+              </div>
+            </details>
+
+            <div class="adv-group adv-danger">
+              <div><strong>Reset everything</strong><div class="hint">Clears your key, stops, saved board and all settings on this device.</div></div>
+              <button class="danger small" type="button" data-action="reset">Reset…</button>
+            </div>
+                    `, "display · live updates · colours · data sources")}
         </main>`;
       app.innerHTML = html;
       wireSetup();
@@ -2559,6 +2721,7 @@ S-C: #D03A2E / #FFFFFF`;
             <h1>MOTAT Trams</h1>
             <p>Western Springs Tramway, Great North Road to Aviation Hall. Pick your stops, open the board.</p>
           </div>
+          ${state.sharedLinkNotice ? `<p class="shared-board-notice" role="status">${escapeHtml(state.sharedLinkNotice)}</p>` : ""}
           <div class="status-bar ${state.error ? "error" : ""}">${escapeHtml(state.error || state.status || (canGo ? "Board ready — open it below, or adjust stops." : "Pick your stops, then open the board."))}</div>
 
           <div class="connect">
@@ -2595,6 +2758,7 @@ S-C: #D03A2E / #FFFFFF`;
 
           <div class="cta-row">
             <button class="primary" data-action="motatGo" ${canGo ? "" : "disabled"} title="${escapeHtml(ctaBlocked || "Open the board")}">Open board</button>
+            <button class="ghost" type="button" data-action="shareBoard">Share board</button>
             <button class="ghost" type="button" data-action="switchAt">Auckland Transport board</button>
           </div>
 
@@ -2641,6 +2805,7 @@ S-C: #D03A2E / #FFFFFF`;
     }
 
     function wireSetup() {
+      wireShareButton();
       document.querySelectorAll("[data-toggle]").forEach(el => {
         el.addEventListener("click", () => {
           state.expandedSections[el.dataset.toggle] = !state.expandedSections[el.dataset.toggle];
@@ -2676,7 +2841,32 @@ S-C: #D03A2E / #FFFFFF`;
         render();
       });
       q("[data-action=switchMotat]")?.addEventListener("click", () => { readFormIntoConfig(); saveConfig(); switchSource("motat"); });
-      q("[data-action=reset]")?.addEventListener("click", resetAll);
+      q("[data-action=reset]")?.addEventListener("click", e => {
+        // Two-step confirm (no browser dialog): first click arms, second click within 4s resets.
+        const btn = e.currentTarget;
+        if (btn.classList.contains("confirming")) { resetAll(); return; }
+        btn.classList.add("confirming");
+        btn.textContent = "Click again to erase everything";
+        setTimeout(() => { if (btn.isConnected) { btn.classList.remove("confirming"); btn.textContent = "Reset…"; } }, 4000);
+      });
+      document.querySelectorAll("[data-restore]").forEach(btn => btn.addEventListener("click", () => {
+        const keys = ADVANCED_GROUPS[btn.dataset.restore] || [];
+        readFormIntoConfig();
+        const patch = {};
+        keys.forEach(k => { patch[k] = DEFAULT_CONFIG[k]; });
+        saveConfig(patch);
+        if ("lockFirstPage" in patch) state.pageLocked = Boolean(patch.lockFirstPage);
+        state.status = "Restored default " + ({ display: "display", live: "live update", colours: "route colour", sources: "data source" }[btn.dataset.restore] || "") + " settings.";
+        state.error = "";
+        renderSetup();
+      }));
+      q("[data-action=copyDiagnostics]")?.addEventListener("click", e => {
+        const text = diagnostics().map(([label, value]) => label + ": " + value).join("\n");
+        const btn = e.currentTarget;
+        const done = ok => { btn.textContent = ok ? "Copied" : "Copy failed"; setTimeout(() => { btn.textContent = "Copy diagnostics"; }, 1800); };
+        try { navigator.clipboard.writeText(text).then(() => done(true), () => done(false)); } catch { done(false); }
+      });
+
       q("[data-action=fetchGtfs]")?.addEventListener("click", () => { readFormIntoConfig(); saveConfig(); fetchGtfs(); });
       q("[name=presetChoice]")?.addEventListener("change", e => applyPreset(e.target.value));
       q("[data-action=editKey]")?.addEventListener("click", () => { state.keyTest = null; renderSetup(); });
@@ -2701,7 +2891,7 @@ S-C: #D03A2E / #FFFFFF`;
         state.keyTest = null;
         e.target.classList.remove("key-bad");
         const enabled = (Boolean(e.target.value.trim()) || state.config.requireSubscriptionKey === false)
-          && (!state.config.dualStopMode || dualStopIds().every(Boolean));
+          && fourWayReady() && (!state.config.dualStopMode || dualStopIds().every(Boolean));
         const go = q("[data-action=go]"); if (go) go.disabled = !enabled || !(state.gtfs || bundleHasSelectedStops());
         const openOnly = q("[data-action=openOnly]"); if (openOnly) openOnly.disabled = !enabled || !bundleHasSelectedStops();
       });
@@ -2709,6 +2899,10 @@ S-C: #D03A2E / #FFFFFF`;
         el.addEventListener("input", () => { readFormIntoConfig(); syncPresetUi(); });
       });
       q("[name=requireSubscriptionKey]")?.addEventListener("change", () => { readFormIntoConfig(); saveConfig(); renderSetup(); });
+      q("[name=fourWayMode]")?.addEventListener("change", () => { readFormIntoConfig(); saveConfig(); renderSetup(); });
+      document.querySelectorAll("[name=trainLeftStopId], [name=trainRightStopId]").forEach(el => {
+        el.addEventListener("change", () => { readFormIntoConfig(); saveConfig(); renderSetup(); });
+      });
       q("[name=dualStopMode]")?.addEventListener("change", () => { readFormIntoConfig(); saveConfig(); renderSetup(); });
       document.querySelectorAll("[name=dualStopLeftId], [name=dualStopRightId]").forEach(el => {
         el.addEventListener("change", () => { readFormIntoConfig(); saveConfig(); renderSetup(); });
@@ -2753,6 +2947,11 @@ S-C: #D03A2E / #FFFFFF`;
       if (v("dualStopRightId") !== undefined) cfg.dualStopRightId = v("dualStopRightId");
       if (v("dualStopLeftLabel") !== undefined) cfg.dualStopLeftLabel = v("dualStopLeftLabel");
       if (v("dualStopRightLabel") !== undefined) cfg.dualStopRightLabel = v("dualStopRightLabel");
+      const fourWayEl = document.querySelector('[name="fourWayMode"]');
+      if (fourWayEl) cfg.fourWayMode = fourWayEl.checked;
+      for (const name of ["trainStationLabel", "trainLeftStopId", "trainRightStopId", "trainLeftRoutes", "trainRightRoutes"]) {
+        if (v(name) !== undefined) cfg[name] = v(name).trim();
+      }
       if (v("routeColors") !== undefined) cfg.routeColors = v("routeColors");
       if (v("subscriptionKey") !== undefined) cfg.subscriptionKey = v("subscriptionKey");
       if (v("pollSeconds") !== undefined) cfg.pollSeconds = clampNumber(v("pollSeconds"), DEFAULT_CONFIG.pollSeconds, 5, 3600);
@@ -2786,10 +2985,13 @@ S-C: #D03A2E / #FFFFFF`;
     function renderDualStopBoards(rows, cfg) {
       const ids = dualStopIds(cfg);
       const labels = [cfg.dualStopLeftLabel, cfg.dualStopRightLabel];
+      const fourWay = fourWayEnabled(cfg);
+      const busPageSize = fourWay ? Math.max(3, cfg.pageSize) - 2 : cfg.pageSize;
+      const platforms = trainPlatformIds(cfg);
       const stopPages = ids.map(stopId => {
-        const stopRows = rows.filter(row => row.stopId === stopId);
+        const stopRows = rows.filter(row => row.stopId === stopId && (!fourWay || Number(state.bundle.routes[row.routeId]?.type) === 3));
         const pages = [];
-        for (let i = 0; i < stopRows.length; i += cfg.pageSize) pages.push(stopRows.slice(i, i + cfg.pageSize));
+        for (let i = 0; i < stopRows.length; i += busPageSize) pages.push(stopRows.slice(i, i + busPageSize));
         if (!pages.length) pages.push([]);
         return pages;
       });
@@ -2799,13 +3001,19 @@ S-C: #D03A2E / #FFFFFF`;
         const pages = stopPages[index];
         const pageIndex = state.pageLocked ? 0 : state.page % pages.length;
         const pageRows = pages[pageIndex];
+        const trainRows = fourWay ? rows.filter(row => row.stopId === platforms[index] && Number(state.bundle.routes[row.routeId]?.type) === 2 && trainRoutesMatch(state.bundle.routes[row.routeId], index === 0 ? cfg.trainLeftRoutes : cfg.trainRightRoutes)).slice(0, 2) : [];
+        const trainStop = state.bundle?.stops[platforms[index]];
+        const stationName = cfg.trainStationLabel || trainStop?.name || platforms[index];
+        const platformLabel = trainStop?.platformCode ? "Platform " + trainStop.platformCode : "Stop " + (platforms[index] || "").split("-")[0];
+        const trainContent = fourWay ? `<div class="train-station-strip" title="${escapeHtml(stationName + ' · ' + platformLabel)}">${escapeHtml(stationName)} <span>${escapeHtml(platformLabel)}</span></div>${renderTable(trainRows, { ...cfg, pageSize: 2 }, { slots: 2, hideHeader: true, emptyLabel: "No upcoming trains" })}` : "";
         const stop = state.bundle && state.bundle.stops[stopId];
         const name = String(labels[index] || "").trim() || (stop && stop.name) || stopDisplayName(stopId);
         return {
-          pageRows, pageCount: pages.length,
-          html: `<section class="dual-band" aria-label="${escapeHtml(name)} departures">
+          pageRows: [...pageRows, ...trainRows], pageCount: pages.length,
+          html: `<section class="dual-band ${fourWay ? "four-way-band" : ""}" aria-label="${escapeHtml(name)} departures">
             <div class="dual-band-header"><div><span class="dual-direction">${escapeHtml(name)}</span>${isMotat() ? "" : `<span class="dual-stop-code">Stop ${escapeHtml(stopId.split("-")[0])}</span>`}</div>${pages.length > 1 ? `<span class="dual-page">${pageIndex + 1}/${pages.length}</span>` : ""}</div>
-            ${pageRows.length ? renderTable(pageRows, cfg) : `<div class="empty-state"><div><strong>No departures</strong><br><span>Nothing scheduled in the next ${cfg.lookaheadHours}h.</span></div></div>`}
+            ${fourWay ? renderTable(pageRows, cfg, { slots: busPageSize, emptyLabel: "No upcoming buses" }) : pageRows.length ? renderTable(pageRows, cfg) : `<div class="empty-state"><div><strong>No departures</strong><br><span>Nothing scheduled in the next ${cfg.lookaheadHours}h.</span></div></div>`}
+            ${trainContent}
           </section>`
         };
       });
@@ -2868,6 +3076,7 @@ S-C: #D03A2E / #FFFFFF`;
                 <div class="board-controls">
                   <button class="ghost small" data-action="refresh" title="Refresh now">Refresh</button>
                   <button class="${state.pageLocked ? "primary" : "ghost"} small" data-action="lockPage" title="${state.pageLocked ? "Resume rotation through pages" : "Stop on page 1 (no rotation)"}">${state.pageLocked ? "Locked to 1" : "Lock page"}</button>
+                  <button class="ghost small" data-action="shareBoard">Share</button>
                   <button class="ghost small" data-action="setup">Settings</button>
                 </div>
               </div>
@@ -2891,6 +3100,7 @@ S-C: #D03A2E / #FFFFFF`;
           </section>
         </main>`;
       if (cfg.dualStopMode) fitDualDestinations();
+      wireShareButton();
       document.querySelector("[data-action=toggleChrome]")?.addEventListener("click", () => { saveConfig({ chromeHidden: !state.config.chromeHidden }); renderBoard(); });
       document.querySelector("[data-action=setup]")?.addEventListener("click", () => { saveConfig({ mode: "setup" }); render(); });
       document.querySelector("[data-action=refresh]")?.addEventListener("click", () => { refreshRealtime().then(() => renderBoard()); });
@@ -2948,10 +3158,12 @@ S-C: #D03A2E / #FFFFFF`;
       document.querySelector("[data-action=setup]")?.addEventListener("click", () => { state.colorDemo = false; state.page = 0; render(); });
     }
 
-    function renderTable(rows, cfg) {
+    function renderTable(rows, cfg, options = {}) {
+      const slots = options.slots || (cfg.dualStopMode ? cfg.pageSize : rows.length);
+      const placeholders = options.slots ? Array.from({ length: Math.max(0, slots - rows.length) }, (_, index) => `<div class="dep-row placeholder-row"><span>${!rows.length && index === 0 ? escapeHtml(options.emptyLabel || "No departures") : "&nbsp;"}</span></div>`).join("") : "";
       const frequent = new Set(splitList(cfg.frequentRoutes).map(normLabel));
       const routeColors = parseRouteColors(cfg.routeColors);
-      return `<div class="dep-table"><div class="dep-head"><div>Route</div><div>Destination</div><div>Occupancy</div><div>Due</div></div><div class="dep-rows" style="--row-count:${cfg.dualStopMode ? cfg.pageSize : rows.length}">${rows.map(r => {
+      return `<div class="dep-table ${options.hideHeader ? "train-table" : ""}" style="--section-rows:${slots}">${options.hideHeader ? "" : `<div class="dep-head"><div>Route</div><div>Destination</div><div>Occupancy</div><div>Due</div></div>`}<div class="dep-rows" style="--row-count:${slots}">${rows.map(r => {
         // Blank frequent-routes list = every pill filled cyan; otherwise only listed routes are filled, the rest outlined (matches AT PID styling).
         const customColor = routeColors.get(normLabel(r.routeLabel));
         const pillClass = customColor || !frequent.size || frequent.has(normLabel(r.routeLabel)) ? "" : " outline";
@@ -2965,7 +3177,7 @@ S-C: #D03A2E / #FFFFFF`;
           ? timeLabel(r.scheduled, cfg.timezone)
           : formatDue(r.effective, state.now.getTime(), cfg);
         return `<div class="dep-row"><div><span class="route-pill${pillClass}"${pillStyle}>${escapeHtml(r.routeLabel)}</span></div><div><div class="dest-cell"><strong>${escapeHtml(normalizeDestinationLabel(r.destination))}</strong></div></div><div>${middle}</div><div class="due-cell">${due}</div></div>`;
-      }).join("")}</div></div>`;
+      }).join("")}${placeholders}</div></div>`;
     }
 
     // A board built from an old GTFS zip is useless with today's realtime: AT rotates
@@ -3007,12 +3219,99 @@ S-C: #D03A2E / #FFFFFF`;
       }
       const keySet = Boolean(String(state.config.subscriptionKey || "").trim());
       const keyOk = keySet || state.config.requireSubscriptionKey === false || isMotat();
-      if (state.config.mode === "board" && bundleHasSelectedStops() && keyOk && (!state.config.dualStopMode || dualStopIds().every(Boolean))) { renderBoard(); startRuntime(); if (!isMotat()) maybeRebuildStaleBundle(); }
+      if (state.config.mode === "board" && bundleHasSelectedStops() && keyOk && fourWayReady() && (!state.config.dualStopMode || dualStopIds().every(Boolean))) { renderBoard(); startRuntime(); if (!isMotat()) maybeRebuildStaleBundle(); }
       else { state.config.mode = "setup"; renderSetup(); if (!isMotat()) autoLoadGtfs(); else autoTestMotat(); }
     }
 
     window.addEventListener("error", e => { state.status = "Error: " + (e.message || "unknown"); try { render(); } catch {} });
     window.addEventListener("unhandledrejection", e => { state.status = "Error: " + (e.reason?.message || e.reason || "unknown"); try { render(); } catch {} });
+
+    // Explicit allowlist: connection settings and credentials never enter shared URLs.
+    const SHARED_BOARD_FIELDS = [
+      "stopIds", "routeAllowlist", "frequentRoutes", "routeColors",
+      "dualStopMode", "dualStopLeftId", "dualStopRightId", "dualStopLeftLabel", "dualStopRightLabel",
+      "fourWayMode", "trainStationLabel", "trainLeftStopId", "trainRightStopId", "trainLeftRoutes", "trainRightRoutes",
+      "pageSize", "rotateSeconds", "lookaheadHours", "relativeCutoffMinutes", "lockFirstPage", "chromeHidden"
+    ];
+    function sharedBoardPreferences(cfg) {
+      return Object.fromEntries(SHARED_BOARD_FIELDS.map(key => [key, cfg[key] ?? DEFAULT_CONFIG[key]]));
+    }
+    function boardShareUrl() {
+      const url = new URL(location.href);
+      url.username = ""; url.password = "";
+      url.search = "";
+      const defaults = isMotat() ? MOTAT_DEFAULT_CONFIG : DEFAULT_CONFIG;
+      const preferences = Object.fromEntries(Object.entries(sharedBoardPreferences(state.config)).filter(([key, value]) => key === "stopIds" || value !== defaults[key]));
+      url.hash = "board=" + encodeURIComponent(JSON.stringify({ version: 1, source: isMotat() ? "motat" : "at", preferences }));
+      return url.href;
+    }
+    function applySharedBoardLink() {
+      if (!location.hash.startsWith("#board=")) return;
+      try {
+        if (location.hash.length > 32000) throw new Error("Link is too long");
+        const data = JSON.parse(decodeURIComponent(location.hash.slice(7)));
+        if (!data || data.version !== 1 || !["at", "motat"].includes(data.source) || !data.preferences || typeof data.preferences !== "object" || Array.isArray(data.preferences)) throw new Error("Unsupported board link");
+
+        const prefs = {};
+        for (const key of SHARED_BOARD_FIELDS) {
+          const value = data.preferences[key];
+          if (value === undefined) continue;
+          const expected = typeof DEFAULT_CONFIG[key];
+          if (typeof value !== expected || (expected === "number" && !Number.isFinite(value)) || (expected === "string" && value.length > 6000)) throw new Error("Invalid board preference");
+          prefs[key] = value;
+        }
+        boardSource = data.source;
+        state.config = isMotat() ? loadMotatConfig() : loadConfig();
+        saveJson("source", boardSource);
+        // Keep this browser's connection details. Shared links always open in setup for review/build.
+        state.config = sanitizeConfig({ ...state.config, ...sharedBoardPreferences(isMotat() ? MOTAT_DEFAULT_CONFIG : DEFAULT_CONFIG), ...prefs, mode: "setup" });
+        state.page = 0;
+        state.pageLocked = Boolean(state.config.lockFirstPage);
+        saveConfig();
+        state.error = "";
+        state.status = "Shared board preferences loaded. Review your stops, then build and open the board.";
+        state.sharedLinkNotice = state.status;
+      } catch (err) {
+        state.config.mode = "setup";
+        state.error = "Could not load this shared board link. " + (err.message || "Invalid link");
+        state.sharedLinkNotice = state.error;
+      }
+      // Consume once so a reload does not undo later edits made in this browser.
+      history.replaceState(null, "", location.pathname + location.search);
+    }
+    function openShareDialog() {
+      if (state.config.mode === "setup") { readFormIntoConfig(); saveConfig(); }
+      document.getElementById("share-board-dialog")?.remove();
+      const dialog = document.createElement("dialog");
+      dialog.id = "share-board-dialog";
+      dialog.className = "share-dialog";
+      dialog.setAttribute("aria-labelledby", "share-board-title");
+      dialog.innerHTML = `<h2 id="share-board-title">Share board preferences</h2>
+        <p>Includes stops, direction headings, bus and train service filters, colours and display layout. API keys, feed URLs and connection settings stay in this browser.</p>
+        <label for="share-board-url">Board link</label><input id="share-board-url" type="text" readonly spellcheck="false">
+        <p class="hint">The link opens with these preferences ready to review and build. Live data uses the recipient’s own connection settings.</p>
+        <div class="share-dialog-actions"><button class="primary" data-copy-share>Copy link</button><button class="ghost" data-close-share>Close</button></div>
+        <p class="hint" role="status" aria-live="polite" data-share-status></p>`;
+      const input = dialog.querySelector("input");
+      input.value = boardShareUrl();
+      dialog.querySelector("[data-copy-share]").addEventListener("click", async () => {
+        const status = dialog.querySelector("[data-share-status]");
+        try {
+          await navigator.clipboard.writeText(input.value);
+          status.textContent = "Link copied.";
+        } catch {
+          input.focus(); input.select();
+          status.textContent = "Copy the selected link with Ctrl+C or ⌘C.";
+        }
+      });
+      dialog.querySelector("[data-close-share]").addEventListener("click", () => dialog.close());
+      dialog.addEventListener("close", () => dialog.remove());
+      document.body.append(dialog);
+      dialog.showModal();
+    }
+    function wireShareButton() {
+      document.querySelector("[data-action=shareBoard]")?.addEventListener("click", openShareDialog);
+    }
 
     // Debug helpers exposed for console use.
     // Usage: dumpTrip("1033-32504-...") to inspect raw realtime data for a trip.
@@ -3042,6 +3341,7 @@ S-C: #D03A2E / #FFFFFF`;
       return rows;
     };
 
+    applySharedBoardLink();
     render();
   </script>
 </body>
