@@ -118,6 +118,25 @@
     .adv-danger .hint { margin-top: .1rem; }
     button.danger.confirming { background: #c0304a; color: #fff; }
     .adv-group textarea[name=routeColors] { min-height: 0; height: 7.2rem; resize: vertical; }
+    /* Stop-level notices from AT take over the footer and scroll, like AT's own boards. */
+    .board-footer.notice .legend,
+    .board-footer.notice .mode-indicator { display: none; }
+    .board-footer.notice .ambient-status { display: inline-block; } /* keep a live-status cue */
+    .board-footer.notice .ticker { text-align: left; text-overflow: clip; font-weight: 700; }
+    .board-footer.notice-high { background: #e6007e; border-color: #ff4fb0; }
+    .board-footer.notice-high .ticker,
+    .board-footer.notice-high .clock { color: #fff; }
+    .board-footer.notice-low { background: #f4f7fa; border-color: #ffffff; }
+    .board-footer.notice-low .ticker,
+    .board-footer.notice-low .clock { color: #142033; }
+    .board-shell.frameless .board-footer.notice-high { background: #e6007e; }
+    .board-shell.frameless .board-footer.notice-low { background: #f4f7fa; }
+    .marquee { display: inline-block; padding-left: 100%; white-space: nowrap; animation: marquee linear infinite; will-change: transform; }
+    @keyframes marquee { from { transform: translateX(0); } to { transform: translateX(-100%); } }
+    @media (prefers-reduced-motion: reduce) {
+      .marquee { animation: none; padding-left: 0; }
+      .board-footer.notice .ticker { text-overflow: ellipsis; }
+    }
     .debug-grid {
       display: flex;
       flex-wrap: wrap;
@@ -1958,6 +1977,7 @@ S-C: #D03A2E / #FFFFFF`;
     async function fetchMovements(codes, key) {
       const base = String(state.config.departuresUrl || "").replace(/\/+$/, "");
       const movements = {};
+      const notices = [];
       const results = await Promise.all(codes.map(async code => {
         try {
           const res = await fetch(base + "/" + encodeURIComponent(code) + "?scope=tripsData", {
@@ -1967,6 +1987,9 @@ S-C: #D03A2E / #FFFFFF`;
           const payload = await res.json();
           if (!res.ok || payload.message) throw new Error((payload.message || "fetch failed") + " (" + res.status + ")");
           const feed = payload.response || payload;
+          for (const ext of gtfsRtArray(feed.extensions)) {
+            if (ext && ext.text) notices.push({ code, priority: String(ext.priority || "low").toLowerCase(), text: String(ext.text).trim() });
+          }
           for (const m of gtfsRtArray(feed.movements)) {
             if (!m || !m.trip_id) continue;
             // The AT website prefers the arrival prediction for its "Due" display — match it.
@@ -1991,7 +2014,7 @@ S-C: #D03A2E / #FFFFFF`;
       const errors = results.filter(r => !r.ok).map(r => r.error);
       const succeeded = results.length - errors.length;
       if (!succeeded) throw new Error("Departures API: " + errors.join("; "));
-      return { movements, requested: codes.length, succeeded, errors };
+      return { movements, notices, requested: codes.length, succeeded, errors };
     }
 
     async function refreshRealtime() {
@@ -2073,8 +2096,9 @@ S-C: #D03A2E / #FFFFFF`;
           vehicles: Object.assign(a.vehicles || {}, f.vehicles || {}),
           alerts: (a.alerts || []).concat(f.alerts || []),
           movements: a.movements,
+          notices: a.notices,
           feedHealth: a.feedHealth
-        }), { fetchedAt: Date.now(), trips: {}, vehicles: {}, alerts: [], movements, feedHealth });
+        }), { fetchedAt: Date.now(), trips: {}, vehicles: {}, alerts: [], movements, notices: departuresResult.notices || [], feedHealth });
         const parts = [];
         const liveCount = Object.values(movements).filter(m => m.expected).length;
         if (depCodes.length) parts.push(liveCount.toLocaleString() + " stop predictions from " + departuresResult.succeeded + "/" + departuresResult.requested + " stops");
@@ -2393,7 +2417,7 @@ S-C: #D03A2E / #FFFFFF`;
               key: st.tripId + ":" + stopId + ":" + serviceDate, tripId: st.tripId, routeId: route.routeId,
               stopId, serviceDate, routeLabel: route.shortName, routeColor: route.color,
               routeTextColor: route.textColor,
-              destination: st.headsign || trip.headsign || "",
+              destination: railDestination(st.headsign || trip.headsign || "", route),
               stopName: stop ? stop.name : stopId,
               scheduled, predicted, effective: predicted || scheduled,
               predictedSource: mvPredicted ? "at-api" : stopUpdate ? stopUpdate.source : null,
@@ -2406,6 +2430,34 @@ S-C: #D03A2E / #FFFFFF`;
       const deduped = new Map();
       for (const row of rows) { const ex = deduped.get(row.key); if (!ex || row.effective < ex.effective) deduped.set(row.key, row); }
       return Array.from(deduped.values()).sort((a, b) => a.effective - b.effective);
+    }
+
+    // Stop-level notices AT attaches to the departures feed ("extensions"): e.g. a stop closure
+    // (emergency) or a transfer tip (low). The footer shows only these. If any emergency/high
+    // notice exists, only those show (pink); otherwise low notices show (white).
+    function stopNotices() {
+      const all = (state.realtime && state.realtime.notices) || [];
+      const seen = new Set();
+      const unique = all.filter(n => n.text && !seen.has(n.text) && seen.add(n.text));
+      const urgent = unique.filter(n => /^(emergency|high)$/i.test(n.priority));
+      if (urgent.length) return { level: "high", texts: urgent.sort((a, b) => /emergency/i.test(b.priority) - /emergency/i.test(a.priority)).map(n => n.text) };
+      if (unique.length) return { level: "low", texts: unique.map(n => n.text) };
+      return null;
+    }
+    // The board re-renders every second, so the scroll position is derived from the clock:
+    // a negative animation-delay keeps the message gliding smoothly across re-renders.
+    function noticeMarquee(notice) {
+      const text = notice.texts.join("   •   ");
+      // ~100px/s on a 1080p screen: the strip width plus the text width, at a readable pace.
+      const duration = Math.max(14, Math.round(17 + text.length * 0.11));
+      const offset = ((Date.now() / 1000) % duration).toFixed(2);
+      return `<span class="marquee" style="animation-duration:${duration}s;animation-delay:-${offset}s">${escapeHtml(text)}</span>`;
+    }
+
+    // Rail headsigns: shorten "via City Centre" to "via City" (route_type 2 = rail).
+    function railDestination(text, route) {
+      if (!route || Number(route.type) !== 2) return text;
+      return String(text).replace(/\bvia city centre\b/gi, "via City");
     }
 
     function boardAlerts() {
@@ -3122,6 +3174,7 @@ S-C: #D03A2E / #FFFFFF`;
       const mode = operatingMode(pageRows);
       const ambientStatus = mode.id === "full" ? "good" : mode.id === "limited" || mode.label === "Connecting" ? "warn" : "bad";
       const alerts = Array.from(new Set(boardAlerts().map(a => a.header)));
+      const notice = stopNotices();
       const frameless = Boolean(cfg.chromeHidden);
 
       app.innerHTML = `
@@ -3148,11 +3201,11 @@ S-C: #D03A2E / #FFFFFF`;
             <div class="board-body">
               ${boardContent}
             </div>
-            <footer class="board-footer">
+            <footer class="board-footer${notice && !(typeof isMotat === "function" && isMotat()) ? " notice notice-" + notice.level : ""}">
               ${isMotat()
                 ? (tramColor => `<div class="legend"><span class="legend-swatch"${tramColor ? ` style="background:${tramColor.background}"` : ""}></span>Heritage trams</div>`)(parseRouteColors(cfg.routeColors).get("tram"))
                 : `<div class="legend"><span class="legend-swatch"></span>Frequent services</div>`}
-              <div class="ticker">${isMotat() ? escapeHtml(motatTickerText()) : alerts.length ? escapeHtml(alerts.join(" · ")) : ""}</div>
+              <div class="ticker">${isMotat() ? escapeHtml(motatTickerText()) : notice ? noticeMarquee(notice) : ""}</div>
               <div class="mode-indicator ${mode.id}" title="${escapeHtml(mode.detail)}"><span class="mode-dot ${mode.id}"></span>${escapeHtml(mode.label)} · ${escapeHtml(mode.coverage)}</div>
               <span class="ambient-status ${ambientStatus}" role="status" aria-label="${escapeHtml(mode.label + ": " + mode.coverage)}" title="${escapeHtml(mode.label + ": " + mode.coverage)}"></span>
               <div class="clock">${clockLabel(state.now, cfg.timezone)}</div>
