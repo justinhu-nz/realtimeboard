@@ -18,6 +18,14 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Run regression tests
+        run: |
+          node tests/four-way.cjs
+          node tests/share-board.cjs
+          node tests/edge-cases.cjs
       - name: Inject AT key from secret
         env:
           AT_API_KEY: ${{ secrets.AT_API_KEY }}

@@ -1041,7 +1041,8 @@ S-C: #D03A2E / #FFFFFF`;
     state.pageLocked = Boolean(state.config.lockFirstPage);
 
     function loadConfig() {
-      const saved = loadJson("config") || {};
+      const stored = loadJson("config");
+      const saved = stored && typeof stored === "object" && !Array.isArray(stored) ? stored : {};
       if (saved.demoMode || String(saved.stopIds || "").includes("demo-")) return Object.assign({}, DEFAULT_CONFIG);
       delete saved.demoMode;
       if (LEGACY_DEFAULT_ROUTE_COLORS.has(saved.routeColors)) delete saved.routeColors;
@@ -1058,11 +1059,17 @@ S-C: #D03A2E / #FFFFFF`;
     }
     function loadBundle() {
       const bundle = loadJson("bundle");
-      return bundle && bundle.source !== "demo" ? bundle : null;
+      const maps = ["stops", "routes", "trips", "calendars", "calendarDates", "stopTimesByStop"];
+      return bundle && bundle.source !== "demo" && maps.every(key => bundle[key] && typeof bundle[key] === "object" && !Array.isArray(bundle[key])) &&
+        Object.values(bundle.stopTimesByStop).every(rows => Array.isArray(rows) && rows.every(row => row && typeof row === "object")) &&
+        Object.values(bundle.calendarDates).every(Array.isArray) ? bundle : null;
     }
     function loadRealtime() {
       const realtime = loadJson("realtime");
-      return realtime && realtime.sourceUrl !== "demo://local" ? realtime : null;
+      return realtime && realtime.sourceUrl !== "demo://local" &&
+        ["trips", "vehicles"].every(key => realtime[key] && typeof realtime[key] === "object" && !Array.isArray(realtime[key])) &&
+        Array.isArray(realtime.alerts) && realtime.alerts.every(alert => alert && typeof alert === "object" &&
+          Array.isArray(alert.stopIds) && Array.isArray(alert.routeIds)) ? realtime : null;
     }
     function loadJson(name) {
       try {
@@ -1072,7 +1079,7 @@ S-C: #D03A2E / #FFFFFF`;
     }
     function saveJson(name, value) {
       try { localStorage.setItem(STORE_KEY + ":" + name, JSON.stringify(value)); }
-      catch { state.status = "Storage unavailable — settings will not persist."; render(); }
+      catch { state.status = "Storage unavailable — settings will not persist."; }
     }
     function clearTimers() { timers.forEach(clearInterval); timers = []; }
     function splitList(text) {
@@ -1144,6 +1151,11 @@ S-C: #D03A2E / #FFFFFF`;
       } catch { return DEFAULT_CONFIG.timezone; }
     }
     function sanitizeConfig(cfg) {
+      // Saved browser data can be valid JSON with invalid field types.
+      for (const [key, fallback] of Object.entries(DEFAULT_CONFIG)) {
+        if (typeof fallback === "string" && typeof cfg[key] !== "string") cfg[key] = fallback;
+        if (typeof fallback === "boolean" && typeof cfg[key] !== "boolean") cfg[key] = fallback;
+      }
       cfg.timezone = safeTimezone(cfg.timezone);
       cfg.pollSeconds = clampNumber(cfg.pollSeconds, DEFAULT_CONFIG.pollSeconds, 5, 3600);
       cfg.pageSize = Math.round(clampNumber(cfg.pageSize, DEFAULT_CONFIG.pageSize, 1, 50));
@@ -1197,7 +1209,7 @@ S-C: #D03A2E / #FFFFFF`;
         else if (c !== "\r") field += c;
       }
       if (field.length || row.length) { row.push(field); rows.push(row); }
-      const header = rows.shift() || [];
+      const header = (rows.shift() || []).map(h => h.replace(/^\uFEFF/, ""));
       return rows.filter(r => r.length && r.some(Boolean)).map(r => Object.fromEntries(header.map((h, i) => [h, r[i] || ""])));
     }
 
@@ -1272,8 +1284,9 @@ S-C: #D03A2E / #FFFFFF`;
         function filterStopTimes(text, stopIds) {
           const want = new Set(stopIds);
           const headEnd = text.indexOf(NL);
-          const headerLine = text.slice(0, headEnd).split(CR).join("");
-          const header = headerLine.split(",");
+          const headerLine = text.slice(0, headEnd < 0 ? text.length : headEnd).split(CR).join("").replace(/^\\uFEFF/, "");
+          if (headEnd < 0) return [];
+          const header = headerLine.split(",").map(h => h.replace(/^"|"$/g, ""));
           const stopCol = header.indexOf("stop_id");
           if (stopCol < 0) throw new Error("stop_times.txt missing stop_id column");
           const rows = [];
@@ -1286,6 +1299,14 @@ S-C: #D03A2E / #FFFFFF`;
             if (line.endsWith(CR)) line = line.slice(0, -1);
             if (!line) continue;
             if (line.indexOf('"') >= 0) {
+              // A quoted CSV field may span physical lines.
+              while ((line.match(/"/g) || []).length % 2) {
+                if (pos >= text.length) throw new Error("Unterminated quoted field in stop_times.txt");
+                end = text.indexOf(NL, pos);
+                if (end < 0) end = text.length;
+                line += NL + text.slice(pos, end);
+                pos = end + 1;
+              }
               const parsed = csvParse(headerLine + NL + line)[0];
               if (parsed && want.has(parsed.stop_id)) rows.push(parsed);
               continue;
@@ -1469,7 +1490,7 @@ S-C: #D03A2E / #FFFFFF`;
       const selectedStopTimes = [];
       const tripIds = new Set(), routeIds = new Set(), serviceIds = new Set();
       for (const st of candidateStopTimes) {
-        if (!stopIds.has(st.stop_id)) continue;
+        if (!stopIds.has(st.stop_id) || String(st.pickup_type) === "1") continue;
         const trip = tripsById.get(st.trip_id);
         const route = trip && routesById.get(trip.route_id);
         if (!trip || !route) continue;
@@ -1557,6 +1578,7 @@ S-C: #D03A2E / #FFFFFF`;
       const results = await Promise.all(codes.map(async code => {
         try {
           const res = await fetch(base + "/" + encodeURIComponent(code) + "?scope=tripsData", {
+            signal: AbortSignal.timeout(20000),
             headers: { "Ocp-Apim-Subscription-Key": key, "Cache-Control": "no-cache" }
           });
           const payload = await res.json();
@@ -1627,7 +1649,7 @@ S-C: #D03A2E / #FFFFFF`;
             kind: feed.kind,
             label: feed.label,
             run: (async () => {
-              const res = await fetch(feed.url, { method: "GET", headers });
+              const res = await fetch(feed.url, { method: "GET", headers, signal: AbortSignal.timeout(20000) });
               let payload;
               try { payload = await res.json(); }
               catch { throw new Error("Realtime response from " + feed.url + " is not JSON."); }
@@ -1643,15 +1665,14 @@ S-C: #D03A2E / #FFFFFF`;
         const failures = settled
           .map((result, index) => result.status === "rejected" ? new Error(tasks[index].label + ": " + (result.reason && result.reason.message || result.reason)) : null)
           .filter(Boolean);
-        if (failures.length === settled.length) throw failures[0];
+        if (userFeeds.length) state.subKeyOk = settled.slice(1).some(s => s.status === "fulfilled");
+        const configuredResults = depCodes.length ? settled : settled.slice(1);
+        if (configuredResults.every(result => result.status === "rejected")) throw failures[0];
         const departuresResult = settled[0].status === "fulfilled"
           ? settled[0].value
           : { movements: {}, requested: depCodes.length, succeeded: 0, errors: [failures[0] && failures[0].message] };
         const movements = departuresResult.movements || {};
         const feeds = settled.slice(1).filter(s => s.status === "fulfilled").map(s => s.value);
-        // A valid key authenticates all its feeds; if even one succeeds the key is good.
-        // AT's alerts/vehicles feeds are flaky, so requiring ALL of them wrongly fails good keys.
-        if (userFeeds.length) state.subKeyOk = settled.slice(1).some(s => s.status === "fulfilled");
         const feedHealth = Object.fromEntries(tasks.map((task, index) => [task.kind, {
           configured: task.kind === "departures" ? Boolean(depCodes.length) : true,
           ok: settled[index].status === "fulfilled",
@@ -1701,6 +1722,7 @@ S-C: #D03A2E / #FFFFFF`;
       const entities = gtfsRtArray(feed.entity || payload.entity);
       const rt = { fetchedAt: Date.now(), sourceUrl, feedTimestamp: secToMs(feed.header && feed.header.timestamp), trips: {}, vehicles: {}, alerts: [] };
       for (const e of entities) {
+        if (!e || typeof e !== "object") continue;
         const tu = e.trip_update || e.tripUpdate;
         const tripRef = tu && tu.trip;
         const tripId = tripRef && (tripRef.trip_id || tripRef.tripId);
@@ -1747,12 +1769,12 @@ S-C: #D03A2E / #FFFFFF`;
     function occupancyLevel(v) {
       const byName = { EMPTY: 1, MANY_SEATS_AVAILABLE: 1, FEW_SEATS_AVAILABLE: 2, STANDING_ROOM_ONLY: 3, CRUSHED_STANDING_ROOM_ONLY: 4, FULL: 4, NOT_ACCEPTING_PASSENGERS: 4 };
       if (typeof v === "string" && v in byName) return byName[v];
-      const n = Number(v);
+      const n = v == null || v === "" ? NaN : Number(v);
       if (!Number.isFinite(n)) return 0;
       return [1, 1, 2, 3, 4, 4, 4][n] || 0;
     }
-    function secToMs(v) { const n = Number(v); return Number.isFinite(n) ? n * 1000 : undefined; }
-    function secValue(v) { const n = Number(v); return Number.isFinite(n) ? n : undefined; }
+    function secToMs(v) { const n = secValue(v); return n === undefined ? undefined : n * 1000; }
+    function secValue(v) { if (v == null || v === "" || typeof v === "boolean") return undefined; const n = Number(v); return Number.isFinite(n) ? n : undefined; }
     function schedName(v, kind) {
       if (typeof v === "string") return v.toUpperCase();
       const n = Number(v);
@@ -1784,10 +1806,15 @@ S-C: #D03A2E / #FFFFFF`;
       return Date.UTC(+p.year, +p.month-1, +p.day, +p.hour, +p.minute, +p.second) - date.getTime();
     }
     function gtfsEpoch(dateKey, time, tz) {
-      const [h, m, s] = String(time || "00:00:00").split(":").map(Number);
-      const overflow = Math.floor(h / 24);
-      const guess = new Date(Date.UTC(+dateKey.slice(0,4), +dateKey.slice(4,6)-1, +dateKey.slice(6,8)+overflow, h%24, m||0, s||0));
-      return guess.getTime() - offsetMs(guess, tz);
+      if (!/^\d+:\d{2}(:\d{2})?$/.test(String(time || ""))) return NaN;
+      const [h, m, s = 0] = String(time).split(":").map(Number);
+      if (m > 59 || s > 59) return NaN;
+      // GTFS service times are elapsed seconds from local noon minus twelve hours.
+      // Resolve local noon iteratively: the UTC guess may fall across a DST change.
+      const noonUtc = Date.UTC(+dateKey.slice(0,4), +dateKey.slice(4,6)-1, +dateKey.slice(6,8), 12);
+      let noon = noonUtc;
+      for (let i = 0; i < 3; i++) noon = noonUtc - offsetMs(new Date(noon), tz);
+      return noon + (h * 3600 + m * 60 + s - 43200) * 1000;
     }
     function formatDue(epoch, now, cfg) {
       const delta = epoch - now;
@@ -1817,6 +1844,7 @@ S-C: #D03A2E / #FFFFFF`;
       if (exact && exact.scheduleRelationship === "SKIPPED") {
         return { propagated: false, source: "exact-skipped", scheduleRelationship: "SKIPPED" };
       }
+      if (exact && exact.scheduleRelationship === "NO_DATA") return null;
       if (exact && !UNRELIABLE_STOP_REL.has(exact.scheduleRelationship)) {
         return Object.assign({ propagated: false, source: "exact" }, exact);
       }
@@ -1824,10 +1852,13 @@ S-C: #D03A2E / #FFFFFF`;
       // before our stop; updates for later stops must not propagate backwards. AT's legacy
       // feed has a single update (the stop the bus just reached), so this picks it up
       // whenever the bus hasn't passed us yet.
-      let latestPrior = null;
+      let latestPrior = null, propagationBlocked = false;
       for (const update of rtTrip.orderedUpdates || []) {
         if (!update.stopSequence || update.stopSequence > stopSequence) continue;
-        if (UNRELIABLE_STOP_REL.has(update.scheduleRelationship)) continue;
+        if (update.scheduleRelationship === "SKIPPED") continue;
+        latestPrior = null;
+        propagationBlocked = true;
+        if (update.scheduleRelationship === "NO_DATA") continue;
         if (!Number.isFinite(update.departureDelay ?? update.arrivalDelay)) continue;
         latestPrior = update; // orderedUpdates is sorted by stopSequence
       }
@@ -1835,7 +1866,7 @@ S-C: #D03A2E / #FFFFFF`;
         const delay = latestPrior.departureDelay ?? latestPrior.arrivalDelay;
         return { propagated: true, source: "prior@seq" + latestPrior.stopSequence, departureDelay: delay, arrivalDelay: delay, scheduleRelationship: latestPrior.scheduleRelationship };
       }
-      if (Number.isFinite(rtTrip.tripDelay)) {
+      if (!propagationBlocked && Number.isFinite(rtTrip.tripDelay)) {
         return { propagated: true, source: "trip-level", departureDelay: rtTrip.tripDelay, arrivalDelay: rtTrip.tripDelay, scheduleRelationship: rtTrip.scheduleRelationship };
       }
       return null;
@@ -1910,7 +1941,9 @@ S-C: #D03A2E / #FFFFFF`;
       const rt = realtimeFresh(state.realtime, cfg, nowMs) ? state.realtime : null;
       const maxMs = nowMs + cfg.lookaheadHours * 3600000;
       const today = dateKeyFor(state.now, cfg.timezone);
-      const dates = [shiftDateKey(today, -1), today, shiftDateKey(today, 1)];
+      const lastDay = dateKeyFor(new Date(maxMs), cfg.timezone);
+      const dates = [shiftDateKey(today, -1)];
+      for (let day = today; day <= lastDay; day = shiftDateKey(day, 1)) dates.push(day);
       const rows = [];
       for (const stopId of boardStopIds(cfg)) {
         const stop = bundle.stops[stopId];
@@ -1924,7 +1957,7 @@ S-C: #D03A2E / #FFFFFF`;
             // Keep rows up to an hour past their scheduled time: a late-running bus must
             // survive long enough for its live prediction to be applied. Rows actually
             // gone are dropped below by the effectiveMs check.
-            if (scheduled < nowMs - 3600000 || scheduled > maxMs) continue;
+            if (!Number.isFinite(scheduled) || scheduled < nowMs - 3600000 || scheduled > maxMs) continue;
             const personalKeySet = Boolean(String(cfg.subscriptionKey || "").trim());
             let rtTrip = personalKeySet && rt && rt.trips && rt.trips[st.tripId];
             // A realtime update for another service date (same trip_id runs daily) says
@@ -1945,7 +1978,7 @@ S-C: #D03A2E / #FFFFFF`;
               const loose = rt.movements["~" + tripIdBase(st.tripId) + ":" + stopCode];
               if (loose && loose.scheduled && Math.abs(loose.scheduled - scheduled) <= 120000) mv = loose;
             }
-            const mvValid = mv && (!mv.expected || Math.abs(mv.expected - scheduled) < 3 * 3600000);
+            const mvValid = mv && (!mv.scheduled || Math.abs(mv.scheduled - scheduled) <= 120000) && (!mv.expected || Math.abs(mv.expected - scheduled) < 3 * 3600000);
             // Fallback ETA: GTFS-RT delay propagation.
             const stopUpdate = propagatedStopUpdate(rtTrip, stopId, st.stopSequence);
             const realtimeTime = stopUpdate && (stopUpdate.departureTime || stopUpdate.arrivalTime);
@@ -1956,7 +1989,7 @@ S-C: #D03A2E / #FFFFFF`;
             // Drop departures that have already left (predicted/scheduled more than 30s in the past).
             // Without this we keep showing a bus until its SCHEDULED time + 2 min, even if realtime
             // says it departed minutes ago (e.g. an "early" bus shown as "Now" long after gone).
-            if (effectiveMs < nowMs - 30000) continue;
+            if (effectiveMs < nowMs - 30000 || effectiveMs > maxMs) continue;
             const cancelled = cancelledTrip || (mvValid && mv.cancelled) || (stopUpdate && ["CANCELED","CANCELLED","SKIPPED"].includes(stopUpdate.scheduleRelationship));
             if (location.hash === "#debug" && predicted) {
               const deltaSec = Math.round((predicted - scheduled) / 1000);
@@ -2104,6 +2137,8 @@ S-C: #D03A2E / #FFFFFF`;
       state.bundle = null; state.gtfs = null; state.realtime = null;
       state.status = ""; state.error = ""; state.refreshing = false; state.refreshFailed = false;
       state.autoGtfsAttempted = false;
+      state.page = 0; state.pageLocked = false; state.colorDemo = false; state.keyTest = null;
+      bundleRefreshAttempted = false;
       render();
     }
 
@@ -2622,7 +2657,7 @@ S-C: #D03A2E / #FFFFFF`;
       wireShareButton();
       document.querySelector("[data-action=toggleChrome]")?.addEventListener("click", () => { saveConfig({ chromeHidden: !state.config.chromeHidden }); renderBoard(); });
       document.querySelector("[data-action=setup]")?.addEventListener("click", () => { saveConfig({ mode: "setup" }); render(); });
-      document.querySelector("[data-action=refresh]")?.addEventListener("click", () => { refreshRealtime().then(() => renderBoard()); });
+      document.querySelector("[data-action=refresh]")?.addEventListener("click", () => { refreshRealtime().then(() => { if (state.config.mode === "board" && !state.colorDemo) renderBoard(); }); });
       document.querySelector("[data-action=lockPage]")?.addEventListener("click", () => { state.pageLocked = !state.pageLocked; saveConfig({ lockFirstPage: state.pageLocked }); if (state.pageLocked) state.page = 0; renderBoard(); });
     }
 
@@ -2724,7 +2759,7 @@ S-C: #D03A2E / #FFFFFF`;
     function startRuntime() {
       clearTimers();
       timers.push(setInterval(() => { state.now = new Date(); if (state.config.mode === "board") renderBoard(); }, 1000));
-      timers.push(setInterval(() => { if (state.config.mode === "board") refreshRealtime().then(() => renderBoard()); }, Math.max(5, state.config.pollSeconds) * 1000));
+      timers.push(setInterval(() => { if (state.config.mode === "board" && !state.refreshing) refreshRealtime().then(() => { if (state.config.mode === "board" && !state.colorDemo) renderBoard(); }); }, Math.max(5, state.config.pollSeconds) * 1000));
       timers.push(setInterval(() => { if (state.config.mode === "board" && !state.pageLocked) { state.page++; renderBoard(); } }, Math.max(3, state.config.rotateSeconds) * 1000));
       refreshRealtime().then(() => { if (state.config.mode === "board") renderBoard(); });
     }

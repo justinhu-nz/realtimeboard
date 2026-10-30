@@ -45,11 +45,12 @@ for (const file of ['index.html', 'index2.html']) {
    trips:[{trip_id:'b',route_id:'bus',service_id:'daily'},{trip_id:'t',route_id:'rail',service_id:'daily'},{trip_id:'o',route_id:'other',service_id:'daily'}] };
  selectedStopTimesFor = async ids => {
    if (!ids.has('railW-new') || !ids.has('railC-new')) throw new Error('Train platforms omitted from ingestion');
-   return [{stop_id:'busW',trip_id:'b',departure_time:'12:00:00'},{stop_id:'busC',trip_id:'b',departure_time:'12:00:00'},{stop_id:'railW-new',trip_id:'t',departure_time:'12:00:00'},{stop_id:'railC-new',trip_id:'t',departure_time:'12:00:00'},{stop_id:'railW-new',trip_id:'o',departure_time:'12:10:00'}];
+   return [{stop_id:'busW',trip_id:'b',departure_time:'12:05:00',pickup_type:'1'},{stop_id:'busW',trip_id:'b',departure_time:'12:00:00'},{stop_id:'busC',trip_id:'b',departure_time:'12:00:00'},{stop_id:'railW-new',trip_id:'t',departure_time:'12:00:00'},{stop_id:'railC-new',trip_id:'t',departure_time:'12:00:00'},{stop_id:'railW-new',trip_id:'o',departure_time:'12:10:00'}];
  };
  `);
  await run('buildBundle()');
  assert.strictEqual(run('state.error'),'');
+ assert.strictEqual(run('state.bundle.stopTimesByStop.busW.length'),1); // Drop-off-only visits cannot be boarded.
  assert.strictEqual(run('state.config.trainLeftStopId'),'railW-new');
  assert.strictEqual(run('state.bundle.routes.rail.type'),2);
  assert.strictEqual(run('state.bundle.stops["railW-new"].platformCode'),'1');
