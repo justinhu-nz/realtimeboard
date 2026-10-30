@@ -1435,6 +1435,9 @@ S-C: #D03A2E / #FFFFFF`;
 
     // Per-stop predictions from AT's departures API. Coverage is intentionally treated as
     // partial: unmonitored and omitted trips remain scheduled on the board.
+    // "1279-02401-33600-2-1824e17a" -> "1279-02401-33600-2" (drops AT's version hash).
+    function tripIdBase(id) { return String(id || "").replace(/-[0-9a-f]{8}$/i, ""); }
+
     async function fetchMovements(codes, key) {
       const base = String(state.config.departuresUrl || "").replace(/\/+$/, "");
       const movements = {};
@@ -1450,11 +1453,17 @@ S-C: #D03A2E / #FFFFFF`;
             if (!m || !m.trip_id) continue;
             // The AT website prefers the arrival prediction for its "Due" display — match it.
             const expected = Date.parse(m.expectedArrivalTime || m.expectedDepartureTime || "");
-            movements[m.trip_id + ":" + code] = {
+            const scheduledMs = Date.parse(m.scheduledArrivalTime || m.scheduledDepartureTime || "");
+            const entry = {
               expected: Number.isFinite(expected) ? expected : undefined,
+              scheduled: Number.isFinite(scheduledMs) ? scheduledMs : undefined,
               cancelled: /cancel/i.test(String(m.arrivalStatus || "")) || /cancel/i.test(String(m.departureStatus || "")),
               monitored: Boolean(m.monitored)
             };
+            movements[m.trip_id + ":" + code] = entry;
+            // AT re-versions trip ids (the trailing hash) when timetables are republished, so a
+            // slightly stale GTFS bundle would miss every prediction. Also index without the hash.
+            movements["~" + tripIdBase(m.trip_id) + ":" + code] = entry;
           }
           return { code, ok: true };
         } catch (err) {
@@ -1815,7 +1824,14 @@ S-C: #D03A2E / #FFFFFF`;
             // Primary ETA: AT's departures API (same prediction engine as the official
             // live board). Guard against a movement from another service day of the same
             // trip_id by requiring the prediction to sit near this row's scheduled time.
-            const mv = rt && rt.movements && rt.movements[st.tripId + ":" + stopId.split("-")[0]];
+            const stopCode = stopId.split("-")[0];
+            let mv = rt && rt.movements && rt.movements[st.tripId + ":" + stopCode];
+            if (!mv && rt && rt.movements) {
+              // Fallback: same trip under a newer version hash — only trust it if AT's scheduled
+              // time for this stop agrees with ours (within 2 min).
+              const loose = rt.movements["~" + tripIdBase(st.tripId) + ":" + stopCode];
+              if (loose && loose.scheduled && Math.abs(loose.scheduled - scheduled) <= 120000) mv = loose;
+            }
             const mvValid = mv && (!mv.expected || Math.abs(mv.expected - scheduled) < 3 * 3600000);
             // Fallback ETA: GTFS-RT delay propagation.
             const stopUpdate = propagatedStopUpdate(rtTrip, stopId, st.stopSequence);
