@@ -643,11 +643,11 @@
     .dual-mode .dual-band .occ-cell svg { width: calc(.62 * var(--dual-unit)); height: calc(1.8 * var(--dual-unit)); }
     .dual-mode .dual-band .badge.cancelled { padding: calc(.2 * var(--dual-unit)) calc(.3 * var(--dual-unit)); font-size: calc(.75 * var(--dual-unit)); }
     .dual-mode .dual-band .due-cell { font-size: calc(2.4 * var(--dual-unit)); }
-    .dual-mode .board-footer { gap: calc(.75 * var(--dual-unit)); padding: calc(.25 * var(--dual-unit)) calc(.8 * var(--dual-unit)); }
-    .dual-mode .board-footer .legend { gap: calc(.45 * var(--dual-unit)); font-size: calc(.95 * var(--dual-unit)); }
-    .dual-mode .board-footer .ticker { font-size: calc(.95 * var(--dual-unit)); }
-    .dual-mode .board-footer .mode-indicator { font-size: calc(.8 * var(--dual-unit)); padding: calc(.08 * var(--dual-unit)) calc(.55 * var(--dual-unit)); }
-    .dual-mode .board-footer .clock { font-size: calc(1.25 * var(--dual-unit)); }
+    .dual-mode .board-footer { gap: calc(.75 * var(--dual-unit)); padding: calc(.5 * var(--dual-unit)) calc(.85 * var(--dual-unit)); }
+    .dual-mode .board-footer .legend { gap: calc(.5 * var(--dual-unit)); font-size: calc(1.1 * var(--dual-unit)); }
+    .dual-mode .board-footer .ticker { font-size: calc(1.1 * var(--dual-unit)); }
+    .dual-mode .board-footer .mode-indicator { font-size: calc(.9 * var(--dual-unit)); padding: calc(.18 * var(--dual-unit)) calc(.6 * var(--dual-unit)); }
+    .dual-mode .board-footer .clock { font-size: calc(1.6 * var(--dual-unit)); }
     @media (max-width: 800px) and (orientation: landscape) {
       .dual-mode .dual-band .dep-head,
       .dual-mode .dual-band .dep-row {
@@ -796,7 +796,7 @@
       background: rgba(98, 221, 244, .08);
       border-radius: var(--radius);
       /* One slim line: everything here is secondary to the departures above. */
-      padding: .28rem .8rem;
+      padding: .5rem .85rem;
       line-height: 1.2;
       min-height: 0;
       overflow: hidden;
@@ -817,12 +817,12 @@
       gap: .55rem;
       white-space: nowrap;
       color: #e9fbff;
-      font-size: clamp(.85rem, 1vw, 1.05rem);
+      font-size: clamp(.95rem, 1.15vw, 1.2rem);
       font-weight: 600;
     }
     .legend-swatch {
-      width: .9em;
-      height: .9em;
+      width: 1em;
+      height: 1em;
       border-radius: .28em;
       background: linear-gradient(180deg, #73e8fa 0%, #57d9f2 100%);
       flex: none;
@@ -833,7 +833,7 @@
       white-space: nowrap;
       text-overflow: ellipsis;
       color: #ffe2a2;
-      font-size: clamp(.85rem, 1vw, 1.1rem);
+      font-size: clamp(.95rem, 1.15vw, 1.15rem);
       font-weight: 600;
       text-align: center;
     }
@@ -843,12 +843,12 @@
       gap: .42rem;
       flex: none;
       max-width: 42%;
-      padding: .1rem .55rem;
+      padding: .2rem .6rem;
       border: 1px solid rgba(185, 200, 216, .28);
       border-radius: 999px;
       color: #e9fbff;
       background: rgba(185, 200, 216, .08);
-      font-size: clamp(.72rem, .85vw, .92rem);
+      font-size: clamp(.78rem, .95vw, .98rem);
       font-weight: 700;
       white-space: nowrap;
       overflow: hidden;
@@ -875,7 +875,7 @@
     .clock {
       font-weight: 700;
       /* A reference clock, not a headline: sized just above the ticker text. */
-      font-size: clamp(1rem, 1.2vw, 1.4rem);
+      font-size: clamp(1.2rem, 1.5vw, 1.75rem);
       font-variant-numeric: tabular-nums;
       white-space: nowrap;
       padding: 0;
