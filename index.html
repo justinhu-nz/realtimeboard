@@ -787,7 +787,10 @@
       gap: .75rem;
       background: rgba(98, 221, 244, .08);
       border-radius: var(--radius);
-      padding: .75rem .9rem;
+      /* One slim line: everything here is secondary to the departures above. */
+      padding: .28rem .8rem;
+      line-height: 1.2;
+      min-height: 0;
       overflow: hidden;
       border: 1px solid rgba(98, 221, 244, .18);
     }
@@ -806,12 +809,12 @@
       gap: .55rem;
       white-space: nowrap;
       color: #e9fbff;
-      font-size: clamp(1rem, 1.4vw, 1.25rem);
+      font-size: clamp(.85rem, 1vw, 1.05rem);
       font-weight: 600;
     }
     .legend-swatch {
-      width: 1.05em;
-      height: 1.05em;
+      width: .9em;
+      height: .9em;
       border-radius: .28em;
       background: linear-gradient(180deg, #73e8fa 0%, #57d9f2 100%);
       flex: none;
@@ -822,7 +825,7 @@
       white-space: nowrap;
       text-overflow: ellipsis;
       color: #ffe2a2;
-      font-size: clamp(.95rem, 1.3vw, 1.15rem);
+      font-size: clamp(.85rem, 1vw, 1.1rem);
       font-weight: 600;
       text-align: center;
     }
@@ -832,12 +835,12 @@
       gap: .42rem;
       flex: none;
       max-width: 42%;
-      padding: .3rem .62rem;
+      padding: .1rem .55rem;
       border: 1px solid rgba(185, 200, 216, .28);
       border-radius: 999px;
       color: #e9fbff;
       background: rgba(185, 200, 216, .08);
-      font-size: clamp(.78rem, 1.05vw, .98rem);
+      font-size: clamp(.72rem, .85vw, .92rem);
       font-weight: 700;
       white-space: nowrap;
       overflow: hidden;
@@ -863,9 +866,11 @@
     .board-shell.frameless .ambient-status { display: inline-block; }
     .clock {
       font-weight: 700;
-      font-size: clamp(1.4rem, 2vw, 2.2rem);
+      /* A reference clock, not a headline: sized just above the ticker text. */
+      font-size: clamp(1rem, 1.2vw, 1.4rem);
+      font-variant-numeric: tabular-nums;
       white-space: nowrap;
-      padding: .15rem 0 0;
+      padding: 0;
       background: transparent;
       border-radius: var(--radius);
       color: #f1fbff;
@@ -892,7 +897,8 @@
       .dest-cell strong { font-size: 1.7rem; }
       .due-cell { font-size: clamp(1.6rem, 9vw, 2.7rem); }
       .due-cell { text-align: left; }
-      .board-footer { flex-wrap: wrap; }
+      .board-footer { flex-wrap: wrap; gap: .25rem .6rem; padding: .3rem .6rem; }
+      .board-footer .ticker:empty { display: none; }
       .mode-indicator { max-width: 100%; order: 3; }
       .dual-bands { grid-template-columns: 1fr; overflow-y: auto; }
       .dual-mode .dual-band .dep-table,
