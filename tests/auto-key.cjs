@@ -4,7 +4,7 @@ const assert = require('node:assert/strict');
 const path = require('node:path');
 
 (async () => {
-  for (const file of ['index.html', 'index2.html']) {
+  for (const file of ['index.html', 'index2.html', 'index-live.html']) {
     for (const deployed of [false, true]) {
       const secret = 'TEST-DEPLOYED-SECRET';
       let source = fs.readFileSync(path.join(__dirname, '..', file), 'utf8')

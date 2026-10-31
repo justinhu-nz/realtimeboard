@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Option C · Tabbed</title>
+  <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="proto.css">
+  <style>
+    .page { max-width: 880px; margin: 0 auto; padding: .9rem; display: grid; gap: .8rem; }
+    header { display: flex; align-items: center; gap: .8rem; flex-wrap: wrap; }
+    header h1 { font-size: 1.25rem; flex: 1; }
+    .tabs { display: flex; border-bottom: 1px solid var(--border); gap: .2rem; }
+    .tabs button { background: none; border: 0; border-bottom: 3px solid transparent; border-radius: 0; color: var(--muted); padding: .5rem .9rem; }
+    .tabs button[aria-selected=true] { color: var(--text); border-bottom-color: var(--accent); }
+    .tabs .badge { display: inline-block; min-width: 1.1rem; padding: 0 .3rem; margin-left: .3rem; border-radius: 999px; background: var(--warn); color: #2b2000; font-size: .7rem; }
+    .panel { display: grid; gap: .9rem; }
+    .card { border: 1px solid var(--border); border-radius: var(--radius); padding: .8rem .9rem; display: grid; gap: .6rem; background: rgba(255,255,255,.015); }
+    .card h2 { font-size: .9rem; display: flex; align-items: baseline; gap: .5rem; }
+    .card h2 small { margin-left: auto; font-weight: 400; }
+    .seg { display: inline-flex; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; justify-self: start; }
+    .seg button { border-radius: 0; background: transparent; color: var(--muted); padding: .4rem .8rem; font-size: .85rem; }
+    .seg button + button { border-left: 1px solid var(--border); }
+    .seg button[aria-pressed=true] { background: var(--accent); color: var(--accent-text); }
+    .grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: .8rem; }
+    .grid3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: .6rem; }
+    .slot { display: grid; gap: .5rem; align-content: start; }
+    .slot h3 { font-size: .78rem; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+    .radio { display: flex; gap: .55rem; align-items: flex-start; padding: .45rem .55rem; border: 1px solid var(--border); border-radius: var(--radius); cursor: pointer; font-size: .85rem; color: var(--text); font-weight: 400; margin: 0; }
+    .radio input { width: auto; margin-top: .25rem; accent-color: var(--accent); }
+    .radio:has(input:checked) { border-color: var(--accent); background: rgba(98,221,244,.06); }
+    .diag { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: .4rem; font-size: .8rem; }
+    .diag div { background: var(--surface); border-radius: 6px; padding: .35rem .5rem; display: flex; justify-content: space-between; gap: .5rem; }
+    .diag span { color: var(--muted); }
+    .danger-row { display: flex; align-items: center; gap: .8rem; border-color: var(--bad); }
+    .danger-row div { flex: 1; }
+    button.danger { background: transparent; color: #ffc8e4; border-color: var(--bad); }
+    .bottom { display: flex; gap: .6rem; align-items: center; justify-content: flex-end; flex-wrap: wrap; }
+    .bottom .msg { flex: 1; font-size: .85rem; color: var(--accent); }
+    .bottom .msg.todo { color: var(--warn); }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header>
+      <h1>Auckland Live Departures</h1>
+      <div class="status-line" id="status" style="padding:.3rem .6rem"></div>
+    </header>
+    <div class="tabs" role="tablist" id="tabs"></div>
+    <div class="panel" id="panel"></div>
+    <div class="bottom">
+      <span class="msg" id="msg"></span>
+      <button class="ghost" type="button" onclick="alert('Prototype: would copy a share link')">Share board</button>
+      <button class="primary" type="button" id="open">Open board</button>
+    </div>
+  </div>
+
+  <script src="proto.js"></script>
+  <script>
+    protoBanner("c-tabbed.html");
+    const cfg = defaultProtoConfig();
+    let tab = "board";
+
+    function renderStatus() {
+      const limited = cfg.keyMode === "none";
+      document.getElementById("status").innerHTML = `<span class="item"><span class="dot ${limited ? "limited" : ""}"></span><b>${limited ? "Limited live" : "Live"}</b></span><span class="item"><b>Timetable</b>✓</span>`;
+    }
+
+    function renderTabs() {
+      const n = blockersFor(cfg).length;
+      const host = document.getElementById("tabs");
+      host.innerHTML = [["board", "Board", n], ["display", "Display", 0], ["connection", "Connection", 0]]
+        .map(([id, t, c]) => `<button type="button" role="tab" data-t="${id}" aria-selected="${tab === id}">${t}${c ? `<span class="badge">${c}</span>` : ""}</button>`).join("");
+      host.querySelectorAll("[data-t]").forEach(b => b.onclick = () => { tab = b.dataset.t; renderAll(); });
+    }
+
+    function slot(key, title, withTrain) {
+      return `<div class="slot"><h3>${title}</h3>
+        <div data-picker="${key}"></div><div data-block="${key}"></div>
+        <input data-label="${key}" placeholder="Heading (optional)" value="${escapeHtml(cfg[key].label)}">
+        <div data-routes="${key}"></div>
+        ${withTrain ? `<label style="margin-top:.4rem">Train platform</label><div data-tpicker="${key}"></div><div data-block="train${key[0].toUpperCase() + key.slice(1)}"></div><div data-troutes="${key}"></div>` : ""}
+      </div>`;
+    }
+
+    function renderBoardTab(host) {
+      const four = cfg.layout === "fourway";
+      host.innerHTML = `
+        <div class="card"><h2>Layout</h2>
+          <div class="seg" role="group" aria-label="Layout">${[["single", "Single stop"], ["dual", "Two stops"], ["fourway", "Buses and trains"]].map(([id, t]) => `<button type="button" data-l="${id}" aria-pressed="${cfg.layout === id}">${t}</button>`).join("")}</div>
+        </div>
+        <div class="card"><h2>Stops and routes</h2>
+          ${four ? `<input id="station" placeholder="Station heading (optional)" value="${escapeHtml(cfg.stationLabel)}">` : ""}
+          <div class="grid2">${cfg.layout === "single" ? slot("main", "Stop") : slot("left", "Left side", four) + slot("right", "Right side", four)}</div>
+        </div>
+        <div class="card"><h2>Preview</h2><div id="preview"></div></div>`;
+      host.querySelectorAll("[data-l]").forEach(b => b.onclick = () => {
+        if (cfg.layout === "single" && b.dataset.l !== "single" && !cfg.left.stopId) cfg.left = Object.assign({}, cfg.main);
+        cfg.layout = b.dataset.l; renderAll();
+      });
+      host.querySelector("#station")?.addEventListener("input", e => { cfg.stationLabel = e.target.value; });
+      host.querySelectorAll("[data-picker]").forEach(el => { const k = el.dataset.picker; stopPicker(el, { source: STOPS, value: cfg[k].stopId, onChange: id => { cfg[k].stopId = id; cfg[k].routes = []; renderAll(); } }); });
+      host.querySelectorAll("[data-tpicker]").forEach(el => { const k = el.dataset.tpicker; stopPicker(el, { source: PLATFORMS, value: cfg.trains[k].stopId, placeholder: "Search station or platform", onChange: id => { cfg.trains[k].stopId = id; cfg.trains[k].routes = []; renderAll(); } }); });
+      host.querySelectorAll("[data-label]").forEach(el => el.oninput = () => { cfg[el.dataset.label].label = el.value; preview(); });
+      chips();
+      const blockers = blockersFor(cfg);
+      host.querySelectorAll("[data-block]").forEach(el => { const b = blockers.find(x => x.field === el.dataset.block); el.innerHTML = b ? `<div class="blocker">${b.message}</div>` : ""; });
+      preview();
+    }
+    function chips() {
+      document.querySelectorAll("[data-routes]").forEach(el => { const k = el.dataset.routes; routeChips(el, cfg[k].stopId, cfg[k].routes, cfg.colours, n => { cfg[k].routes = n; chips(); preview(); }); });
+      document.querySelectorAll("[data-troutes]").forEach(el => { const k = el.dataset.troutes; routeChips(el, cfg.trains[k].stopId, cfg.trains[k].routes, cfg.colours, n => { cfg.trains[k].routes = n; chips(); preview(); }); });
+    }
+    function preview() { const p = document.getElementById("preview"); if (p) renderMiniBoard(p, cfg); }
+
+    function renderDisplayTab(host) {
+      const num = (id, key, unit, min, max, hint) => `<div><label for="${id}">${{ pageSize: "Rows per page", rotateSeconds: "Next page every", cutoff: "Show “min” until", lookahead: "Look ahead" }[key]}</label><div class="unit-input"><input id="${id}" data-k="${key}" type="number" min="${min}" max="${max}" value="${cfg[key]}"><span>${unit}</span></div>${hint ? `<div class="hint">${hint}</div>` : ""}</div>`;
+      host.innerHTML = `
+        <div class="card"><h2>Board<small><button class="linkish" type="button" id="restore">Restore defaults</button></small></h2>
+          <div class="grid3">${num("d-rows", "pageSize", "rows", 1, 50)}${num("d-rot", "rotateSeconds", "sec", 3, 3600)}${num("d-cut", "cutoff", "min away", 0, 180, "Then show the clock time, like 14:35.")}${num("d-look", "lookahead", "hours", 1, 48)}</div>
+          <label class="radio" style="justify-self:start"><input type="checkbox" id="lock" ${cfg.lockFirstPage ? "checked" : ""}> Stay on page 1 (don’t rotate)</label>
+        </div>
+        <div class="card"><h2>Route colours</h2><div id="colours"></div></div>`;
+      host.querySelectorAll("[data-k]").forEach(el => el.onchange = () => { cfg[el.dataset.k] = Number(el.value); });
+      host.querySelector("#lock").onchange = e => { cfg.lockFirstPage = e.target.checked; };
+      host.querySelector("#restore").onclick = () => { Object.assign(cfg, { pageSize: 5, rotateSeconds: 5, cutoff: 60, lookahead: 2, lockFirstPage: false }); renderAll(); };
+      const drawColours = () => colourEditor(host.querySelector("#colours"), cfg.colours, n => { cfg.colours = n; drawColours(); });
+      drawColours();
+    }
+
+    function renderConnectionTab(host) {
+      host.innerHTML = `
+        <div class="card"><h2>Live data</h2>
+          <label class="radio"><input type="radio" name="key" value="builtin" ${cfg.keyMode === "builtin" ? "checked" : ""}><span><strong>Built-in AT key</strong><br><span class="muted">Full live times, alerts and how full the bus is.</span></span></label>
+          <label class="radio"><input type="radio" name="key" value="personal" ${cfg.keyMode === "personal" ? "checked" : ""}><span><strong>My own key</strong><br><span class="muted">Free from the <a href="https://dev-portal.at.govt.nz/" target="_blank" rel="noopener">AT Developer Portal</a>.</span>${cfg.keyMode === "personal" ? `<span style="display:flex;gap:.4rem;margin-top:.4rem"><input type="password" placeholder="Paste your key"><button class="ghost small" type="button">Test</button></span>` : ""}</span></label>
+          <label class="radio"><input type="radio" name="key" value="none" ${cfg.keyMode === "none" ? "checked" : ""}><span><strong>No key</strong><br><span class="muted">Some live times; the rest show the timetable. No alerts.</span></span></label>
+          <div><label for="poll">Refresh every</label><div class="unit-input" style="max-width:14rem"><input id="poll" type="number" value="${cfg.poll}"><span>sec</span></div></div>
+        </div>
+        <div class="card"><h2>Timetable<small class="muted">6,412 stops · updated today</small></h2>
+          <div style="display:flex;gap:.4rem;flex-wrap:wrap"><button class="ghost small" type="button">Reload now</button><button class="ghost small" type="button">Upload a zip</button></div>
+        </div>
+        <details class="card"><summary style="cursor:pointer;font-weight:700">Data source URLs and timezone</summary>
+          <div class="grid2" style="margin-top:.6rem">${[["Timetable (GTFS)", "https://gtfs.at.govt.nz/gtfs.zip"], ["Stop predictions", "https://api.at.govt.nz/serviceinfo/v1/departures"], ["Trip updates", "https://api.at.govt.nz/realtime/legacy/tripupdates"], ["Service alerts", "https://api.at.govt.nz/realtime/legacy/servicealerts"], ["Vehicle positions", "https://api.at.govt.nz/realtime/legacy/vehiclelocations"], ["Timezone", "Pacific/Auckland"]].map(([l, v]) => `<div><label>${l}</label><input value="${v}" spellcheck="false"></div>`).join("")}</div>
+        </details>
+        <details class="card"><summary style="cursor:pointer;font-weight:700">Diagnostics</summary>
+          <div class="diag" style="margin-top:.6rem"><div><span>Trip updates</span>OK · 3s ago</div><div><span>Alerts</span>OK · 3s ago</div><div><span>Vehicles</span>OK · 4s ago</div><div><span>Predictions</span>partial</div></div>
+        </details>
+        <div class="card danger-row"><div><strong>Reset everything</strong><div class="hint">Clears your key, stops and all settings on this device.</div></div><button class="danger small" type="button">Reset…</button></div>`;
+      host.querySelectorAll("[name=key]").forEach(r => r.onchange = () => { cfg.keyMode = r.value; renderAll(); });
+    }
+
+    function renderAll() {
+      renderStatus(); renderTabs();
+      const host = document.getElementById("panel");
+      ({ board: renderBoardTab, display: renderDisplayTab, connection: renderConnectionTab })[tab](host);
+      const blockers = blockersFor(cfg), msg = document.getElementById("msg");
+      msg.className = "msg" + (blockers.length ? " todo" : "");
+      msg.textContent = blockers.length ? `${blockers.length} thing${blockers.length > 1 ? "s" : ""} to fix on the Board tab` : "Ready. Changes save automatically.";
+    }
+
+    document.getElementById("open").onclick = () => {
+      if (blockersFor(cfg).length) { tab = "board"; renderAll(); }
+      else alert("Prototype: the board would open here.");
+    };
+    renderAll();
+  </script>
+</body>
+</html>

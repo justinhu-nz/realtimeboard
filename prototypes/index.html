@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Setup redesign prototypes</title>
+  <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="proto.css">
+  <style>
+    .page { max-width: 960px; margin: 0 auto; padding: 1.2rem .9rem; display: grid; gap: 1rem; }
+    h1 { font-size: 1.3rem; }
+    .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: .8rem; }
+    .card { border: 1px solid var(--border); border-radius: var(--radius); padding: .9rem; display: grid; gap: .5rem; align-content: start; color: var(--text); text-decoration: none; background: var(--surface); }
+    .card:hover { border-color: var(--accent); }
+    .card h2 { font-size: 1rem; }
+    .card .tag { justify-self: start; font-size: .72rem; background: var(--accent); color: var(--accent-text); border-radius: 4px; padding: 0 .4rem; font-weight: 700; }
+    .card ul { padding-left: 1.1rem; color: var(--muted); font-size: .85rem; }
+    .shared { border: 1px solid var(--border); border-radius: var(--radius); padding: .8rem .9rem; font-size: .85rem; color: var(--muted); }
+    .shared h2 { font-size: .9rem; color: var(--text); margin-bottom: .3rem; }
+    .shared ul { padding-left: 1.1rem; }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div>
+      <h1>Setup redesign prototypes</h1>
+      <p class="muted">Three clickable takes on the setup screen. They use sample stops and departures, and nothing is saved.</p>
+    </div>
+    <div class="cards">
+      <a class="card" href="a-layout-first.html">
+        <span class="tag">Recommended</span>
+        <h2>A · Layout first</h2>
+        <ul><li>Pick Single, Two stops, or Buses and trains first</li><li>Each side gets its own stop search, heading and routes</li><li>Live preview beside the form</li><li>Footer says exactly what's missing and jumps to it</li></ul>
+      </a>
+      <a class="card" href="b-live-editor.html">
+        <h2>B · Live editor</h2>
+        <ul><li>The board is the editor: click a side to set its stop</li><li>Click a route pill to change its colour</li><li>Settings panel on the right</li><li>The same view opens from the board's gear button</li></ul>
+      </a>
+      <a class="card" href="c-tabbed.html">
+        <h2>C · Tabbed</h2>
+        <ul><li>Board, Display and Connection tabs</li><li>Layout is a segmented control</li><li>Least change from today's screen</li><li>Advanced fields live under Connection</li></ul>
+      </a>
+    </div>
+    <div class="shared">
+      <h2>What all three share</h2>
+      <ul>
+        <li>No build step: one Open board button, and changes save automatically</li>
+        <li>Timetable and key boxes become one status line</li>
+        <li>The key setting is a plain three-way choice: built-in, your own, or no key</li>
+        <li>Route filters are clickable pills; colours have pickers instead of a text format</li>
+        <li>Anything blocking the board is shown next to the field that needs it</li>
+        <li>No preset dropdown</li>
+      </ul>
+    </div>
+  </div>
+</body>
+</html>

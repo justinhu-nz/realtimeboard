@@ -5,7 +5,7 @@ const path = require('node:path');
 (async()=>{
  const browser=await puppeteer.launch({executablePath:process.env.CHROME_PATH || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',headless:true,args:['--no-sandbox']});
  try {
- for(const file of ['index.html','index2.html']){
+ for(const file of ['index.html','index2.html','index-live.html']){
   const context=await browser.createBrowserContext();const page=await context.newPage();const errors=[];
   page.on('pageerror',e=>errors.push(e.message));
   await page.setRequestInterception(true);
@@ -31,6 +31,16 @@ const path = require('node:path');
   // Share dialog works and does not throw on the actual DOM.
   await page.evaluate(()=>openShareDialog());assert(await page.$('dialog[open]'));
   await page.click('[data-close-share]');
+  // A connection test must not redraw setup after opening the board.
+  await page.evaluate(()=>{state.connectOpen=true;state.editingKey=true;renderSetup();});
+  await page.evaluate(()=>{
+   document.querySelector('[data-action=fetchRealtime]').click();
+   state.config.mode='board';renderBoard();
+   window.finishRefresh();
+  });
+  assert(await page.$('.board'), file+' connection test navigated back to setup');
+  assert.equal(await page.$('.setup'),null);
+  await page.click('[data-action=setup]');
   for(const width of [375,768,1440]){
    await page.setViewport({width,height:900});
    const overflow=await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1);

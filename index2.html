@@ -1446,6 +1446,8 @@ S-C: #D03A2E / #FFFFFF`;
     };
     let timers = [];
     let realtimeRequestSeq = 0;
+    let bundleBuildSeq = 0;
+    let gtfsLoadSeq = 0;
     state.pageLocked = Boolean(state.config.lockFirstPage);
 
     function loadConfig() {
@@ -1470,12 +1472,15 @@ S-C: #D03A2E / #FFFFFF`;
       const maps = ["stops", "routes", "trips", "calendars", "calendarDates", "stopTimesByStop"];
       return bundle && bundle.source !== "demo" && maps.every(key => bundle[key] && typeof bundle[key] === "object" && !Array.isArray(bundle[key])) &&
         Object.values(bundle.stopTimesByStop).every(rows => Array.isArray(rows) && rows.every(row => row && typeof row === "object")) &&
-        Object.values(bundle.calendarDates).every(Array.isArray) ? bundle : null;
+        Object.values(bundle.calendarDates).every(rows => Array.isArray(rows) && rows.every(row => row && typeof row === "object" && typeof row.date === "string")) ? bundle : null;
     }
     function loadRealtime() {
       const realtime = loadJson("realtime");
       return realtime && realtime.sourceUrl !== "demo://local" &&
         ["trips", "vehicles"].every(key => realtime[key] && typeof realtime[key] === "object" && !Array.isArray(realtime[key])) &&
+        (realtime.notices === undefined || (Array.isArray(realtime.notices) && realtime.notices.every(notice => notice && typeof notice.text === "string"))) &&
+        Object.values(realtime.trips).every(trip => trip && typeof trip === "object" && trip.updates && typeof trip.updates === "object" &&
+          (!trip.orderedUpdates || (Array.isArray(trip.orderedUpdates) && trip.orderedUpdates.every(update => update && typeof update === "object")))) &&
         Array.isArray(realtime.alerts) && realtime.alerts.every(alert => alert && typeof alert === "object" &&
           Array.isArray(alert.stopIds) && Array.isArray(alert.routeIds)) ? realtime : null;
     }
@@ -1758,7 +1763,8 @@ S-C: #D03A2E / #FFFFFF`;
       });
     }
 
-    async function ingestGtfs(feed, source) {
+    async function ingestGtfs(feed, source, requestId = ++gtfsLoadSeq) {
+      if (requestId !== gtfsLoadSeq) return;
       const tables = ["stops.txt", "routes.txt", "trips.txt", "calendar.txt", "calendar_dates.txt", "feed_info.txt"];
       setStatus("Reading timetable data...");
       let parsed;
@@ -1770,6 +1776,7 @@ S-C: #D03A2E / #FFFFFF`;
         parsed = {};
         for (const name of Object.keys(files)) parsed[name] = csvParse(files[name]);
       }
+      if (requestId !== gtfsLoadSeq) return;
       for (const name of ["stops.txt", "routes.txt", "trips.txt"]) {
         if (!parsed[name]) throw new Error("GTFS feed missing " + name);
       }
@@ -1799,6 +1806,7 @@ S-C: #D03A2E / #FFFFFF`;
 
     async function fetchGtfs(options = {}) {
       if (state.gtfsLoading) return false;
+      const requestId = ++gtfsLoadSeq;
       const candidates = options.candidates || gtfsFetchCandidates();
       const errors = [];
       state.gtfsLoading = true;
@@ -1808,17 +1816,19 @@ S-C: #D03A2E / #FFFFFF`;
         for (const candidate of candidates) {
           try {
             if (isUnpackedGtfsUrl(candidate)) {
-              await ingestGtfs({ baseUrl: new URL(candidate, location.href).href }, candidate);
+              await ingestGtfs({ baseUrl: new URL(candidate, location.href).href }, candidate, requestId);
             } else {
               if (!("DecompressionStream" in globalThis)) throw new Error("no unzip support in this browser");
               const res = await fetch(candidate);
               if (!res.ok) throw new Error("Fetch failed: " + res.status);
-              await ingestGtfs({ buffer: await res.arrayBuffer() }, candidate);
+              await ingestGtfs({ buffer: await res.arrayBuffer() }, candidate, requestId);
             }
+            if (requestId !== gtfsLoadSeq) return false;
             // Don't pin the unpacked fallback, so a browser that gains unzip support goes back to the zip.
             if (candidate !== state.config.gtfsUrl && candidate !== DEFAULT_GTFS_UNPACKED_URL) saveConfig({ gtfsUrl: candidate });
             return true;
           } catch (err) {
+            if (requestId !== gtfsLoadSeq) return false;
             errors.push(candidate + " (" + (err && err.message || err) + ")");
           }
         }
@@ -1827,17 +1837,27 @@ S-C: #D03A2E / #FFFFFF`;
         if (!options.quiet) setStatus(friendlyError(err, "GTFS fetch"), true);
         return false;
       } finally {
-        state.gtfsLoading = false;
-        if (state.config.mode === "setup") renderSetup();
+        if (requestId === gtfsLoadSeq) {
+          state.gtfsLoading = false;
+          if (state.config.mode === "setup") renderSetup();
+        }
       }
     }
 
     async function uploadGtfs(file) {
       if (!file) return;
+      const requestId = ++gtfsLoadSeq;
+      state.gtfsLoading = true;
       try {
         setStatus("Reading GTFS zip...");
-        await ingestGtfs({ buffer: await file.arrayBuffer() }, file.name);
-      } catch (err) { setStatus(friendlyError(err, "GTFS upload"), true); }
+        await ingestGtfs({ buffer: await file.arrayBuffer() }, file.name, requestId);
+      } catch (err) { if (requestId === gtfsLoadSeq) setStatus(friendlyError(err, "GTFS upload"), true); }
+      finally {
+        if (requestId === gtfsLoadSeq) {
+          state.gtfsLoading = false;
+          if (state.config.mode === "setup") renderSetup();
+        }
+      }
     }
 
     function cleanColor(v) {
@@ -1858,8 +1878,10 @@ S-C: #D03A2E / #FFFFFF`;
       return colors;
     }
 
-    async function buildBundle() {
+    async function buildBundle({ open = true } = {}) {
       if (!state.gtfs) { setStatus("Load GTFS data first.", true); return; }
+      const buildId = ++bundleBuildSeq;
+      const gtfs = state.gtfs;
       // AT rotates the hash suffix of stop ids ("3955-edf582eb") with GTFS releases.
       // If a configured id no longer exists, re-resolve it by its stop code prefix.
       const gtfsStopIds = new Set(state.gtfs.stops.map(s => s.stop_id));
@@ -1889,10 +1911,13 @@ S-C: #D03A2E / #FFFFFF`;
       const stopIds = new Set([...resolved, ...(fourWayEnabled() ? trainPlatformIds() : [])]);
       const trainStops = new Set(fourWayEnabled() ? trainPlatformIds() : []);
       if (!stopIds.size) { setStatus("Add at least one stop.", true); return; }
-      setStatus("Building board...");
+      if (open) setStatus("Building board...");
+      const buildConfig = JSON.stringify(state.config);
+      const stillCurrent = () => buildId === bundleBuildSeq && state.gtfs === gtfs && JSON.stringify(state.config) === buildConfig;
       let candidateStopTimes;
       try { candidateStopTimes = await selectedStopTimesFor(stopIds); }
-      catch (err) { setStatus(friendlyError(err, "Board build"), true); return; }
+      catch (err) { if (stillCurrent()) setStatus(friendlyError(err, "Board build"), true); return; }
+      if (!stillCurrent()) return;
       const routeAllow = new Set(splitList(state.config.routeAllowlist).map(normLabel));
       const routesById = new Map(state.gtfs.routes.map(r => [r.route_id, r]));
       const tripsById = new Map(state.gtfs.trips.map(t => [t.trip_id, t]));
@@ -1902,6 +1927,7 @@ S-C: #D03A2E / #FFFFFF`;
       const tripIds = new Set(), routeIds = new Set(), serviceIds = new Set();
       for (const st of candidateStopTimes) {
         if (!stopIds.has(st.stop_id) || String(st.pickup_type) === "1") continue;
+        if (!Number.isFinite(gtfsEpoch("20260101", st.departure_time || st.arrival_time, state.config.timezone))) continue;
         const trip = tripsById.get(st.trip_id);
         const route = trip && routesById.get(trip.route_id);
         if (!trip || !route) continue;
@@ -1957,7 +1983,7 @@ S-C: #D03A2E / #FFFFFF`;
         (bundle.stopTimesByStop[st.stop_id] ||= []).push({
           tripId: st.trip_id, routeId: trip.route_id, serviceId: trip.service_id,
           stopId: st.stop_id, stopSequence: +st.stop_sequence || 0,
-          arrivalTime: st.arrival_time, departureTime: st.departure_time,
+          arrivalTime: st.arrival_time, departureTime: st.departure_time || st.arrival_time,
           headsign: st.stop_headsign || trip.trip_headsign || ""
         });
       }
@@ -1966,6 +1992,7 @@ S-C: #D03A2E / #FFFFFF`;
       }
       state.bundle = bundle;
       saveJson("bundle", bundle);
+      if (!open) { saveConfig(); state.status = ""; state.error = ""; return; }
       saveConfig({ mode: "board" });
       setStatus("Built board: " + selectedStopTimes.length.toLocaleString() + " departures.");
     }
@@ -2175,7 +2202,7 @@ S-C: #D03A2E / #FFFFFF`;
         }
         if (e.alert) {
           const header = translated(e.alert.header_text || e.alert.headerText);
-          const informed = gtfsRtArray(e.alert.informed_entity || e.alert.informedEntity);
+          const informed = gtfsRtArray(e.alert.informed_entity || e.alert.informedEntity).filter(x => x && typeof x === "object");
           if (header) rt.alerts.push({ id: e.id || header, header, routeIds: informed.map(x => x.route_id || x.routeId).filter(Boolean), stopIds: informed.map(x => x.stop_id || x.stopId).filter(Boolean) });
         }
       }
@@ -2581,6 +2608,9 @@ S-C: #D03A2E / #FFFFFF`;
     function resetAll() {
       try { Object.keys(localStorage).filter(k => k.startsWith(STORE_KEY)).forEach(k => localStorage.removeItem(k)); } catch {}
       realtimeRequestSeq++;
+      gtfsLoadSeq++;
+      bundleBuildSeq++;
+      state.gtfsLoading = false;
       boardSource = "at";
       Object.assign(motat, { trams: {}, names: {}, namesAt: 0, lastOk: 0, loggedIn: false, error: "", test: null, seeded: new Set() });
       state.config = Object.assign({}, DEFAULT_CONFIG);
@@ -3002,12 +3032,14 @@ S-C: #D03A2E / #FFFFFF`;
         readFormIntoConfig();
         saveConfig();
         state.keyTest = "testing";
+        const testedConfig = JSON.stringify(state.config);
         renderSetup();
         refreshRealtime().then(() => {
+          if (JSON.stringify(state.config) !== testedConfig || state.colorDemo) return;
           // Judge the user's key by its own feeds, not by whether every feed (incl. AT's
           // flaky alerts/vehicles endpoints) came back clean.
           state.keyTest = state.subKeyOk ? "ok" : "fail";
-          renderSetup();
+          if (state.config.mode === "setup") renderSetup();
         });
       });
       q("[name=subscriptionKey]")?.addEventListener("input", e => {
@@ -3328,7 +3360,10 @@ S-C: #D03A2E / #FFFFFF`;
       if (Date.now() - builtAt < BUNDLE_MAX_AGE_MS) return;
       bundleRefreshAttempted = true;
       console.info("[bundle] saved board is " + Math.round((Date.now() - builtAt) / 86400000) + " days old - refreshing from GTFS zip");
-      if (await fetchGtfs({ quiet: true })) buildBundle();
+      if (await fetchGtfs({ quiet: true })) {
+        await buildBundle({ open: false });
+        if (state.config.mode === "board" && !state.colorDemo) render();
+      }
       else console.warn("[bundle] automatic refresh failed - keeping the old board");
     }
 

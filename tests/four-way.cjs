@@ -1,6 +1,6 @@
 const fs = require('fs'), vm = require('vm'), assert = require('assert');
 (async () => {
-for (const file of ['index.html', 'index2.html']) {
+for (const file of ['index.html', 'index2.html', 'index-live.html']) {
  const html = fs.readFileSync(require('path').join(__dirname, '..', file), 'utf8');
  const source = html.match(/<script>([\s\S]*?)<\/script>/)[1].replace(/    render\(\);\s*$/, '');
  const context = vm.createContext({location:{hash:""},console, localStorage:{getItem(){return null},setItem(){}}, window:{addEventListener(){}}, document:{getElementById(){return {}},querySelector(){return null}}, Intl, Date, Set, Map, Object, Number, String, Array});

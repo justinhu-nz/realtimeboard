@@ -4,7 +4,7 @@ const assert = require('node:assert/strict');
 const path = require('node:path');
 
 (async () => {
-for (const file of ['index.html', 'index2.html']) {
+for (const file of ['index.html', 'index2.html', 'index-live.html']) {
   const source = fs.readFileSync(path.join(__dirname, '..', file), 'utf8').match(/<script>([\s\S]*?)<\/script>/)[1].replace(/    render\(\);\s*$/, '');
   const store = new Map();
   const context = vm.createContext({console: {...console, warn() {}}, URL, AbortSignal, Intl, Date,
@@ -96,6 +96,12 @@ for (const file of ['index.html', 'index2.html']) {
   assert.equal(run('loadBundle()'), null);
   run("saveJson('realtime',{fetchedAt:Date.now(),trips:{},vehicles:{},alerts:{}})");
   assert.equal(run('loadRealtime()'), null);
+  run(`saveJson('bundle',{stops:{},routes:{},trips:{},calendars:{},stopTimesByStop:{},calendarDates:{daily:[null]}})`);
+  assert.equal(run('loadBundle()'), null, 'null calendar exceptions must not reach activeService');
+  run(`saveJson('realtime',{trips:{},vehicles:{},alerts:[],notices:{}})`);
+  assert.equal(run('loadRealtime()'), null, 'invalid notices must not reach the board ticker');
+  run(`saveJson('realtime',{trips:{t:{updates:{},orderedUpdates:[null]}},vehicles:{},alerts:[]})`);
+  assert.equal(run('loadRealtime()'), null, 'invalid ordered updates must not reach delay propagation');
   run(`var rendered=0;render=()=>{rendered++};localStorage.setItem=()=>{throw new Error('Quota exceeded')};saveJson('config',{});`);
   assert.equal(run('rendered'), 0, 'storage failure must not start another render/request loop');
   assert(run('state.status.includes("Storage unavailable")'));

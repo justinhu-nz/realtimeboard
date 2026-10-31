@@ -1,3 +1,46 @@
+# Debug review — 1 November 2026
+
+Reviewed the current standalone apps (`index.html`, `index2.html`, `index-live.html`), regression tests, deployment workflow, and supporting prototype scripts. Preserved pre-existing uncommitted changes. Changes are local; nothing was committed or deployed.
+
+## Fixed in this review
+
+- **Background rebuild navigation:** stale timetable refreshes now rebuild without switching from setup to the board. Added this non-navigation build option to the AT/MOTAT variant too.
+- **Obsolete builds:** builds capture their feed, configuration and operation sequence. A build finishing after settings change, a newer build or reset cannot overwrite the current bundle or reopen the board.
+- **Reset during downloads/uploads:** timetable loads now have operation identities. Old parsing/download results cannot restore reset data or clear a newer operation's loading state.
+- **Missing timetable times:** a missing departure time previously crashed bundle sorting with `Cannot read properties of undefined (reading 'localeCompare')`. Arrival-time fallback is now stored consistently; invalid times are excluded before building.
+- **Connection test navigation:** delayed results cannot redraw setup after navigation or apply a verdict to a changed configuration.
+- **Malformed alert selectors:** null and non-object selectors are filtered before reading stop and route IDs.
+- **Damaged saved caches:** reject null calendar exceptions, malformed notice lists, and malformed ordered trip updates before they reach rendering or delay propagation.
+
+Added `tests/debug-regressions.cjs` to the deployment checks, extended cache validation tests, and added a real-browser connection-test navigation regression.
+
+## Verification
+
+All five dependency-free Node suites pass for each of the three current app variants:
+
+```sh
+node tests/four-way.cjs
+node tests/share-board.cjs
+node tests/edge-cases.cjs
+node tests/auto-key.cjs
+node tests/debug-regressions.cjs
+```
+
+Headless Google Chrome smoke tests also pass for all three variants: startup, colour demo, scheduled board, refresh/navigation races, connection-test/navigation race, share dialog, and setup overflow at 375, 768 and 1440 pixels. External requests were blocked. Chrome required execution outside the filesystem sandbox to launch.
+
+All inline scripts compile in the four root HTML pages and all prototype pages. `node --check prototypes/proto.js` and `git diff --check` pass.
+
+## Remaining findings and limits
+
+- **P2 — MOTAT history has a separate reset race.** In `index2.html`, `motatSeedHistory()` applies fetched history before the parent refresh checks its request sequence, and device-name updates also precede that check. A tracker request completing after reset/source switching can repopulate tracker state. The timetable operation guards added here do not cover tracker authentication/history. This path still needs dedicated mocked tracker tests and operation guards.
+- **P2 — GTFS requests have no timeout.** ZIP and unpacked-file fetching can remain pending indefinitely, leaving loading active and delaying fallback. Realtime requests already have timeouts; timetable downloads still need a suitable large-download timeout/cancellation policy.
+- **P2 — Legacy page remains published.** Deployment copies `index-old.html`, but the functional suites target the three current variants. The old page received syntax checking only and retains its historical implementation. Decide whether it should stay publicly reachable or receive the same maintenance as current pages.
+- **Credential exposure is part of the current architecture.** The workflow substitutes `AT_API_KEY` directly into public HTML, and the app includes a departures credential. A GitHub secret does not remain confidential after that substitution. Use only credentials intended for public client use; confidential credentials would require a server-side design.
+- The code is duplicated across several large HTML files. Shared fixes require repeated edits, creating ongoing drift risk.
+- Real AT responses, production GTFS ZIP parsing/download performance, tracker authentication/cookies, and current published MOTAT schedules were not verified. Browser coverage is Chrome only. Prototype interactions and the live editor's complete iframe messaging workflow were not exhaustively exercised. Passing tests do not establish that every possible input or race is covered.
+
+---
+
 # Debug review — 31 October 2026
 
 Reviewed and updated both standalone apps: `index.html` (AT) and `index2.html` (AT/MOTAT). Changes are local; nothing was deployed.

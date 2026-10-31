@@ -1,5 +1,5 @@
 const fs = require('fs'), vm = require('vm'), assert = require('assert'), path = require('path');
-for (const file of ['index.html', 'index2.html']) {
+for (const file of ['index.html', 'index2.html', 'index-live.html']) {
   const source = fs.readFileSync(path.join(__dirname, '..', file), 'utf8').match(/<script>([\s\S]*?)<\/script>/)[1].replace(/    render\(\);\s*$/, '');
   const store = new Map();
   const location = {href: `https://board.example/${file}?apiKey=OLD-QUERY-SECRET#debug`, hash:'', pathname:`/${file}`, search:''};

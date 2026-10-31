@@ -935,6 +935,126 @@
       .dual-mode .dual-band .dep-rows,
       .dual-mode .dual-band .dep-row { display: block; }
     }
+
+    /* Setup (layout first) */
+    .su { padding-bottom: 6rem; display: grid; gap: .7rem; }
+    .su-header h1 { font-size: 1.3rem; line-height: 1.15; }
+    .su-header p { color: var(--muted); }
+    .su-grid { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 1.1rem; align-items: start; }
+    .su-form { display: grid; gap: .9rem; min-width: 0; }
+    .su-section { border: 1px solid var(--border); border-radius: var(--radius); padding: .8rem .9rem; background: rgba(255,255,255,.015); display: grid; gap: .65rem; min-width: 0; }
+    .su-section > h2, .su-section > summary h2 { font-size: .98rem; display: flex; gap: .5rem; align-items: center; }
+    .su-section > h2 small { margin-left: auto; color: var(--muted); font-weight: 400; font-size: .8rem; }
+    .su-n { display: inline-grid; place-items: center; width: 1.4rem; height: 1.4rem; border-radius: 50%; background: var(--surface3); font-size: .75rem; flex: none; }
+    .su-n.done { background: var(--accent); color: var(--accent-text); }
+    .su-label { display: block; font-size: .8rem; font-weight: 700; color: var(--muted); margin-bottom: .25rem; }
+    .su-label output { float: right; color: var(--text); }
+    .su-label .muted, .su .muted { color: var(--muted); font-weight: 400; }
+    .su .linkish { background: none; border: 0; padding: 0; color: var(--accent); font-weight: 600; text-decoration: underline; text-underline-offset: 2px; }
+
+    .su-status { display: flex; align-items: center; gap: .9rem; flex-wrap: wrap; padding: .45rem .7rem; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface2); font-size: .84rem; }
+    .su-status .item { display: inline-flex; align-items: center; gap: .3rem; color: var(--muted); }
+    .su-status .item b { color: var(--text); }
+    .su-status .item.bad b { color: #ffd0e9; }
+    .su-spacer { flex: 1; }
+    .su-dot { width: .6rem; height: .6rem; border-radius: 50%; background: var(--accent); flex: none; }
+    .su-dot.limited, .su-dot.degraded { background: var(--warn); }
+    .su-dot.needed { background: var(--bad); }
+    .su-connect { margin-top: .5rem; padding: .75rem; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); display: grid; gap: .9rem; }
+    .su-connect[hidden] { display: none; }
+    .su-connect-group { display: grid; gap: .45rem; }
+    .su-connect h3 { font-size: .78rem; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+    .su-radio { display: flex; gap: .55rem; align-items: flex-start; padding: .5rem .6rem; border: 1px solid var(--border); border-radius: var(--radius); cursor: pointer; }
+    .su-radio input { width: auto; margin-top: .3rem; accent-color: var(--accent); }
+    .su-radio:has(input:checked) { border-color: var(--accent); background: rgba(98,221,244,.06); }
+    .su-radio > span { flex: 1; min-width: 0; }
+    .su-inline { display: flex; gap: .45rem; align-items: center; flex-wrap: wrap; margin-top: .4rem; }
+    .su-inline input { flex: 1; min-width: 10rem; }
+    .su-ok { color: var(--accent); font-weight: 600; font-size: .82rem; }
+    .su-bad { color: #ffd0e9; font-weight: 600; font-size: .82rem; }
+
+    .su-layouts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .6rem; }
+    .su-layout { background: var(--surface); border: 2px solid var(--border); color: var(--text); font-weight: 400; text-align: left; display: grid; gap: .45rem; padding: .55rem; }
+    .su-layout[aria-checked=true] { border-color: var(--accent); background: rgba(98,221,244,.08); }
+    .su-layout strong { display: block; font-size: .9rem; }
+    .su-desc { display: block; font-size: .76rem; color: var(--muted); line-height: 1.35; }
+    .su-thumb { height: 3.4rem; border-radius: 4px; background: #0d1729; display: grid; gap: 3px; padding: 4px; }
+    .su-thumb.dual, .su-thumb.fourway { grid-template-columns: 1fr 1fr; }
+    .su-thumb i { display: block; background: var(--surface3); border-radius: 2px; }
+    .su-thumb span { display: grid; gap: 3px; grid-template-rows: 1fr .45fr; }
+    .su-thumb i.t { background: var(--accent); opacity: .55; }
+
+    .su-slots { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .8rem; }
+    .su-station { grid-column: 1 / -1; }
+    .su-slot { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: .65rem; display: grid; gap: .55rem; align-content: start; min-width: 0; }
+    .su-slot.blocked { border-color: var(--warn); }
+    .su-slot h3 { font-size: .78rem; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+    .su-train { border-top: 1px dashed var(--border); padding-top: .55rem; }
+    .su-picker { position: relative; }
+    .su-results { position: absolute; left: 0; right: 0; top: calc(100% + 2px); z-index: 20; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); max-height: 16rem; overflow-y: auto; box-shadow: 0 8px 24px rgba(0,0,0,.4); }
+    .su-results button { display: flex; width: 100%; gap: .5rem; align-items: baseline; text-align: left; background: none; border: 0; border-radius: 0; padding: .45rem .6rem; color: var(--text); font-weight: 400; }
+    .su-results button:hover, .su-results button.active { background: var(--surface3); opacity: 1; }
+    .su-empty { padding: .5rem .6rem; color: var(--muted); font-size: .82rem; }
+    .su-code { margin-left: auto; color: var(--muted); font-size: .75rem; white-space: nowrap; }
+    .su-picked { display: flex; align-items: center; gap: .5rem; padding: .4rem .55rem; border: 1px solid var(--accent); border-radius: var(--radius); background: rgba(98,221,244,.08); }
+    .su-picked-name { font-weight: 700; flex: 1; min-width: 0; overflow-wrap: anywhere; }
+    .su-blocker { color: var(--warn); font-size: .8rem; margin-top: .3rem; }
+    .su-blocker::before { content: "! "; font-weight: 800; }
+    .su-chips { display: flex; flex-wrap: wrap; gap: .3rem; }
+    .su-chip { border-radius: 4px; padding: .12rem .5rem; font-weight: 800; font-size: .8rem; background: var(--accent); color: var(--accent-text); border: 2px solid transparent; }
+    .su-chip.off { opacity: .3; filter: grayscale(.6); }
+    .su-routes { border-top: 1px solid var(--border); padding-top: .6rem; }
+
+    .su-look { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: .8rem; }
+    .su-look input[type=range] { padding: 0; border: 0; background: none; accent-color: var(--accent); }
+    .su-check { display: inline-flex; gap: .4rem; align-items: center; }
+    .su-check input { width: auto; }
+    .su-more { border-top: 1px solid var(--border); padding-top: .55rem; }
+    .su-more summary, .su-more-settings summary { cursor: pointer; font-weight: 700; }
+    .su-more[open] summary { margin-bottom: .55rem; }
+    .su-more-settings summary { display: flex; gap: .6rem; align-items: baseline; flex-wrap: wrap; }
+    .su-more-settings summary::-webkit-details-marker { display: none; }
+    .su-more-settings summary h2::before { content: "▸"; color: var(--muted); font-size: .8rem; margin-right: .2rem; }
+    .su-more-settings[open] summary h2::before { content: "▾"; }
+    .su-adv { display: grid; gap: .7rem; margin-top: .6rem; }
+    .su-colours { display: grid; gap: .3rem; max-height: 20rem; overflow-y: auto; padding-right: .3rem; }
+    .su-colour-row { display: flex; align-items: center; gap: .45rem; flex-wrap: wrap; }
+    .su-colour-row input[type=color] { width: 2.2rem; height: 1.9rem; padding: 2px; cursor: pointer; }
+    .su-colour-remove { margin-left: auto; }
+    .su-demo { justify-self: start; }
+
+    .su-aside { position: sticky; top: .75rem; display: grid; gap: .45rem; min-width: 0; }
+    .su-aside h2 { font-size: .85rem; color: var(--muted); }
+    .su-preview { background: #0d1729; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; font-size: .8rem; transition: opacity .2s; }
+    .su-preview.building { opacity: .6; }
+    .su-pbands { display: grid; gap: 1px; background: var(--border); }
+    .su-pband { background: #0d1729; padding: .45rem .55rem; min-width: 0; }
+    .su-pband h4 { font-size: .75rem; color: var(--muted); margin-bottom: .25rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .su-prow { display: flex; align-items: center; gap: .4rem; padding: .16rem 0; border-bottom: 1px solid rgba(255,255,255,.05); }
+    .su-prow.train { background: rgba(98,221,244,.06); }
+    .su-ppill { min-width: 2.5rem; text-align: center; border-radius: 3px; font-weight: 800; padding: 0 .3rem; font-size: .74rem; background: var(--accent); color: var(--accent-text); }
+    .su-pdest { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .su-pdue { font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .su-ptrain-title { font-size: .7rem; color: var(--muted); margin-top: .35rem; border-top: 1px solid var(--border); padding-top: .25rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .su-pfoot { display: flex; justify-content: space-between; gap: .5rem; padding: .25rem .55rem; background: #f4f7fa; color: #142033; font-weight: 700; font-size: .72rem; }
+    .su-preview-empty { padding: 1.4rem .8rem; text-align: center; color: var(--muted); border: 1px dashed var(--border); border-radius: var(--radius); }
+    .su-preview-empty.small { padding: .5rem; border: 0; font-size: .75rem; }
+
+    .su-footer { position: fixed; left: 0; right: 0; bottom: 0; z-index: 30; background: var(--surface); border-top: 1px solid var(--border); padding: .6rem .75rem; }
+    .su-footer-inner { max-width: 1180px; margin: 0 auto; display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; }
+    .su-footer-inner > div { flex: 1; min-width: 12rem; }
+    .su-footer-msg { font-size: .86rem; color: var(--accent); }
+    .su-footer-msg.todo, .su-footer-msg.todo .linkish { color: var(--warn); }
+    .su-footer .primary { font-size: 1rem; padding: .55rem 1.2rem; }
+
+    @media (max-width: 900px) {
+      .su-grid { grid-template-columns: 1fr; }
+      .su-aside { position: static; order: -1; }
+    }
+    @media (max-width: 620px) {
+      .su-layouts, .su-slots { grid-template-columns: 1fr; }
+      .su-layout { grid-template-columns: 4.5rem 1fr; align-items: center; }
+    }
   </style>
 </head>
 <body>
@@ -1074,10 +1194,14 @@ S-C: #D03A2E / #FFFFFF`;
       refreshing: false,
       refreshFailed: false,
       keyTest: null, // null | "testing" | "ok" | "fail"
-      expandedSections: { advanced: false }
+      expandedSections: { advanced: false },
+      pickers: {},
+      building: false
     };
     let timers = [];
     let realtimeRequestSeq = 0;
+    let bundleBuildSeq = 0;
+    let gtfsLoadSeq = 0;
     state.pageLocked = Boolean(state.config.lockFirstPage);
 
     function loadConfig() {
@@ -1102,12 +1226,15 @@ S-C: #D03A2E / #FFFFFF`;
       const maps = ["stops", "routes", "trips", "calendars", "calendarDates", "stopTimesByStop"];
       return bundle && bundle.source !== "demo" && maps.every(key => bundle[key] && typeof bundle[key] === "object" && !Array.isArray(bundle[key])) &&
         Object.values(bundle.stopTimesByStop).every(rows => Array.isArray(rows) && rows.every(row => row && typeof row === "object")) &&
-        Object.values(bundle.calendarDates).every(Array.isArray) ? bundle : null;
+        Object.values(bundle.calendarDates).every(rows => Array.isArray(rows) && rows.every(row => row && typeof row === "object" && typeof row.date === "string")) ? bundle : null;
     }
     function loadRealtime() {
       const realtime = loadJson("realtime");
       return realtime && realtime.sourceUrl !== "demo://local" &&
         ["trips", "vehicles"].every(key => realtime[key] && typeof realtime[key] === "object" && !Array.isArray(realtime[key])) &&
+        (realtime.notices === undefined || (Array.isArray(realtime.notices) && realtime.notices.every(notice => notice && typeof notice.text === "string"))) &&
+        Object.values(realtime.trips).every(trip => trip && typeof trip === "object" && trip.updates && typeof trip.updates === "object" &&
+          (!trip.orderedUpdates || (Array.isArray(trip.orderedUpdates) && trip.orderedUpdates.every(update => update && typeof update === "object")))) &&
         Array.isArray(realtime.alerts) && realtime.alerts.every(alert => alert && typeof alert === "object" &&
           Array.isArray(alert.stopIds) && Array.isArray(alert.routeIds)) ? realtime : null;
     }
@@ -1389,7 +1516,8 @@ S-C: #D03A2E / #FFFFFF`;
       });
     }
 
-    async function ingestGtfs(feed, source) {
+    async function ingestGtfs(feed, source, requestId = ++gtfsLoadSeq) {
+      if (requestId !== gtfsLoadSeq) return;
       const tables = ["stops.txt", "routes.txt", "trips.txt", "calendar.txt", "calendar_dates.txt", "feed_info.txt"];
       setStatus("Reading timetable data...");
       let parsed;
@@ -1401,6 +1529,7 @@ S-C: #D03A2E / #FFFFFF`;
         parsed = {};
         for (const name of Object.keys(files)) parsed[name] = csvParse(files[name]);
       }
+      if (requestId !== gtfsLoadSeq) return;
       for (const name of ["stops.txt", "routes.txt", "trips.txt"]) {
         if (!parsed[name]) throw new Error("GTFS feed missing " + name);
       }
@@ -1417,19 +1546,32 @@ S-C: #D03A2E / #FFFFFF`;
       setStatus("Loaded " + state.gtfs.stops.length.toLocaleString() + " stops from GTFS.");
     }
 
-    async function selectedStopTimesFor(stopIds) {
+    async function scanStopTimes(feed, stopIds) {
       try {
-        return await gtfsWorkerTask({ kind: "stopTimes", ...gtfsWorkerFeed(state.gtfs.feed), stopIds: Array.from(stopIds) });
+        return await gtfsWorkerTask({ kind: "stopTimes", ...gtfsWorkerFeed(feed), stopIds: Array.from(stopIds) });
       } catch (err) {
         console.warn("[gtfs] worker stop_times filter failed, falling back to main thread:", err && err.message || err);
-        const files = await readGtfsEntries(state.gtfs.feed, ["stop_times.txt"]);
+        const files = await readGtfsEntries(feed, ["stop_times.txt"]);
         if (!files["stop_times.txt"]) throw new Error("GTFS feed missing stop_times.txt");
         return csvParse(files["stop_times.txt"]).filter(st => stopIds.has(st.stop_id));
       }
     }
+    // Rows are cached per stop on the loaded feed, so the setup screen's route pills and
+    // background rebuilds only scan stop_times.txt for stops they haven't seen yet.
+    async function selectedStopTimesFor(stopIds) {
+      const cache = state.gtfs.stopTimesCache ||= new Map(); // stopId -> Promise<rows>
+      const missing = Array.from(stopIds).filter(id => !cache.has(id));
+      if (missing.length) {
+        const batch = scanStopTimes(state.gtfs.feed, new Set(missing));
+        for (const id of missing) cache.set(id, batch.then(rows => rows.filter(st => st.stop_id === id)));
+        batch.catch(() => missing.forEach(id => cache.delete(id)));
+      }
+      return (await Promise.all(Array.from(stopIds).map(id => cache.get(id)))).flat();
+    }
 
     async function fetchGtfs(options = {}) {
       if (state.gtfsLoading) return false;
+      const requestId = ++gtfsLoadSeq;
       const candidates = options.candidates || gtfsFetchCandidates();
       const errors = [];
       state.gtfsLoading = true;
@@ -1439,17 +1581,19 @@ S-C: #D03A2E / #FFFFFF`;
         for (const candidate of candidates) {
           try {
             if (isUnpackedGtfsUrl(candidate)) {
-              await ingestGtfs({ baseUrl: new URL(candidate, location.href).href }, candidate);
+              await ingestGtfs({ baseUrl: new URL(candidate, location.href).href }, candidate, requestId);
             } else {
               if (!("DecompressionStream" in globalThis)) throw new Error("no unzip support in this browser");
               const res = await fetch(candidate);
               if (!res.ok) throw new Error("Fetch failed: " + res.status);
-              await ingestGtfs({ buffer: await res.arrayBuffer() }, candidate);
+              await ingestGtfs({ buffer: await res.arrayBuffer() }, candidate, requestId);
             }
+            if (requestId !== gtfsLoadSeq) return false;
             // Don't pin the unpacked fallback, so a browser that gains unzip support goes back to the zip.
             if (candidate !== state.config.gtfsUrl && candidate !== DEFAULT_GTFS_UNPACKED_URL) saveConfig({ gtfsUrl: candidate });
             return true;
           } catch (err) {
+            if (requestId !== gtfsLoadSeq) return false;
             errors.push(candidate + " (" + (err && err.message || err) + ")");
           }
         }
@@ -1458,17 +1602,27 @@ S-C: #D03A2E / #FFFFFF`;
         if (!options.quiet) setStatus(friendlyError(err, "GTFS fetch"), true);
         return false;
       } finally {
-        state.gtfsLoading = false;
-        if (state.config.mode === "setup") renderSetup();
+        if (requestId === gtfsLoadSeq) {
+          state.gtfsLoading = false;
+          if (state.config.mode === "setup") renderSetup();
+        }
       }
     }
 
     async function uploadGtfs(file) {
       if (!file) return;
+      const requestId = ++gtfsLoadSeq;
+      state.gtfsLoading = true;
       try {
         setStatus("Reading GTFS zip...");
-        await ingestGtfs({ buffer: await file.arrayBuffer() }, file.name);
-      } catch (err) { setStatus(friendlyError(err, "GTFS upload"), true); }
+        await ingestGtfs({ buffer: await file.arrayBuffer() }, file.name, requestId);
+      } catch (err) { if (requestId === gtfsLoadSeq) setStatus(friendlyError(err, "GTFS upload"), true); }
+      finally {
+        if (requestId === gtfsLoadSeq) {
+          state.gtfsLoading = false;
+          if (state.config.mode === "setup") renderSetup();
+        }
+      }
     }
 
     function cleanColor(v) {
@@ -1489,8 +1643,11 @@ S-C: #D03A2E / #FFFFFF`;
       return colors;
     }
 
-    async function buildBundle() {
+    // open: false builds in the background (setup preview) without leaving setup.
+    async function buildBundle({ open = true } = {}) {
       if (!state.gtfs) { setStatus("Load GTFS data first.", true); return; }
+      const buildId = ++bundleBuildSeq;
+      const gtfs = state.gtfs;
       // AT rotates the hash suffix of stop ids ("3955-edf582eb") with GTFS releases.
       // If a configured id no longer exists, re-resolve it by its stop code prefix.
       const gtfsStopIds = new Set(state.gtfs.stops.map(s => s.stop_id));
@@ -1514,16 +1671,19 @@ S-C: #D03A2E / #FFFFFF`;
       }
       if (fourWayEnabled()) {
         const platforms = trainPlatformIds().map(resolveStop);
-        if (!platforms.every(id => id && gtfsStopIds.has(id))) { setStatus("Choose a valid train platform for each side in Advanced.", true); return; }
+        if (!platforms.every(id => id && gtfsStopIds.has(id))) { setStatus("Choose a valid train platform for each side.", true); return; }
         saveConfig({ trainLeftStopId: platforms[0], trainRightStopId: platforms[1] });
       }
       const stopIds = new Set([...resolved, ...(fourWayEnabled() ? trainPlatformIds() : [])]);
       const trainStops = new Set(fourWayEnabled() ? trainPlatformIds() : []);
       if (!stopIds.size) { setStatus("Add at least one stop.", true); return; }
-      setStatus("Building board...");
+      if (open) setStatus("Building board...");
+      const buildConfig = JSON.stringify(state.config);
+      const stillCurrent = () => buildId === bundleBuildSeq && state.gtfs === gtfs && JSON.stringify(state.config) === buildConfig;
       let candidateStopTimes;
       try { candidateStopTimes = await selectedStopTimesFor(stopIds); }
-      catch (err) { setStatus(friendlyError(err, "Board build"), true); return; }
+      catch (err) { if (stillCurrent()) setStatus(friendlyError(err, "Board build"), true); return; }
+      if (!stillCurrent()) return;
       const routeAllow = new Set(splitList(state.config.routeAllowlist).map(normLabel));
       const routesById = new Map(state.gtfs.routes.map(r => [r.route_id, r]));
       const tripsById = new Map(state.gtfs.trips.map(t => [t.trip_id, t]));
@@ -1533,6 +1693,7 @@ S-C: #D03A2E / #FFFFFF`;
       const tripIds = new Set(), routeIds = new Set(), serviceIds = new Set();
       for (const st of candidateStopTimes) {
         if (!stopIds.has(st.stop_id) || String(st.pickup_type) === "1") continue;
+        if (!Number.isFinite(gtfsEpoch("20260101", st.departure_time || st.arrival_time, state.config.timezone))) continue;
         const trip = tripsById.get(st.trip_id);
         const route = trip && routesById.get(trip.route_id);
         if (!trip || !route) continue;
@@ -1554,7 +1715,7 @@ S-C: #D03A2E / #FFFFFF`;
             const route = routesById.get(tripsById.get(st.trip_id).route_id);
             return st.stop_id === id && trainRoutesMatch({ shortName: route.route_short_name, longName: route.route_long_name, routeId: route.route_id }, filters);
           });
-          if (!matches) { setStatus("No train services match the " + (index === 0 ? "left" : "right") + " platform and service filter. Check Advanced settings.", true); return; }
+          if (!matches) { setStatus("No train services match the " + (index === 0 ? "left" : "right") + " platform and train lines. Check the train lines for that side.", true); return; }
         }
       }
       const bundle = {
@@ -1588,7 +1749,7 @@ S-C: #D03A2E / #FFFFFF`;
         (bundle.stopTimesByStop[st.stop_id] ||= []).push({
           tripId: st.trip_id, routeId: trip.route_id, serviceId: trip.service_id,
           stopId: st.stop_id, stopSequence: +st.stop_sequence || 0,
-          arrivalTime: st.arrival_time, departureTime: st.departure_time,
+          arrivalTime: st.arrival_time, departureTime: st.departure_time || st.arrival_time,
           headsign: st.stop_headsign || trip.trip_headsign || ""
         });
       }
@@ -1597,6 +1758,7 @@ S-C: #D03A2E / #FFFFFF`;
       }
       state.bundle = bundle;
       saveJson("bundle", bundle);
+      if (!open) { saveConfig(); state.status = ""; state.error = ""; return; }
       saveConfig({ mode: "board" });
       setStatus("Built board: " + selectedStopTimes.length.toLocaleString() + " departures.");
     }
@@ -1805,7 +1967,7 @@ S-C: #D03A2E / #FFFFFF`;
         }
         if (e.alert) {
           const header = translated(e.alert.header_text || e.alert.headerText);
-          const informed = gtfsRtArray(e.alert.informed_entity || e.alert.informedEntity);
+          const informed = gtfsRtArray(e.alert.informed_entity || e.alert.informedEntity).filter(x => x && typeof x === "object");
           if (header) rt.alerts.push({ id: e.id || header, header, routeIds: informed.map(x => x.route_id || x.routeId).filter(Boolean), stopIds: informed.map(x => x.stop_id || x.stopId).filter(Boolean) });
         }
       }
@@ -2208,6 +2370,9 @@ S-C: #D03A2E / #FFFFFF`;
     function resetAll() {
       try { Object.keys(localStorage).filter(k => k.startsWith(STORE_KEY)).forEach(k => localStorage.removeItem(k)); } catch {}
       realtimeRequestSeq++;
+      gtfsLoadSeq++;
+      bundleBuildSeq++;
+      state.gtfsLoading = false;
       state.config = Object.assign({}, DEFAULT_CONFIG);
       state.bundle = null; state.gtfs = null; state.realtime = null;
       state.status = ""; state.error = ""; state.refreshing = false; state.refreshFailed = false;
@@ -2227,251 +2392,607 @@ S-C: #D03A2E / #FFFFFF`;
       return (b && b.name) || stopId;
     }
 
-    // Tiny live sample of the current board, shown inline under the stop picker so users
-    // see it working before committing to fullscreen. Reflects the last-built bundle.
-    function renderPreview() {
-      if (!state.bundle) return "";
+    // Setup screen: pick a layout, fill its slots, tune the look, open the board.
+    // Fields save themselves and the board rebuilds in the background, so there is no
+    // separate build step.
+    const SLOT_FIELDS = ["main", "left", "right", "trainLeft", "trainRight"];
+    const SETUP_LAYOUTS = [
+      { id: "single", name: "Single list", desc: "One list. Add more than one stop to merge them.", thumb: `<i></i>` },
+      { id: "dual", name: "Two stops", desc: "Side by side, e.g. both directions.", thumb: `<i></i><i></i>` },
+      { id: "fourway", name: "Buses and trains", desc: "Two stops, each with a train platform underneath.", thumb: `<span><i></i><i class="t"></i></span><span><i></i><i class="t"></i></span>` }
+    ];
+
+    function setupLayout(cfg = state.config) {
+      return fourWayEnabled(cfg) ? "fourway" : cfg.dualStopMode ? "dual" : "single";
+    }
+    // The left/right stop actually chosen for a side, or "" (dualStopIds falls back to any stop).
+    function slotStopId(side, cfg = state.config) {
+      const id = side === "left" ? cfg.dualStopLeftId : cfg.dualStopRightId;
+      return splitList(cfg.stopIds).includes(id) ? id : "";
+    }
+    function setupBusStopIds(cfg = state.config) {
+      return setupLayout(cfg) === "single" ? splitList(cfg.stopIds) : [slotStopId("left", cfg), slotStopId("right", cfg)].filter(Boolean);
+    }
+    function keyMode(cfg = state.config) {
+      if (String(cfg.subscriptionKey || "").trim() || state.editingKey) return "personal";
+      if (HAS_BUILTIN_KEY) return "builtin";
+      return cfg.requireSubscriptionKey === false ? "none" : "personal";
+    }
+
+    // Everything that stops the board opening, each tied to the field that fixes it.
+    function setupBlockers(cfg = state.config) {
+      const out = [];
+      if (setupLayout(cfg) === "single") {
+        if (!splitList(cfg.stopIds).length) out.push({ field: "main", message: "Add a stop" });
+      } else {
+        if (!slotStopId("left", cfg)) out.push({ field: "left", message: "Choose the left stop" });
+        if (!slotStopId("right", cfg)) out.push({ field: "right", message: "Choose the right stop" });
+        if (fourWayEnabled(cfg)) {
+          const [left, right] = trainPlatformIds(cfg);
+          if (!left) out.push({ field: "trainLeft", message: "Choose the left train platform" });
+          if (!right) out.push({ field: "trainRight", message: "Choose the right train platform" });
+        }
+      }
+      if (cfg.requireSubscriptionKey !== false && !subscriptionKey(cfg)) out.push({ field: "key", message: HAS_BUILTIN_KEY ? "Add your AT key" : "Add an AT key, or choose No key" });
+      if (!state.gtfs && !bundleHasSelectedStops(cfg)) out.push({ field: "timetable", message: state.gtfsLoading ? "Wait for the timetable to load" : "Load the timetable" });
+      return out;
+    }
+
+    function setLayout(id) {
+      const cfg = state.config;
+      if (id === "single") saveConfig({ dualStopMode: false, fourWayMode: false });
+      else {
+        const [left, right] = dualStopIds(cfg);
+        saveConfig({
+          dualStopMode: true, fourWayMode: id === "fourway",
+          dualStopLeftId: left || "", dualStopRightId: right || "",
+          stopIds: [left, right].filter(Boolean).join(", "),
+          // Rows per page includes the two train rows.
+          pageSize: id === "fourway" ? Math.max(3, cfg.pageSize) : cfg.pageSize
+        });
+      }
+      renderSetup();
+      scheduleAutoBuild();
+    }
+
+    function chooseSlotStop(slot, id) {
+      const cfg = state.config;
+      if (slot === "main") saveConfig({ stopIds: Array.from(new Set([...splitList(cfg.stopIds), id])).join(", ") });
+      else if (slot === "left" || slot === "right") {
+        const patch = slot === "left" ? { dualStopLeftId: id } : { dualStopRightId: id };
+        const left = slot === "left" ? id : slotStopId("left");
+        const right = slot === "right" ? id : slotStopId("right");
+        saveConfig(Object.assign(patch, { stopIds: Array.from(new Set([left, right].filter(Boolean))).join(", ") }));
+      } else saveConfig(slot === "trainLeft" ? { trainLeftStopId: id, trainLeftRoutes: "" } : { trainRightStopId: id, trainRightRoutes: "" });
+      const picker = state.pickers[slot];
+      if (picker) Object.assign(picker, { open: false, query: "", active: 0 });
+      renderSetup();
+      scheduleAutoBuild();
+    }
+
+    // Background rebuild after stops or route filters change, so the preview is real and
+    // Open board is instant. A change made mid-build queues one more build.
+    function scheduleAutoBuild() {
+      clearTimeout(state.autoBuildTimer);
+      state.autoBuildTimer = setTimeout(autoBuild, 400);
+    }
+    async function autoBuild() {
+      if (!state.gtfs || state.config.mode !== "setup") return;
+      if (state.building) { state.buildQueued = true; return; }
+      if (setupBlockers().some(b => SLOT_FIELDS.includes(b.field))) return;
+      state.building = true;
+      refreshSetupPreview();
+      try { await buildBundle({ open: false }); }
+      finally {
+        state.building = false;
+        if (state.buildQueued) { state.buildQueued = false; autoBuild(); }
+        else if (state.config.mode === "setup") renderSetup();
+      }
+    }
+    async function openBoardFromSetup() {
+      readFormIntoConfig();
+      saveConfig();
+      const blockers = setupBlockers();
+      if (blockers.length) { focusSetupField(blockers[0].field); return; }
+      clearTimeout(state.autoBuildTimer);
+      if (state.gtfs) await buildBundle();
+      else { saveConfig({ mode: "board" }); render(); }
+    }
+    function focusSetupField(field) {
+      if (field === "key" || field === "timetable") { state.connectOpen = true; renderSetup(); }
+      const target = document.querySelector(`[data-field="${field}"]`);
+      if (!target) return;
+      target.scrollIntoView({ behavior: "smooth", block: "center" });
+      const input = target.querySelector("input:not([type=hidden]):not([type=file]), button");
+      if (input) setTimeout(() => input.focus({ preventScroll: true }), 250);
+    }
+
+    // Routes serving a stop, for the route pills. Filled from the cached stop_times scan;
+    // null while that scan is still running.
+    function sortRoutes(list) {
+      return list.sort((a, b) => a.label.localeCompare(b.label, "en", { numeric: true }));
+    }
+    function routesAtStop(stopId) {
+      if (!stopId) return [];
+      const gtfs = state.gtfs;
+      if (gtfs) {
+        const known = gtfs.routesByStop && gtfs.routesByStop[stopId];
+        if (known) return known;
+        loadStopRoutes([stopId]);
+        return null;
+      }
+      // No timetable yet: fall back to the saved board (already narrowed by the route filter).
+      const bundle = state.bundle;
+      const times = bundle && bundle.stopTimesByStop && bundle.stopTimesByStop[stopId];
+      if (!times) return [];
+      const seen = new Map();
+      for (const st of times) {
+        const route = bundle.routes[st.routeId];
+        if (route && !seen.has(route.shortName)) seen.set(route.shortName, { label: route.shortName, type: route.type });
+      }
+      return sortRoutes(Array.from(seen.values()));
+    }
+    function loadStopRoutes(ids) {
+      const gtfs = state.gtfs;
+      if (!gtfs) return;
+      const pending = gtfs.routesPending ||= new Set();
+      const byStop = gtfs.routesByStop ||= {};
+      const todo = ids.filter(id => id && !pending.has(id) && !byStop[id]);
+      if (!todo.length) return;
+      todo.forEach(id => pending.add(id));
+      selectedStopTimesFor(new Set(todo)).then(rows => {
+        const routesById = gtfs.routesById ||= new Map(gtfs.routes.map(r => [r.route_id, r]));
+        const tripsById = gtfs.tripsById ||= new Map(gtfs.trips.map(t => [t.trip_id, t]));
+        const found = Object.fromEntries(todo.map(id => [id, new Map()]));
+        for (const st of rows) {
+          if (String(st.pickup_type) === "1" || !found[st.stop_id]) continue;
+          const trip = tripsById.get(st.trip_id);
+          const route = trip && routesById.get(trip.route_id);
+          if (!route) continue;
+          const label = route.route_short_name || route.route_long_name || route.route_id;
+          found[st.stop_id].set(label, { label, type: Number(route.route_type) });
+        }
+        for (const id of todo) byStop[id] = sortRoutes(Array.from(found[id].values()));
+      }).catch(err => {
+        console.warn("[setup] could not list routes:", err && err.message || err);
+        for (const id of todo) byStop[id] = [];
+      }).finally(() => {
+        todo.forEach(id => pending.delete(id));
+        if (state.gtfs === gtfs && state.config.mode === "setup") renderSetup();
+      });
+    }
+    function unionRoutes(ids) {
+      const lists = ids.map(routesAtStop);
+      if (lists.some(list => list === null)) return null;
+      const seen = new Map();
+      lists.flat().forEach(route => { if (!seen.has(route.label)) seen.set(route.label, route); });
+      return sortRoutes(Array.from(seen.values()));
+    }
+    function setupRoutesFor(field) {
+      if (field === "routeAllowlist") return unionRoutes(setupBusStopIds());
+      const routes = routesAtStop(field === "trainLeftRoutes" ? state.config.trainLeftStopId : state.config.trainRightStopId);
+      return routes && (state.gtfs ? routes.filter(r => r.type === 2) : routes);
+    }
+    function chipStyle(label, cfg = state.config) {
+      const custom = parseRouteColors(cfg.routeColors).get(normLabel(label));
+      return custom ? `background:${custom.background};color:${custom.text};border-color:${custom.background}` : "";
+    }
+    function routeChipsHtml(field, emptyText) {
+      const routes = setupRoutesFor(field);
+      if (routes === null) return `<div class="hint">Finding routes…</div>`;
+      if (!routes.length) return `<div class="hint">${escapeHtml(emptyText)}</div>`;
+      const allowed = new Set(splitList(state.config[field]).map(normLabel));
+      const isOn = r => !allowed.size || allowed.has(normLabel(r.label));
+      const onCount = routes.filter(isOn).length;
+      return `<div class="su-chips">${routes.map(r => `<button type="button" class="su-chip ${isOn(r) ? "" : "off"}" aria-pressed="${isOn(r)}" data-route-field="${field}" data-route="${escapeHtml(r.label)}" style="${chipStyle(r.label)}">${escapeHtml(r.label)}</button>`).join("")}</div>
+        <div class="hint">${onCount === routes.length ? `All ${routes.length} shown. Click a route to hide it.` : `Showing ${onCount} of ${routes.length}. <button class="linkish" type="button" data-route-all="${field}">Show all</button>`}</div>`;
+    }
+    function toggleRoute(field, label) {
+      const routes = setupRoutesFor(field);
+      if (!routes) return;
+      const allowed = new Set(splitList(state.config[field]).map(normLabel));
+      let on = routes.filter(r => !allowed.size || allowed.has(normLabel(r.label))).map(r => r.label);
+      on = on.includes(label) ? on.filter(l => l !== label) : on.concat(label);
+      if (!on.length) return; // Hiding every route would show nothing; keep at least one.
+      saveConfig({ [field]: on.length === routes.length ? "" : on.join(", ") });
+      renderSetup();
+      scheduleAutoBuild();
+    }
+
+    // Stop search. Picker state lives in state.pickers so it survives re-renders.
+    function isTrainPlatform(stop) {
+      // Bus stands at stations have letter platform codes ("Stop A Henderson Station").
+      return /train station/i.test(stop.stop_name || "") || (/^\d+$/.test(stop.platform_code || "") && /station/i.test(stop.stop_name || ""));
+    }
+    function stopLabelParts(stopId) {
+      const s = state.gtfs && state.gtfs.stops.find(stop => stop.stop_id === stopId);
+      const b = state.bundle && state.bundle.stops && state.bundle.stops[stopId];
+      const platform = (s && s.platform_code) || (b && b.platformCode) || "";
+      return { name: stopDisplayName(stopId), code: (s && s.stop_code) || stopId.split("-")[0], platform };
+    }
+    function pickerMatches(kind, query) {
+      const q = query.trim().toLowerCase();
+      if (!state.gtfs || !q) return [];
+      const scored = [];
+      for (const s of state.gtfs.stops) {
+        if (s.location_type === "1" || (kind === "train" && !isTrainPlatform(s))) continue;
+        const name = String(s.stop_name || "").toLowerCase(), code = String(s.stop_code || "").toLowerCase();
+        const score = code === q || s.stop_id === query.trim() ? 0 : name.startsWith(q) ? 1 : (name + " " + code + " " + s.stop_id + " " + (s.stop_desc || "")).toLowerCase().includes(q) ? 2 : -1;
+        if (score >= 0) scored.push([score, s]);
+      }
+      return scored.sort((a, b) => a[0] - b[0] || String(a[1].stop_name).localeCompare(String(b[1].stop_name))).slice(0, 12).map(x => x[1]);
+    }
+    function pickerHtml(slot, kind, value, placeholder) {
+      const p = state.pickers[slot] ||= { query: "", open: false, active: 0 };
+      if (value && !p.open) {
+        const { name, code, platform } = stopLabelParts(value);
+        return `<div class="su-picked"><span class="su-picked-name">${escapeHtml(name)}${platform ? ` · Platform ${escapeHtml(platform)}` : ""}</span><span class="su-code">${escapeHtml(code)}</span><button class="ghost small" type="button" data-picker-change="${slot}">Change</button></div>`;
+      }
+      if (!state.gtfs) return `<div class="hint">${state.gtfsLoading ? "Loading the timetable so you can search stops…" : "Load the timetable to search stops."}</div>`;
+      const results = p.open ? pickerMatches(kind, p.query) : [];
+      p.active = Math.min(p.active, Math.max(0, results.length - 1));
+      const list = !p.open ? "" : !p.query.trim()
+        ? `<div class="su-results"><div class="su-empty">${kind === "train" ? "Type a station name, like Henderson" : "Type a stop name or number"}</div></div>`
+        : `<div class="su-results" role="listbox">${results.length ? results.map((s, i) => `<button type="button" role="option" data-pick="${escapeHtml(s.stop_id)}" data-pick-slot="${slot}" class="${i === p.active ? "active" : ""}"><span>${escapeHtml(s.stop_name || s.stop_id)}${s.platform_code ? ` · Platform ${escapeHtml(s.platform_code)}` : ""}</span><span class="su-code">${escapeHtml(s.stop_code || s.stop_id.split("-")[0])}</span></button>`).join("") : `<div class="su-empty">No stops match “${escapeHtml(p.query)}”.</div>`}</div>`;
+      return `<div class="su-picker"><input type="search" data-picker-input="${slot}" data-picker-kind="${kind}" data-focus-key="picker-${slot}" value="${escapeHtml(p.query)}" placeholder="${escapeHtml(placeholder)}" autocomplete="off" aria-expanded="${p.open}">${list}</div>`;
+    }
+    function blockerHtml(field, blockers) {
+      const b = blockers.find(x => x.field === field);
+      return b ? `<div class="su-blocker">${escapeHtml(b.message)}</div>` : "";
+    }
+
+    // Preview from the real (background-built) board.
+    function setupDueLabel(row, cfg) {
+      if (row.status === "cancelled") return "Cancelled";
+      if (row.status === "scheduled") return timeLabel(row.scheduled, cfg.timezone);
+      const due = formatDue(row.effective, state.now.getTime(), cfg);
+      return /^\d+$/.test(due) ? due + " min" : due;
+    }
+    function renderSetupPreview() {
+      const cfg = state.config;
+      const blockers = setupBlockers(cfg);
+      if (!bundleHasSelectedStops(cfg)) {
+        const text = blockers.some(b => SLOT_FIELDS.includes(b.field)) ? "Choose your stops to see a preview."
+          : state.building ? "Building the preview…"
+          : state.gtfs ? "The preview appears in a moment."
+          : state.gtfsLoading ? "Loading the timetable…" : "The preview appears once the timetable loads.";
+        return `<div class="su-preview-empty">${text}</div>`;
+      }
+      state.now = new Date();
       let rows = [];
-      try { rows = deriveDepartures().slice(0, 2); } catch { rows = []; }
-      const body = rows.length
-        ? rows.map(r => `<div class="preview-row"><span class="pv-pill">${escapeHtml(r.routeLabel)}</span><span class="pv-dest">${escapeHtml(normalizeDestinationLabel(r.destination))}</span><span class="pv-due">${r.status === "cancelled" ? "Cancelled" : r.status === "scheduled" ? timeLabel(r.scheduled, state.config.timezone) : formatDue(r.effective, state.now.getTime(), state.config)}</span></div>`).join("")
-        : `<div class="preview-empty">No upcoming departures for the current board.</div>`;
-      return `<div class="preview"><div class="preview-title">Current board preview</div>${body}</div>`;
+      try { rows = deriveDepartures(); } catch { rows = []; }
+      const routeType = row => Number(state.bundle.routes[row.routeId]?.type);
+      const rowHtml = (r, train) => `<div class="su-prow ${train ? "train" : ""}"><span class="su-ppill" style="${chipStyle(r.routeLabel, cfg)}">${escapeHtml(r.routeLabel)}</span><span class="su-pdest">${escapeHtml(normalizeDestinationLabel(r.destination))}</span><span class="su-pdue">${setupDueLabel(r, cfg)}</span></div>`;
+      const band = (title, busRows, trainRows, trainTitle) => `<div class="su-pband"><h4>${escapeHtml(title)}</h4>${busRows.length ? busRows.map(r => rowHtml(r)).join("") : `<div class="su-preview-empty small">No upcoming departures</div>`}${trainRows ? `<div class="su-ptrain-title">${escapeHtml(trainTitle)}</div>${trainRows.length ? trainRows.map(r => rowHtml(r, true)).join("") : `<div class="su-preview-empty small">No upcoming trains</div>`}` : ""}</div>`;
+      let bands;
+      if (!cfg.dualStopMode) {
+        const ids = splitList(cfg.stopIds);
+        bands = [band(ids.length > 1 ? ids.length + " stops" : stopDisplayName(ids[0]), rows.slice(0, cfg.pageSize))];
+      } else {
+        const four = fourWayEnabled(cfg);
+        const platforms = trainPlatformIds(cfg);
+        const labels = [cfg.dualStopLeftLabel, cfg.dualStopRightLabel];
+        bands = dualStopIds(cfg).map((stopId, i) => {
+          const bus = rows.filter(r => r.stopId === stopId && (!four || routeType(r) === 3)).slice(0, four ? Math.max(3, cfg.pageSize) - 2 : cfg.pageSize);
+          const trains = four ? rows.filter(r => r.stopId === platforms[i] && routeType(r) === 2 && trainRoutesMatch(state.bundle.routes[r.routeId], i === 0 ? cfg.trainLeftRoutes : cfg.trainRightRoutes)).slice(0, 2) : null;
+          return band(String(labels[i] || "").trim() || stopDisplayName(stopId), bus, trains, cfg.trainStationLabel || stopDisplayName(platforms[i]));
+        });
+      }
+      return `<div class="su-preview ${state.building ? "building" : ""}"><div class="su-pbands" style="grid-template-columns:repeat(${bands.length},minmax(0,1fr))">${bands.join("")}</div>
+        <div class="su-pfoot"><span>${cfg.lockFirstPage ? "Stays on page 1" : "Next page every " + cfg.rotateSeconds + "s"}</span><span>${escapeHtml(clockLabel(state.now, cfg.timezone))}</span></div></div>`;
+    }
+    function setupValueLabel(key, value) {
+      if (key === "pageSize") return value + (value === 1 ? " row" : " rows");
+      if (key === "rotateSeconds") return value + " sec";
+      if (key === "relativeCutoffMinutes") return value ? value + " min away" : "never";
+      return String(value);
+    }
+    function renderSetupFooter() {
+      const blockers = setupBlockers();
+      return blockers.length
+        ? `<div class="su-footer-msg todo">Before you open the board: <button class="linkish" type="button" data-jump="${blockers[0].field}">${escapeHtml(blockers[0].message.toLowerCase())}</button>${blockers.length > 1 ? ` and ${blockers.length - 1} more` : ""}</div>`
+        : `<div class="su-footer-msg">Ready. Changes save automatically.</div>`;
+    }
+    function refreshSetupPreview() {
+      const preview = document.querySelector("[data-setup-preview]");
+      if (preview) preview.innerHTML = renderSetupPreview();
+      const footer = document.querySelector("[data-setup-footer]");
+      if (footer) { footer.innerHTML = renderSetupFooter(); wireSetupFooter(); }
+    }
+
+    function renderConnection(cfg) {
+      const mode = keyMode(cfg);
+      const keySet = Boolean(subscriptionKey(cfg));
+      const keyRequired = cfg.requireSubscriptionKey !== false;
+      const testedTripHealth = state.realtime && state.realtime.feedHealth && state.realtime.feedHealth.tripUpdates;
+      const degraded = keySet && (state.keyTest === "fail" || (testedTripHealth && !testedTripHealth.ok));
+      const live = !keySet && keyRequired ? { id: "needed", label: "Key needed" }
+        : !keySet ? { id: "limited", label: "Limited live" }
+        : degraded ? { id: "degraded", label: "Degraded" } : { id: "full", label: "Live" };
+      const keyText = { builtin: "built-in AT key", personal: keySet ? "your AT key" : "no key yet", none: "no key" }[mode];
+      const savedBoardReady = bundleHasSelectedStops(cfg);
+      const timetable = state.gtfsLoading ? `<span class="item"><b>Timetable</b><span class="loader-copy" style="font-weight:400">loading<span></span></span></span>`
+        : state.gtfs ? `<span class="item"><b>Timetable</b>${state.gtfs.stops.length.toLocaleString()} stops</span>`
+        : savedBoardReady ? `<span class="item"><b>Timetable</b>using saved board</span>`
+        : `<span class="item bad"><b>Timetable</b>not loaded</span>`;
+      const needsAttention = (keyRequired && !keySet) || state.editingKey || state.keyTest === "fail" || (mode === "personal" && state.keyTest !== "ok") || (!state.gtfs && !state.gtfsLoading && !savedBoardReady);
+      const open = state.connectOpen ?? needsAttention;
+      const keyNote = state.keyTest === "ok" ? `<span class="su-ok">&#10003; Key works${degraded ? ", but trip updates are unavailable" : ""}</span>`
+        : state.keyTest === "fail" ? `<span class="su-bad">&#10007; AT didn’t accept this key</span>`
+        : state.keyTest === "testing" ? `<span class="muted">Testing…</span>` : "";
+      const option = (value, title, detail, extra = "") => `<label class="su-radio"><input type="radio" name="keyMode" value="${value}" ${mode === value ? "checked" : ""}><span><strong>${title}</strong><br><span class="muted">${detail}</span>${mode === value ? extra : ""}</span></label>`;
+      return `<div class="su-status" data-field="connection">
+          <span class="item"><span class="su-dot ${live.id}"></span><b>${live.label}</b>${keyText}</span>
+          ${timetable}
+          <span class="su-spacer"></span>
+          <button class="linkish" type="button" data-action="toggleConnection" aria-expanded="${open}">${open ? "Hide connection" : "Connection settings"}</button>
+        </div>
+        <div class="su-connect" ${open ? "" : "hidden"}>
+          <div class="su-connect-group" data-field="key">
+            <h3>Live data</h3>
+            ${HAS_BUILTIN_KEY ? option("builtin", "Use the built-in AT key", "Full live times, alerts and how full the bus is.", `<span class="su-inline"><button class="linkish" type="button" data-action="fetchRealtime">Test connection</button> ${keyNote}</span>`) : ""}
+            ${option("personal", "Use your own key", `Free from the <a href="https://dev-portal.at.govt.nz/" target="_blank" rel="noopener">AT Developer Portal &#8599;</a>.`,
+              `<span class="su-inline"><input name="subscriptionKey" type="password" value="${escapeHtml(cfg.subscriptionKey)}" placeholder="Paste your key" data-focus-key="subscriptionKey" class="${state.keyTest === "fail" ? "key-bad" : ""}" autocomplete="off" spellcheck="false"><button class="ghost small" type="button" data-action="fetchRealtime">Test</button></span><span class="su-inline">${keyNote}</span>`)}
+            ${HAS_BUILTIN_KEY ? "" : option("none", "No key", "Some live times; the rest show the timetable. No alerts or occupancy.")}
+            ${blockerHtml("key", setupBlockers(cfg))}
+          </div>
+          <div class="su-connect-group" data-field="timetable">
+            <h3>Timetable</h3>
+            <div class="hint" style="margin:0">${state.gtfs ? "Loaded from " + escapeHtml(state.gtfs.source) + "." : "Loads automatically from the AT timetable feed."}</div>
+            <div class="su-inline"><button class="ghost small" type="button" data-action="fetchGtfs">${state.gtfs ? "Reload" : "Retry"}</button><label class="link-button" style="cursor:pointer">Upload a zip<input name="gtfsFile" type="file" accept=".zip" hidden></label></div>
+            ${blockerHtml("timetable", setupBlockers(cfg))}
+          </div>
+        </div>`;
     }
 
     function renderSetup() {
       const cfg = state.config;
-      const results = state.gtfs && state.stopSearch.trim()
-        ? state.gtfs.stops.filter(s => (s.stop_id + " " + s.stop_name + " " + (s.stop_desc || "")).toLowerCase().includes(state.stopSearch.toLowerCase())).slice(0, 30)
-        : [];
-      const stopList = splitList(cfg.stopIds);
-      const [leftStopId, rightStopId] = dualStopIds(cfg);
-      const dualReady = (!cfg.dualStopMode || Boolean(leftStopId && rightStopId)) && fourWayReady(cfg);
-      const gtfsReady = Boolean(state.gtfs);
-      const savedBoardReady = bundleHasSelectedStops(cfg);
-      const keySet = Boolean(subscriptionKey(cfg));
-      const keyRequired = cfg.requireSubscriptionKey !== false;
-      const keyUsable = keySet || !keyRequired;
-      const canGo = keyUsable && dualReady && (gtfsReady || savedBoardReady);
-      const defaultStatus = state.bundle
-        ? "Board ready — open it below, or adjust stops and rebuild."
-        : gtfsReady ? "Timetable loaded — pick your stops, then build the board."
-        : "Waiting for timetable data from the GTFS URL...";
+      state.pickers ||= {};
+      // Older saves in two-stop mode may leave the side ids blank.
+      if (cfg.dualStopMode && !slotStopId("left", cfg) && !slotStopId("right", cfg)) {
+        const [left, right] = dualStopIds(cfg);
+        cfg.dualStopLeftId = left || ""; cfg.dualStopRightId = right || "";
+      }
+      const active = document.activeElement;
+      const focusKey = state.focusNext || (active && active.dataset && active.dataset.focusKey);
+      const selection = active && typeof active.selectionStart === "number" ? [active.selectionStart, active.selectionEnd] : null;
+      state.focusNext = null;
 
-      const autoKey = HAS_BUILTIN_KEY && !String(cfg.subscriptionKey || "").trim();
-      const keyVal = subscriptionKey(cfg);
-      const keyStatePill = state.keyTest === "ok" ? "done" : state.keyTest === "fail" ? "bad" : "";
-      const keyStateLabel = state.keyTest === "ok" ? "&#10003; valid"
-        : state.keyTest === "fail" ? "&#10007; failed"
-        : state.keyTest === "testing" ? "testing…"
-        : autoKey ? "Auto" : keyVal ? "untested" : (cfg.requireSubscriptionKey !== false ? "needed" : "optional");
-      const ctaBlocked = !fourWayReady(cfg) ? "Choose both train platforms in Advanced" : !dualReady ? "Select at least two stops for dual-stop mode"
-        : (keyRequired && !keySet) ? "Enter your AT API key first"
-        : !(gtfsReady || savedBoardReady) ? "Load the timetable and rebuild for the selected stops"
-        : "";
-      const testedTripHealth = state.realtime && state.realtime.feedHealth && state.realtime.feedHealth.tripUpdates;
-      const fullLiveUnavailable = keySet && (state.keyTest === "fail" || (testedTripHealth && !testedTripHealth.ok));
-      const setupModeId = keySet ? (fullLiveUnavailable ? "degraded" : "full") : "limited";
-      const setupModeLabel = keySet ? (fullLiveUnavailable ? "Degraded until trip updates connect" : "Full live requested") : "Limited live";
-      const setupModeDetail = fullLiveUnavailable
-        ? "AT trip updates are not connected. The board will use limited stop predictions and scheduled fallbacks until they recover."
-        : keySet
-        ? "Trip updates, occupancy and service alerts will use the configured AT key. Any trip without a prediction still shows its scheduled time."
-        : "No personal key: only the limited per-stop prediction source is used. Missing predictions show fixed scheduled clock times; occupancy and alerts are unavailable.";
-      const activePresetId = matchingPresetId(cfg);
-      const activePreset = PRESETS[activePresetId];
-      const presetSummary = activePreset ? activePreset.summary : "Custom settings — choose a preset to replace timing, layout and colour defaults.";
+      const layout = setupLayout(cfg);
+      const four = layout === "fourway";
+      const blockers = setupBlockers(cfg);
+      const slotsDone = !blockers.some(b => SLOT_FIELDS.includes(b.field));
+      const colours = Array.from(parseRouteColors(cfg.routeColors).values());
+      const busStops = setupBusStopIds(cfg);
+      // Timetable progress already shows in the status line.
+      const message = state.error || (/^(Loaded [\d,]+ stops from GTFS\.|Fetching GTFS\.\.\.|Reading timetable data\.\.\.|Realtime loaded.*|Built board: .*)$/.test(state.status) ? "" : state.status);
+
+      const sideSlot = side => {
+        const Side = side[0].toUpperCase() + side.slice(1);
+        const labelKey = side === "left" ? "dualStopLeftLabel" : "dualStopRightLabel";
+        return `<div class="su-slot ${blockers.some(b => b.field === side || b.field === "train" + Side) ? "blocked" : ""}">
+          <h3>${Side} side</h3>
+          <div data-field="${side}"><label class="su-label">Bus stop</label>${pickerHtml(side, "bus", slotStopId(side, cfg), "Search stop name or number")}${blockerHtml(side, blockers)}</div>
+          <div><label class="su-label" for="su-${side}-label">Heading <span class="muted">(optional)</span></label><input id="su-${side}-label" data-cfg="${labelKey}" data-live data-focus-key="${labelKey}" value="${escapeHtml(cfg[labelKey])}" placeholder="Uses the stop name"></div>
+          ${four ? `<div class="su-train" data-field="train${Side}"><label class="su-label">Train platform</label>${pickerHtml("train" + Side, "train", cfg["train" + Side + "StopId"], "Search station or platform")}${blockerHtml("train" + Side, blockers)}
+            <div class="hint">The next two trains always show at the bottom of this side.</div>
+            ${cfg["train" + Side + "StopId"] ? `<label class="su-label" style="margin-top:.4rem">Train lines</label>${routeChipsHtml("train" + Side + "Routes", "No train lines found at this platform.")}` : ""}</div>` : ""}
+        </div>`;
+      };
+      const stopsBody = layout === "single"
+        ? `<div class="su-slot ${blockers.some(b => b.field === "main") ? "blocked" : ""}" data-field="main">
+            ${busStops.length ? `<div class="chips">${busStops.map(id => { const p = stopLabelParts(id); return `<span class="chip">${escapeHtml(p.name)}<span class="chip-id">${escapeHtml(p.code)}</span><button type="button" data-removestop="${escapeHtml(id)}" title="Remove stop" aria-label="Remove ${escapeHtml(p.name)}">&times;</button></span>`; }).join("")}</div>` : ""}
+            <div><label class="su-label">${busStops.length ? "Add another stop" : "Bus stop"}</label>${pickerHtml("main", "bus", "", "Search stop name or number")}${blockerHtml("main", blockers)}</div>
+          </div>`
+        : `<div class="su-slots">
+            ${four ? `<div class="su-station"><label class="su-label" for="su-station">Station heading <span class="muted">(optional)</span></label><input id="su-station" data-cfg="trainStationLabel" data-live data-focus-key="trainStationLabel" value="${escapeHtml(cfg.trainStationLabel)}" placeholder="Uses the platform’s stop name"></div>` : ""}
+            ${sideSlot("left")}${sideSlot("right")}
+          </div>`;
 
       const html = `
-        <main class="setup">
-          <div class="setup-header">
+        <main class="setup su">
+          <header class="su-header">
             <h1>Auckland Live Departures</h1>
-            <p>Connect once, pick your stops, open the board.</p>
-          </div>
+            <p>Pick a layout, choose your stops, open the board.</p>
+          </header>
           ${state.sharedLinkNotice ? `<p class="shared-board-notice" role="status">${escapeHtml(state.sharedLinkNotice)}</p>` : ""}
-          <div class="status-bar ${state.error ? "error" : ""}">${escapeHtml(state.error || state.status || defaultStatus)}</div>
+          ${message && message !== state.sharedLinkNotice ? `<div class="status-bar ${state.error ? "error" : ""}" role="status">${escapeHtml(message)}</div>` : ""}
+          <div class="su-grid">
+            <div class="su-form">
+              <div>${renderConnection(cfg)}</div>
 
-          <div class="connect">
-            <div class="connect-pill ${gtfsReady ? "done" : ""}" aria-busy="${state.gtfsLoading ? "true" : "false"}">
-              ${state.gtfsLoading ? `<div class="timetable-loader" role="status" aria-live="polite">
-                <div class="loader-track" aria-hidden="true"><div class="loader-bus"></div></div>
-                <div class="loader-copy">Fetching the latest timetable<span></span></div>
-              </div>` : ""}
-              <div class="pill-head">
-                <span class="pill-title">Timetable</span>
-                <span class="pill-state ${gtfsReady ? "ok" : ""}">${gtfsReady ? "&#10003; loaded" : state.bundle ? "saved board" : state.gtfsLoading ? "loading…" : "not loaded"}</span>
-              </div>
-              ${gtfsReady
-                ? `<div class="pill-sub">${state.gtfs.stops.length.toLocaleString()} stops · ${escapeHtml(state.gtfs.source)}</div>`
-                : `<div class="pill-actions">
-                     <label class="link-button" style="cursor:pointer">Upload zip<input name="gtfsFile" type="file" accept=".zip" hidden></label>
-                     <button class="ghost small" type="button" data-action="fetchGtfs">Retry</button>
-                   </div>
-                   <div class="pill-sub">Auto-loads the latest timetable from the configured GTFS URL.</div>`}
+              <section class="su-section">
+                <h2><span class="su-n done">1</span>Choose a layout</h2>
+                <div class="su-layouts" role="radiogroup" aria-label="Board layout">
+                  ${SETUP_LAYOUTS.map(l => `<button type="button" class="su-layout" role="radio" aria-checked="${layout === l.id}" data-layout="${l.id}"><span class="su-thumb ${l.id}">${l.thumb}</span><span><strong>${l.name}</strong><span class="su-desc">${l.desc}</span></span></button>`).join("")}
+                </div>
+              </section>
+
+              <section class="su-section">
+                <h2><span class="su-n ${slotsDone ? "done" : ""}">2</span>${layout === "single" ? "Choose your stops" : four ? "Choose stops and platforms" : "Choose your two stops"}<small>${slotsDone ? "Ready" : blockers.filter(b => SLOT_FIELDS.includes(b.field)).length + " to go"}</small></h2>
+                ${stopsBody}
+                ${busStops.length ? `<div class="su-routes"><label class="su-label">Bus routes</label>${routeChipsHtml("routeAllowlist", "No routes found at these stops.")}</div>` : ""}
+              </section>
+
+              <section class="su-section">
+                <h2><span class="su-n done">3</span>Look and feel<small><button class="linkish" type="button" data-restore="display">Restore defaults</button></small></h2>
+                <div class="su-look">
+                  ${[["pageSize", "Rows per page", 1, Math.max(12, cfg.pageSize), 1, four ? "Includes the two train rows." : ""], ["rotateSeconds", "Next page every", 3, Math.max(60, cfg.rotateSeconds), 1, ""], ["relativeCutoffMinutes", "Show “min” until", 0, 180, 5, "After that, show the clock time, like 14:35."]].map(([key, label, min, max, step, hint]) => `
+                    <div><label class="su-label" for="su-${key}">${label} <output data-out="${key}">${setupValueLabel(key, cfg[key])}</output></label><input type="range" id="su-${key}" data-cfg="${key}" data-focus-key="${key}" min="${min}" max="${max}" step="${step}" value="${cfg[key]}" ${key === "rotateSeconds" && cfg.lockFirstPage ? "disabled" : ""}>${hint ? `<div class="hint">${hint}</div>` : ""}</div>`).join("")}
+                </div>
+                <label class="checkbox-label plain su-check"><input type="checkbox" data-cfg="lockFirstPage" data-rerender ${cfg.lockFirstPage ? "checked" : ""}> Stay on page 1 (don’t rotate)</label>
+                <details class="su-more" ${state.expandedSections.colours ? "open" : ""} data-details="colours">
+                  <summary>Route colours <span class="muted">${colours.length} routes</span></summary>
+                  <div class="su-colours">
+                    ${colours.map((c, i) => `<div class="su-colour-row"><span class="su-ppill" style="background:${c.background};color:${c.text}">${escapeHtml(c.route)}</span>
+                      <input type="color" value="${c.background}" data-colour="${i}" data-part="background" aria-label="${escapeHtml(c.route)} background">
+                      <input type="color" value="${c.text}" data-colour="${i}" data-part="text" aria-label="${escapeHtml(c.route)} text">
+                      <span class="hint" style="margin:0">${c.background} / ${c.text}</span>
+                      <button class="ghost small su-colour-remove" type="button" data-colour-remove="${i}" aria-label="Remove ${escapeHtml(c.route)}">Remove</button></div>`).join("")}
+                  </div>
+                  <div class="su-inline"><input data-new-colour placeholder="Route, like 70" style="width:9rem"><button class="ghost small" type="button" data-action="addColour">Add route colour</button><button class="linkish" type="button" data-restore="colours">Restore default colours</button></div>
+                  <div style="margin-top:.6rem"><label class="su-label" for="su-frequent">Routes with a solid pill <span class="muted">(blank = all)</span></label><input id="su-frequent" data-cfg="frequentRoutes" data-live data-focus-key="frequentRoutes" value="${escapeHtml(cfg.frequentRoutes)}" placeholder="70, NX1, OUT"><div class="hint">Other routes without a custom colour get an outlined pill.</div></div>
+                </details>
+                <button class="ghost small su-demo" type="button" data-action="colorDemo">Preview route colours on the board</button>
+              </section>
+
+              <details class="su-section su-more-settings" ${state.expandedSections.advanced ? "open" : ""} data-details="advanced">
+                <summary><h2>More settings</h2><span class="muted">refresh, data sources, diagnostics, reset</span></summary>
+                <div class="su-adv">
+                  <div class="adv-grid">
+                    <div class="field"><label for="adv-lookahead">Look ahead</label><div class="unit-input"><input id="adv-lookahead" data-cfg="lookaheadHours" type="number" min="1" max="48" step="1" value="${cfg.lookaheadHours}"><span>hours</span></div></div>
+                    <div class="field"><label for="adv-poll">Refresh every</label><div class="unit-input"><input id="adv-poll" data-cfg="pollSeconds" type="number" min="5" max="3600" step="1" value="${cfg.pollSeconds}"><span>sec</span></div></div>
+                    <div class="field"><label for="adv-stale">Mark stale after</label><div class="unit-input"><input id="adv-stale" data-cfg="staleMultiplier" type="number" min="1" max="20" step="1" value="${cfg.staleMultiplier}"><span>missed refreshes</span></div></div>
+                  </div>
+                  <div class="adv-group">
+                    <div class="adv-head"><h3>Data sources</h3><button class="linkish" type="button" data-restore="sources">Restore defaults</button></div>
+                    <div class="field"><label for="adv-gtfs">Timetable (GTFS zip or folder URL)</label><input id="adv-gtfs" data-cfg="gtfsUrl" value="${escapeHtml(cfg.gtfsUrl)}"><div class="hint">A URL ending in / loads unpacked .txt files.</div></div>
+                    <div class="field"><label for="adv-dep">Stop predictions API</label><input id="adv-dep" data-cfg="departuresUrl" value="${escapeHtml(cfg.departuresUrl)}"></div>
+                    <div class="field"><label for="adv-rt">Trip updates (GTFS-RT)</label><input id="adv-rt" data-cfg="realtimeUrl" value="${escapeHtml(cfg.realtimeUrl)}"></div>
+                    <div class="row">
+                      <div class="field"><label for="adv-alerts">Service alerts</label><input id="adv-alerts" data-cfg="alertsUrl" value="${escapeHtml(cfg.alertsUrl)}"></div>
+                      <div class="field"><label for="adv-veh">Vehicle positions</label><input id="adv-veh" data-cfg="vehiclesUrl" value="${escapeHtml(cfg.vehiclesUrl)}"></div>
+                    </div>
+                    <div class="row">
+                      <div class="field"><label for="adv-tz">Timezone (IANA)</label><input id="adv-tz" data-cfg="timezone" value="${escapeHtml(cfg.timezone)}"></div>
+                      <div class="field"><label for="adv-stops">Stop IDs (raw)</label><input id="adv-stops" data-cfg="stopIds" data-rerender data-rebuild value="${escapeHtml(cfg.stopIds)}" spellcheck="false"></div>
+                    </div>
+                  </div>
+                  <div class="adv-group">
+                    <div class="adv-head"><h3>Diagnostics</h3><button class="ghost small" type="button" data-action="copyDiagnostics">Copy diagnostics</button></div>
+                    ${renderDiagnostics()}
+                  </div>
+                  <div class="adv-group adv-danger">
+                    <div><strong>Reset everything</strong><div class="hint">Clears your key, stops, saved board and all settings on this device.</div></div>
+                    <button class="danger small" type="button" data-action="reset">Reset…</button>
+                  </div>
+                </div>
+              </details>
             </div>
 
-            <div class="connect-pill ${keyStatePill}">
-              <div class="pill-head">
-                <span class="pill-title">${autoKey ? "AT live connection" : "Your AT API key"}${autoKey || state.keyTest === "ok" || !keyRequired ? (keyRequired ? "" : `<span class="req" style="color:var(--muted);border-color:var(--border)">optional</span>`) : `<span class="req">required</span>`}</span>
-                <span class="pill-state ${state.keyTest === "ok" ? "ok" : state.keyTest === "fail" ? "bad" : ""}">${keyStateLabel}</span>
-              </div>
-              ${autoKey && !state.editingKey
-                ? `<div class="pill-sub">Auto — using the configured AT key. <button class="linkish" type="button" data-action="fetchRealtime">Test connection</button> <button class="linkish" type="button" data-action="editKey">Use a personal key</button></div>`
-                : state.keyTest === "ok"
-                ? `<div class="pill-sub">Key accepted${fullLiveUnavailable ? "; trip updates unavailable" : ""}. <button class="linkish" type="button" data-action="editKey">Change key</button></div>`
-                : `<div class="pill-actions">
-                     <input name="subscriptionKey" type="password" value="${escapeHtml(autoKey ? "" : cfg.subscriptionKey)}" placeholder="Paste your key" class="${state.keyTest === "fail" ? "key-bad" : ""}" autocomplete="off" spellcheck="false" ${keyRequired ? `required aria-required="true"` : ""}>
-                     <button class="ghost small" type="button" data-action="fetchRealtime">Test</button>
-                     ${HAS_BUILTIN_KEY ? `<button class="ghost small" type="button" data-action="useBuiltinKey" title="Use the built-in AT key">Auto</button>` : ""}
-                   </div>
-                   <div class="pill-sub">Free from the <a href="https://dev-portal.at.govt.nz/" target="_blank" rel="noopener">AT Developer Portal &#8599;</a></div>`}
-            </div>
+            <aside class="su-aside">
+              <h2>Preview</h2>
+              <div data-setup-preview>${renderSetupPreview()}</div>
+              <p class="hint">Real departures for your stops. Updates as you change settings.</p>
+            </aside>
           </div>
-          <div class="mode-explainer"><span class="mode-dot ${setupModeId}"></span><div><strong>${setupModeLabel}</strong><br>${setupModeDetail}${!keySet && keyRequired ? " Disable the key requirement in Advanced to open in this mode." : ""}</div></div>
-          <div class="preset-bar">
-            <label for="board-preset">Preset</label>
-            <select id="board-preset" name="presetChoice">
-              <option value="" ${activePresetId ? "" : "selected"} disabled>Custom settings</option>
-              ${Object.entries(PRESETS).map(([id, preset]) => `<option value="${escapeHtml(id)}" ${activePresetId === id ? "selected" : ""}>${escapeHtml(preset.label)}</option>`).join("")}
-            </select>
-            <span class="preset-summary" data-preset-summary>${escapeHtml(presetSummary)}</span>
-          </div>
-
-          <div class="step focus">
-            <h2>Stops &amp; routes<span class="step-status">${stopList.length ? stopList.length + " stop" + (stopList.length !== 1 ? "s" : "") + " selected" : "pick at least one stop"}</span></h2>
-            ${gtfsReady
-              ? `<div class="field"><input name="stopSearch" placeholder="Search stop name or number, then click + to add…" value="${escapeHtml(state.stopSearch)}"></div>
-                 <div class="stop-results">${results.map(s => {
-                   const code = s.stop_code && s.stop_code !== s.stop_id ? "Stop " + s.stop_code : "";
-                   const meta = [code, s.stop_desc || ""].filter(Boolean).join(" · ");
-                   return `<div class="stop-item"><button class="ghost small" type="button" data-stop="${escapeHtml(s.stop_id)}">+</button><span class="name">${escapeHtml(s.stop_name || s.stop_id)}${meta ? `<span class="meta">${escapeHtml(meta)}</span>` : ""}</span><span class="id">${escapeHtml(s.stop_id)}</span></div>`;
-                 }).join("")}</div>`
-              : `<p class="hint">Load timetable data first to search stops by name.</p>`}
-            <div class="chips">${stopList.length
-              ? stopList.map(id => `<span class="chip">${escapeHtml(stopDisplayName(id))}<span class="chip-id">${escapeHtml(id)}</span><button type="button" data-removestop="${escapeHtml(id)}" title="Remove stop">&times;</button></span>`).join("")
-              : `<span class="hint">No stops selected yet.</span>`}</div>
-            <div class="field"><label class="checkbox-label"><input name="dualStopMode" type="checkbox" ${cfg.dualStopMode ? "checked" : ""}> Show two stops side by side</label><div class="hint">Each stop gets its own vertical band. Add at least two stops above, then choose which appears on each side.</div></div>
-            ${cfg.dualStopMode ? `<div class="dual-stop-settings">
-              ${[["Left", leftStopId, "dualStopLeftId", "dualStopLeftLabel", cfg.dualStopLeftLabel], ["Right", rightStopId, "dualStopRightId", "dualStopRightLabel", cfg.dualStopRightLabel]].map(([side, selectedId, idName, labelName, label]) => `<div class="field"><label>${side} stop</label><select name="${idName}">${stopList.map(id => `<option value="${escapeHtml(id)}" ${id === selectedId ? "selected" : ""}>${escapeHtml(stopDisplayName(id))} · ${escapeHtml(id.split("-")[0])}</option>`).join("")}</select><input name="${labelName}" value="${escapeHtml(label)}" placeholder="Optional direction label" aria-label="${side} direction label"><div class="hint">Blank uses the stop name.</div></div>`).join("")}
-            </div>` : ""}
-            <div class="row">
-              <div class="field"><label>Only show these routes (comma-separated, blank = all)</label><input name="routeAllowlist" value="${escapeHtml(cfg.routeAllowlist)}"></div>
-              <div class="field"><label>Frequent routes — solid cyan pill (blank = all)</label><input name="frequentRoutes" value="${escapeHtml(cfg.frequentRoutes)}"></div>
-            </div>
-            ${renderPreview()}
-          </div>
-
-          <div class="cta-row">
-            <button class="primary" data-action="go" ${canGo ? "" : "disabled"} title="${escapeHtml(ctaBlocked || "Open the board")}">${gtfsReady ? (state.bundle ? "Rebuild &amp; open board" : "Build &amp; open board") : state.bundle ? "Open board" : "Build &amp; open board"}</button>
-            ${state.bundle && gtfsReady ? `<button class="ghost" data-action="openOnly" ${keyUsable && dualReady && savedBoardReady ? "" : "disabled"} title="${escapeHtml(keyUsable && dualReady && savedBoardReady ? "Open the saved board without rebuilding" : ctaBlocked)}">Open without rebuilding</button>` : ""}
+          <div class="su-footer"><div class="su-footer-inner">
+            <div data-setup-footer>${renderSetupFooter()}</div>
             <button class="ghost" type="button" data-action="shareBoard">Share board</button>
-            <button class="ghost" type="button" data-action="colorDemo">Preview route colours</button>
-          </div>
-
-          ${collapsible("advanced", "Advanced", `
-            <div class="adv-group">
-              <div class="adv-head"><h3>Board display</h3><button class="linkish" type="button" data-restore="display">Restore defaults</button></div>
-              <div class="adv-grid">
-                <div class="field"><label for="adv-pageSize">Rows per page</label><div class="unit-input"><input id="adv-pageSize" name="pageSize" type="number" min="1" max="50" step="1" value="${cfg.pageSize}"><span>rows</span></div></div>
-                <div class="field"><label for="adv-rotate">Page rotation</label><div class="unit-input"><input id="adv-rotate" name="rotateSeconds" type="number" min="3" max="3600" step="1" value="${cfg.rotateSeconds}"><span>sec</span></div></div>
-                <div class="field"><label for="adv-lookahead">Look ahead</label><div class="unit-input"><input id="adv-lookahead" name="lookaheadHours" type="number" min="1" max="48" step="1" value="${cfg.lookaheadHours}"><span>hours</span></div></div>
-                <div class="field"><label for="adv-cutoff">Show minutes until</label><div class="unit-input"><input id="adv-cutoff" name="relativeCutoffMinutes" type="number" min="0" max="180" step="1" value="${cfg.relativeCutoffMinutes}"><span>min</span></div><div class="hint">Further out shows a clock time, e.g. 14:35.</div></div>
-              </div>
-              <label class="checkbox-label plain"><input name="lockFirstPage" type="checkbox" ${cfg.lockFirstPage ? "checked" : ""}> Lock to page 1 (never rotate)</label>
-            </div>
-
-            <div class="adv-group">
-              <div class="adv-head"><h3>Live updates</h3><button class="linkish" type="button" data-restore="live">Restore defaults</button></div>
-              <div class="adv-grid">
-                <div class="field"><label for="adv-poll">Refresh every</label><div class="unit-input"><input id="adv-poll" name="pollSeconds" type="number" min="5" max="3600" step="1" value="${cfg.pollSeconds}"><span>sec</span></div></div>
-                <div class="field"><label for="adv-stale">Mark stale after</label><div class="unit-input"><input id="adv-stale" name="staleMultiplier" type="number" min="1" max="20" step="1" value="${cfg.staleMultiplier}"><span>missed refreshes</span></div></div>
-              </div>
-              <label class="checkbox-label plain"><input name="requireSubscriptionKey" type="checkbox" ${cfg.requireSubscriptionKey !== false ? "checked" : ""}> Require an AT key before opening</label>
-              <div class="hint">Off lets the board open in Limited live: some trips get ETAs, the rest show scheduled times.</div>
-            </div>
-
-            <div class="adv-group">
-              <div class="adv-head"><h3>Four-way bus + train</h3></div>
-              ${renderFourWaySettings(cfg)}
-            </div>
-
-            <div class="adv-group">
-              <div class="adv-head"><h3>Route colours <span class="adv-count">${splitRouteColorLines(cfg.routeColors)} routes</span></h3><button class="linkish" type="button" data-restore="colours">Restore defaults</button></div>
-              <textarea name="routeColors" rows="5" spellcheck="false" aria-label="Route colours">${escapeHtml(cfg.routeColors)}</textarea>
-              <div class="hint">One per line: <code>ROUTE: #BACKGROUND / #TEXT</code>. Check them with <strong>Preview route colours</strong> above.</div>
-            </div>
-
-            <details class="adv-group adv-details">
-              <summary><h3>Data sources</h3><span class="hint">timetable, API endpoints, timezone, raw stops</span></summary>
-              <div class="adv-details-body">
-                <div class="field"><label for="adv-gtfs">Timetable (GTFS zip or folder URL)</label><input id="adv-gtfs" name="gtfsUrl" value="${escapeHtml(cfg.gtfsUrl)}"><div class="hint">A URL ending in / loads unpacked .txt files.</div></div>
-                <div class="field"><label for="adv-dep">Stop predictions API</label><input id="adv-dep" name="departuresUrl" value="${escapeHtml(cfg.departuresUrl)}"><div class="hint">Uses the built-in credential; coverage is partial.</div></div>
-                <div class="field"><label for="adv-rt">Trip updates (GTFS-RT)</label><input id="adv-rt" name="realtimeUrl" value="${escapeHtml(cfg.realtimeUrl)}"></div>
-                <div class="row">
-                  <div class="field"><label for="adv-alerts">Service alerts</label><input id="adv-alerts" name="alertsUrl" value="${escapeHtml(cfg.alertsUrl)}"></div>
-                  <div class="field"><label for="adv-veh">Vehicle positions (occupancy)</label><input id="adv-veh" name="vehiclesUrl" value="${escapeHtml(cfg.vehiclesUrl)}"></div>
-                </div>
-                <div class="row">
-                  <div class="field"><label for="adv-tz">Timezone (IANA)</label><input id="adv-tz" name="timezone" value="${escapeHtml(cfg.timezone)}"></div>
-                  <div class="field"><label for="adv-stops">Stop IDs (raw, comma-separated)</label><input id="adv-stops" name="stopIds" value="${escapeHtml(cfg.stopIds)}" spellcheck="false"></div>
-                </div>
-                <div><button class="linkish" type="button" data-restore="sources">Restore default sources</button></div>
-              </div>
-            </details>
-
-            <details class="adv-group adv-details">
-              <summary><h3>Diagnostics</h3><span class="hint">what the board is doing right now</span></summary>
-              <div class="adv-details-body">
-                ${renderDiagnostics()}
-                <div><button class="ghost small" type="button" data-action="copyDiagnostics">Copy diagnostics</button></div>
-              </div>
-            </details>
-
-            <div class="adv-group adv-danger">
-              <div><strong>Reset everything</strong><div class="hint">Clears your key, stops, saved board and all settings on this device.</div></div>
-              <button class="danger small" type="button" data-action="reset">Reset…</button>
-            </div>
-                    `, "display · live updates · colours · data sources")}
+            <button class="primary" type="button" data-action="go">Open board</button>
+          </div></div>
         </main>`;
       app.innerHTML = html;
       wireSetup();
+      if (focusKey && document.querySelector) {
+        const el = document.querySelector(`[data-focus-key="${focusKey}"]`);
+        if (el) {
+          el.focus({ preventScroll: true });
+          if (selection && el.setSelectionRange) try { el.setSelectionRange(selection[0], selection[1]); } catch {}
+        }
+      }
     }
 
-    function collapsible(id, title, body, statusText) {
-      const open = state.expandedSections[id];
-      const status = statusText ? `<span class="section-status">— ${escapeHtml(statusText)}</span>` : "";
-      return `<div class="section"><div class="section-header" data-toggle="${id}"><span>${title}${status}</span><span class="arrow ${open ? "open" : ""}">&#9654;</span></div><div class="section-body ${open ? "" : "hidden"}">${body}</div></div>`;
+    function wireSetupFooter() {
+      document.querySelector("[data-jump]")?.addEventListener("click", e => focusSetupField(e.currentTarget.dataset.jump));
     }
 
     function wireSetup() {
+      const q = s => document.querySelector(s);
+      const all = s => document.querySelectorAll ? Array.from(document.querySelectorAll(s)) : [];
       wireShareButton();
-      document.querySelectorAll("[data-toggle]").forEach(el => {
-        el.addEventListener("click", () => {
-          state.expandedSections[el.dataset.toggle] = !state.expandedSections[el.dataset.toggle];
+      wireSetupFooter();
+      q("[data-action=go]")?.addEventListener("click", openBoardFromSetup);
+      q("[data-action=toggleConnection]")?.addEventListener("click", e => {
+        state.connectOpen = e.currentTarget.getAttribute("aria-expanded") !== "true";
+        renderSetup();
+      });
+      all("[data-details]").forEach(el => el.addEventListener("toggle", () => { state.expandedSections[el.dataset.details] = el.open; }));
+      all("[data-layout]").forEach(btn => btn.addEventListener("click", () => setLayout(btn.dataset.layout)));
+
+      // Stop pickers
+      all("[data-picker-input]").forEach(input => {
+        const slot = input.dataset.pickerInput, p = state.pickers[slot];
+        input.addEventListener("focus", () => { if (!p.open) { p.open = true; renderSetup(); } });
+        input.addEventListener("input", () => { p.query = input.value; p.open = true; p.active = 0; renderSetup(); });
+        input.addEventListener("keydown", e => {
+          const results = pickerMatches(input.dataset.pickerKind, p.query);
+          if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+            e.preventDefault();
+            p.active = Math.max(0, Math.min(results.length - 1, p.active + (e.key === "ArrowDown" ? 1 : -1)));
+            renderSetup();
+          } else if (e.key === "Enter" && results[p.active]) { e.preventDefault(); chooseSlotStop(slot, results[p.active].stop_id); }
+          else if (e.key === "Escape") { p.open = false; p.query = ""; renderSetup(); }
+        });
+        input.addEventListener("blur", () => setTimeout(() => {
+          const now = document.activeElement;
+          if (p.open && !(now && now.dataset && now.dataset.pickerInput === slot)) { p.open = false; renderSetup(); }
+        }, 150));
+      });
+      all("[data-pick]").forEach(btn => btn.addEventListener("mousedown", e => { e.preventDefault(); chooseSlotStop(btn.dataset.pickSlot, btn.dataset.pick); }));
+      all("[data-picker-change]").forEach(btn => btn.addEventListener("click", () => {
+        const slot = btn.dataset.pickerChange;
+        Object.assign(state.pickers[slot], { open: true, query: "", active: 0 });
+        state.focusNext = "picker-" + slot;
+        renderSetup();
+      }));
+      all("[data-removestop]").forEach(btn => btn.addEventListener("click", () => {
+        saveConfig({ stopIds: splitList(state.config.stopIds).filter(id => id !== btn.dataset.removestop).join(", ") });
+        renderSetup();
+        scheduleAutoBuild();
+      }));
+      all("[data-route-field]").forEach(btn => btn.addEventListener("click", () => toggleRoute(btn.dataset.routeField, btn.dataset.route)));
+      all("[data-route-all]").forEach(btn => btn.addEventListener("click", () => { saveConfig({ [btn.dataset.routeAll]: "" }); renderSetup(); scheduleAutoBuild(); }));
+
+      // Settings that save themselves. data-live updates the preview while typing,
+      // data-rerender redraws the form, data-rebuild rebuilds the board.
+      all("[data-cfg]").forEach(el => {
+        const key = el.dataset.cfg;
+        const read = () => el.type === "checkbox" ? el.checked : (el.type === "range" || el.type === "number") ? Number(el.value) : el.value;
+        el.addEventListener("input", () => {
+          if (el.type === "range") {
+            state.config[key] = read();
+            const out = q(`[data-out="${key}"]`);
+            if (out) out.textContent = setupValueLabel(key, state.config[key]);
+            refreshSetupPreview();
+          } else if (el.dataset.live !== undefined) { state.config[key] = read(); refreshSetupPreview(); }
+        });
+        el.addEventListener("change", () => {
+          const patch = { [key]: key === "timezone" ? safeTimezone(read()) : read() };
+          if (key === "lockFirstPage") state.pageLocked = patch[key];
+          saveConfig(patch);
+          if (el.dataset.rerender !== undefined) renderSetup(); else refreshSetupPreview();
+          if (el.dataset.rebuild !== undefined) scheduleAutoBuild();
+        });
+      });
+
+      // Route colours
+      const colourList = () => Array.from(parseRouteColors(state.config.routeColors).values());
+      const writeColours = list => saveConfig({ routeColors: list.map(c => `${c.route}: ${c.background} / ${c.text}`).join("\n") });
+      all("[data-colour]").forEach(input => {
+        input.addEventListener("input", () => {
+          const pill = input.parentElement.querySelector(".su-ppill");
+          if (pill) pill.style[input.dataset.part === "background" ? "background" : "color"] = input.value;
+        });
+        input.addEventListener("change", () => {
+          const list = colourList();
+          list[+input.dataset.colour][input.dataset.part] = input.value.toUpperCase();
+          writeColours(list);
           renderSetup();
         });
       });
-      const q = s => document.querySelector(s);
-      const syncPresetUi = () => {
-        const id = matchingPresetId(state.config);
-        const select = q("[name=presetChoice]");
-        if (select) select.value = id;
-        const summary = q("[data-preset-summary]");
-        if (summary) summary.textContent = id ? PRESETS[id].summary : "Custom settings — choose a preset to replace timing, layout and colour defaults.";
-      };
-      const setStops = ids => {
-        readFormIntoConfig();
-        state.config.stopIds = Array.from(ids).join(", ");
-        saveConfig();
+      all("[data-colour-remove]").forEach(btn => btn.addEventListener("click", () => {
+        writeColours(colourList().filter((_, i) => i !== +btn.dataset.colourRemove));
         renderSetup();
-      };
-      q("[data-action=go]")?.addEventListener("click", () => {
-        readFormIntoConfig();
-        saveConfig();
-        if (state.gtfs) buildBundle();
-        else if (state.bundle) { saveConfig({ mode: "board" }); render(); }
+      }));
+      q("[data-action=addColour]")?.addEventListener("click", () => {
+        const route = String(q("[data-new-colour]")?.value || "").trim().toUpperCase();
+        if (!route || route.includes(":")) return;
+        const list = colourList();
+        if (!list.some(c => normLabel(c.route) === normLabel(route))) list.push({ route, background: "#62DDF4", text: "#163047" });
+        writeColours(list);
+        renderSetup();
       });
-      q("[data-action=openOnly]")?.addEventListener("click", () => { readFormIntoConfig(); saveConfig({ mode: "board" }); render(); });
       q("[data-action=colorDemo]")?.addEventListener("click", () => {
         readFormIntoConfig();
         saveConfig();
@@ -2479,6 +3000,40 @@ S-C: #D03A2E / #FFFFFF`;
         state.page = 0;
         render();
       });
+
+      // Connection
+      all("[name=keyMode]").forEach(radio => radio.addEventListener("change", () => {
+        state.keyTest = null;
+        if (radio.value === "builtin") { state.editingKey = false; saveConfig({ subscriptionKey: "", requireSubscriptionKey: true }); }
+        else if (radio.value === "personal") { state.editingKey = true; state.focusNext = "subscriptionKey"; saveConfig({ requireSubscriptionKey: true }); }
+        else { state.editingKey = false; saveConfig({ subscriptionKey: "", requireSubscriptionKey: false }); }
+        renderSetup();
+      }));
+      q("[name=subscriptionKey]")?.addEventListener("input", e => {
+        state.config.subscriptionKey = e.target.value;
+        state.keyTest = null;
+        e.target.classList.remove("key-bad");
+        refreshSetupPreview();
+      });
+      q("[name=subscriptionKey]")?.addEventListener("change", () => saveConfig());
+      all("[data-action=fetchRealtime]").forEach(btn => btn.addEventListener("click", () => {
+        readFormIntoConfig();
+        saveConfig();
+        state.keyTest = "testing";
+        const testedConfig = JSON.stringify(state.config);
+        renderSetup();
+        refreshRealtime().then(() => {
+          if (JSON.stringify(state.config) !== testedConfig || state.colorDemo) return;
+          // Judge the user's key by its own feeds, not by whether every feed (incl. AT's
+          // flaky alerts/vehicles endpoints) came back clean.
+          state.keyTest = state.subKeyOk ? "ok" : "fail";
+          if (state.config.mode === "setup") renderSetup();
+        });
+      }));
+      q("[data-action=fetchGtfs]")?.addEventListener("click", () => { readFormIntoConfig(); saveConfig(); fetchGtfs(); });
+      q("[name=gtfsFile]")?.addEventListener("change", e => { readFormIntoConfig(); saveConfig(); uploadGtfs(e.target.files[0]); });
+
+      // More settings
       q("[data-action=reset]")?.addEventListener("click", e => {
         // Two-step confirm (no browser dialog): first click arms, second click within 4s resets.
         const btn = e.currentTarget;
@@ -2487,9 +3042,8 @@ S-C: #D03A2E / #FFFFFF`;
         btn.textContent = "Click again to erase everything";
         setTimeout(() => { if (btn.isConnected) { btn.classList.remove("confirming"); btn.textContent = "Reset…"; } }, 4000);
       });
-      document.querySelectorAll("[data-restore]").forEach(btn => btn.addEventListener("click", () => {
+      all("[data-restore]").forEach(btn => btn.addEventListener("click", () => {
         const keys = ADVANCED_GROUPS[btn.dataset.restore] || [];
-        readFormIntoConfig();
         const patch = {};
         keys.forEach(k => { patch[k] = DEFAULT_CONFIG[k]; });
         saveConfig(patch);
@@ -2505,105 +3059,26 @@ S-C: #D03A2E / #FFFFFF`;
         try { navigator.clipboard.writeText(text).then(() => done(true), () => done(false)); } catch { done(false); }
       });
 
-      q("[data-action=fetchGtfs]")?.addEventListener("click", () => { readFormIntoConfig(); saveConfig(); fetchGtfs(); });
-      q("[name=presetChoice]")?.addEventListener("change", e => applyPreset(e.target.value));
-      q("[data-action=editKey]")?.addEventListener("click", () => { state.editingKey = true; state.keyTest = null; renderSetup(); });
-      q("[data-action=useBuiltinKey]")?.addEventListener("click", () => {
-        state.config.subscriptionKey = ""; state.editingKey = false; state.keyTest = null; saveConfig(); renderSetup();
-        q("[data-action=fetchRealtime]")?.click();
-      });
-      q("[data-action=fetchRealtime]")?.addEventListener("click", () => {
-        readFormIntoConfig();
-        saveConfig();
-        state.keyTest = "testing";
-        renderSetup();
-        refreshRealtime().then(() => {
-          // Judge the user's key by its own feeds, not by whether every feed (incl. AT's
-          // flaky alerts/vehicles endpoints) came back clean.
-          state.keyTest = state.subKeyOk ? "ok" : "fail";
-          renderSetup();
-        });
-      });
-      q("[name=subscriptionKey]")?.addEventListener("input", e => {
-        state.config.subscriptionKey = e.target.value;
-        state.keyTest = null;
-        e.target.classList.remove("key-bad");
-        const enabled = (Boolean(subscriptionKey(state.config)) || state.config.requireSubscriptionKey === false)
-          && fourWayReady() && (!state.config.dualStopMode || dualStopIds().every(Boolean));
-        const go = q("[data-action=go]"); if (go) go.disabled = !enabled || !(state.gtfs || bundleHasSelectedStops());
-        const openOnly = q("[data-action=openOnly]"); if (openOnly) openOnly.disabled = !enabled || !bundleHasSelectedStops();
-      });
-      document.querySelectorAll("[name=pollSeconds], [name=pageSize], [name=rotateSeconds], [name=lookaheadHours], [name=frequentRoutes]").forEach(el => {
-        el.addEventListener("input", () => { readFormIntoConfig(); syncPresetUi(); });
-      });
-      q("[name=requireSubscriptionKey]")?.addEventListener("change", () => { readFormIntoConfig(); saveConfig(); renderSetup(); });
-      q("[name=fourWayMode]")?.addEventListener("change", () => { readFormIntoConfig(); saveConfig(); renderSetup(); });
-      document.querySelectorAll("[name=trainLeftStopId], [name=trainRightStopId]").forEach(el => {
-        el.addEventListener("change", () => { readFormIntoConfig(); saveConfig(); renderSetup(); });
-      });
-      q("[name=dualStopMode]")?.addEventListener("change", () => { readFormIntoConfig(); saveConfig(); renderSetup(); });
-      document.querySelectorAll("[name=dualStopLeftId], [name=dualStopRightId]").forEach(el => {
-        el.addEventListener("change", () => { readFormIntoConfig(); saveConfig(); renderSetup(); });
-      });
-      q("[name=gtfsFile]")?.addEventListener("change", e => { readFormIntoConfig(); saveConfig(); uploadGtfs(e.target.files[0]); });
-      q("[name=stopSearch]")?.addEventListener("input", e => {
-        state.stopSearch = e.target.value;
-        renderSetup();
-        const el = document.querySelector("[name=stopSearch]");
-        if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); }
-      });
-      document.querySelectorAll("[data-stop]").forEach(btn => btn.addEventListener("click", () => {
-        const ids = new Set(splitList(state.config.stopIds));
-        ids.add(btn.dataset.stop);
-        setStops(ids);
-      }));
-      document.querySelectorAll("[data-removestop]").forEach(btn => btn.addEventListener("click", () => {
-        const ids = new Set(splitList(state.config.stopIds));
-        ids.delete(btn.dataset.removestop);
-        setStops(ids);
-      }));
-      // Fields save themselves — no separate "Save Settings" button.
-      document.querySelectorAll(".setup input[name]:not([name=gtfsFile]):not([name=stopSearch]), .setup textarea[name]").forEach(el => {
-        el.addEventListener("change", () => { readFormIntoConfig(); saveConfig(); syncPresetUi(); });
-      });
+      // Ask for route lists for the chosen stops up front, and build once per stop set when
+      // the saved board doesn't cover them (e.g. right after the timetable loads).
+      if (state.gtfs) {
+        loadStopRoutes([...setupBusStopIds(), ...(fourWayEnabled() ? trainPlatformIds() : [])]);
+        const buildKey = boardStopIds().join("|");
+        if (!state.building && !bundleHasSelectedStops() && state.autoBuiltFor !== buildKey) { state.autoBuiltFor = buildKey; scheduleAutoBuild(); }
+      }
     }
 
+    // Fields save themselves on change; this catches a value still being typed (like the
+    // key) before something else reads the config.
     function readFormIntoConfig() {
-      const get = n => { const el = document.querySelector(`[name="${n}"]`); return el ? el.value : undefined; };
-      const cfg = state.config;
-      const v = n => get(n);
-      if (v("timezone") !== undefined) cfg.timezone = safeTimezone(v("timezone"));
-      if (v("gtfsUrl") !== undefined) cfg.gtfsUrl = v("gtfsUrl");
-      if (v("realtimeUrl") !== undefined) cfg.realtimeUrl = v("realtimeUrl");
-      if (v("alertsUrl") !== undefined) cfg.alertsUrl = v("alertsUrl");
-      if (v("vehiclesUrl") !== undefined) cfg.vehiclesUrl = v("vehiclesUrl");
-      if (v("departuresUrl") !== undefined) cfg.departuresUrl = v("departuresUrl");
-      if (v("frequentRoutes") !== undefined) cfg.frequentRoutes = v("frequentRoutes");
-      const dualModeEl = document.querySelector('[name="dualStopMode"]');
-      if (dualModeEl) cfg.dualStopMode = dualModeEl.checked;
-      if (v("dualStopLeftId") !== undefined) cfg.dualStopLeftId = v("dualStopLeftId");
-      if (v("dualStopRightId") !== undefined) cfg.dualStopRightId = v("dualStopRightId");
-      if (v("dualStopLeftLabel") !== undefined) cfg.dualStopLeftLabel = v("dualStopLeftLabel");
-      if (v("dualStopRightLabel") !== undefined) cfg.dualStopRightLabel = v("dualStopRightLabel");
-      const fourWayEl = document.querySelector('[name="fourWayMode"]');
-      if (fourWayEl) cfg.fourWayMode = fourWayEl.checked;
-      for (const name of ["trainStationLabel", "trainLeftStopId", "trainRightStopId", "trainLeftRoutes", "trainRightRoutes"]) {
-        if (v(name) !== undefined) cfg[name] = v(name).trim();
-      }
-      if (v("routeColors") !== undefined) cfg.routeColors = v("routeColors");
-      if (v("subscriptionKey") !== undefined) cfg.subscriptionKey = v("subscriptionKey");
-      if (v("pollSeconds") !== undefined) cfg.pollSeconds = clampNumber(v("pollSeconds"), DEFAULT_CONFIG.pollSeconds, 5, 3600);
-      if (v("pageSize") !== undefined) cfg.pageSize = Math.round(clampNumber(v("pageSize"), DEFAULT_CONFIG.pageSize, 1, 50));
-      if (v("rotateSeconds") !== undefined) cfg.rotateSeconds = clampNumber(v("rotateSeconds"), DEFAULT_CONFIG.rotateSeconds, 3, 3600);
-      const lockEl = document.querySelector('[name="lockFirstPage"]');
-      if (lockEl) { cfg.lockFirstPage = lockEl.checked; state.pageLocked = lockEl.checked; }
-      const reqKeyEl = document.querySelector('[name="requireSubscriptionKey"]');
-      if (reqKeyEl) cfg.requireSubscriptionKey = reqKeyEl.checked;
-      if (v("lookaheadHours") !== undefined) cfg.lookaheadHours = clampNumber(v("lookaheadHours"), DEFAULT_CONFIG.lookaheadHours, 1, 48);
-      if (v("relativeCutoffMinutes") !== undefined) cfg.relativeCutoffMinutes = clampNumber(v("relativeCutoffMinutes"), 20, 0, 180);
-      if (v("staleMultiplier") !== undefined) cfg.staleMultiplier = clampNumber(v("staleMultiplier"), 2, 1, 20);
-      if (v("routeAllowlist") !== undefined) cfg.routeAllowlist = v("routeAllowlist");
-      if (v("stopIds") !== undefined) cfg.stopIds = v("stopIds");
+      if (!document.querySelectorAll) return;
+      document.querySelectorAll(".setup [data-cfg]").forEach(el => {
+        const key = el.dataset.cfg;
+        state.config[key] = el.type === "checkbox" ? el.checked : (el.type === "range" || el.type === "number") ? Number(el.value) : el.value;
+      });
+      const keyInput = document.querySelector('.setup [name="subscriptionKey"]');
+      if (keyInput) state.config.subscriptionKey = keyInput.value;
+      sanitizeConfig(state.config);
     }
 
     // True when AT is publishing live predictions for our stops but none of them matched
@@ -2836,7 +3311,10 @@ S-C: #D03A2E / #FFFFFF`;
       if (Date.now() - builtAt < BUNDLE_MAX_AGE_MS) return;
       bundleRefreshAttempted = true;
       console.info("[bundle] saved board is " + Math.round((Date.now() - builtAt) / 86400000) + " days old - refreshing from GTFS zip");
-      if (await fetchGtfs({ quiet: true })) buildBundle();
+      if (await fetchGtfs({ quiet: true })) {
+        await buildBundle({ open: false });
+        if (state.config.mode === "board" && !state.colorDemo) render();
+      }
       else console.warn("[bundle] automatic refresh failed - keeping the old board");
     }
 

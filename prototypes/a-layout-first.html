@@ -1,0 +1,278 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Option A · Layout first</title>
+  <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="proto.css">
+  <style>
+    .page { max-width: 1180px; margin: 0 auto; padding: .9rem .9rem 6rem; display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 1.2rem; align-items: start; }
+    header { grid-column: 1 / -1; }
+    header h1 { font-size: 1.3rem; }
+    header p { color: var(--muted); }
+    .form { display: grid; gap: 1rem; }
+    .section { border: 1px solid var(--border); border-radius: var(--radius); padding: .8rem .9rem; background: rgba(255,255,255,.015); }
+    .section > h2 { font-size: .95rem; margin-bottom: .6rem; display: flex; gap: .5rem; align-items: baseline; }
+    .section > h2 .n { display: inline-grid; place-items: center; width: 1.35rem; height: 1.35rem; border-radius: 50%; background: var(--surface3); font-size: .75rem; flex: none; }
+    .section > h2 .n.done { background: var(--accent); color: var(--accent-text); }
+    .section > h2 small { color: var(--muted); font-weight: 400; font-size: .8rem; margin-left: auto; }
+
+    .layouts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .6rem; }
+    .layout-card { background: var(--surface); border: 2px solid var(--border); border-radius: var(--radius); padding: .55rem; text-align: left; color: var(--text); font-weight: 400; display: grid; gap: .45rem; }
+    .layout-card[aria-checked=true] { border-color: var(--accent); background: rgba(98,221,244,.08); }
+    .layout-card strong { font-size: .88rem; }
+    .layout-card .desc { font-size: .76rem; color: var(--muted); line-height: 1.35; }
+    .thumb { height: 3.6rem; border-radius: 4px; background: #0d1729; display: grid; gap: 3px; padding: 4px; }
+    .thumb i { background: var(--surface3); border-radius: 2px; display: block; }
+    .thumb i.t { background: var(--accent); opacity: .55; }
+    .thumb .col { display: grid; gap: 3px; grid-template-rows: 1fr .45fr; }
+
+    .slots { display: grid; gap: .8rem; grid-template-columns: repeat(var(--cols, 1), minmax(0, 1fr)); }
+    .slot { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: .65rem; display: grid; gap: .55rem; align-content: start; }
+    .slot.blocked { border-color: var(--warn); }
+    .slot h3 { font-size: .82rem; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+    .slot .train-part { border-top: 1px dashed var(--border); padding-top: .55rem; display: grid; gap: .55rem; }
+    .station-field { grid-column: 1 / -1; }
+
+    .look { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: .8rem; }
+    .slider-field output { float: right; font-weight: 700; color: var(--text); }
+    details.more { border-top: 1px solid var(--border); margin-top: .8rem; padding-top: .6rem; }
+    details.more summary { cursor: pointer; font-weight: 600; font-size: .85rem; }
+    details.more[open] summary { margin-bottom: .6rem; }
+
+    .connect-panel { display: grid; gap: .55rem; margin-top: .55rem; padding: .7rem; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); }
+    .radio { display: flex; gap: .55rem; align-items: flex-start; padding: .45rem .55rem; border: 1px solid var(--border); border-radius: var(--radius); cursor: pointer; font-size: .85rem; color: var(--text); font-weight: 400; margin: 0; }
+    .radio input { width: auto; margin-top: .25rem; accent-color: var(--accent); }
+    .radio:has(input:checked) { border-color: var(--accent); background: rgba(98,221,244,.06); }
+
+    aside { position: sticky; top: .9rem; display: grid; gap: .5rem; }
+    aside h2 { font-size: .85rem; color: var(--muted); font-weight: 600; }
+
+    .footer { position: fixed; left: 0; right: 0; bottom: 0; background: var(--surface); border-top: 1px solid var(--border); padding: .6rem .9rem; z-index: 30; }
+    .footer-inner { max-width: 1180px; margin: 0 auto; display: flex; gap: .7rem; align-items: center; flex-wrap: wrap; }
+    .footer .todo { color: var(--warn); font-size: .85rem; flex: 1; }
+    .footer .todo button { color: var(--warn); }
+    .footer .ready { color: var(--accent); font-size: .85rem; flex: 1; }
+
+    @media (max-width: 900px) {
+      .page { grid-template-columns: 1fr; }
+      header { order: -2; }
+      aside { position: static; order: -1; }
+    }
+    @media (max-width: 620px) {
+      .layouts { grid-template-columns: 1fr; }
+      .layout-card { grid-template-columns: 5rem 1fr; align-items: center; }
+      .slots { --cols: 1 !important; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header>
+      <h1>Auckland Live Departures</h1>
+      <p>Pick a layout, choose your stops, open the board.</p>
+    </header>
+
+    <div class="form">
+      <div>
+        <div class="status-line" id="status"></div>
+        <div id="connect"></div>
+      </div>
+
+      <section class="section">
+        <h2><span class="n done">1</span>Choose a layout</h2>
+        <div class="layouts" role="radiogroup" aria-label="Board layout" id="layouts"></div>
+      </section>
+
+      <section class="section">
+        <h2><span class="n" id="n2">2</span><span id="slots-title">Choose your stop</span><small id="slots-sub"></small></h2>
+        <div id="slots"></div>
+      </section>
+
+      <section class="section">
+        <h2><span class="n done">3</span>Look and feel<small><button class="linkish" type="button" id="restore-look">Restore defaults</button></small></h2>
+        <div class="look">
+          <div class="slider-field"><label for="rows">Rows per page <output id="rows-out"></output></label><input type="range" id="rows" min="1" max="10" step="1"></div>
+          <div class="slider-field"><label for="rotate">Next page every <output id="rotate-out"></output></label><input type="range" id="rotate" min="3" max="30" step="1"></div>
+          <div class="slider-field"><label for="cutoff">Show “min” until <output id="cutoff-out"></output></label><input type="range" id="cutoff" min="0" max="120" step="5"><div class="hint">After that, show the clock time, like 14:35.</div></div>
+        </div>
+        <label class="radio" style="margin-top:.6rem;display:inline-flex"><input type="checkbox" id="lock"> Stay on page 1 (don’t rotate)</label>
+        <details class="more">
+          <summary>Route colours</summary>
+          <div id="colours"></div>
+        </details>
+        <details class="more">
+          <summary>More settings</summary>
+          <div class="look">
+            <div><label for="lookahead">Look ahead</label><div class="unit-input"><input id="lookahead" type="number" min="1" max="48" value="2"><span>hours</span></div></div>
+            <div><label for="poll">Refresh every</label><div class="unit-input"><input id="poll" type="number" min="5" max="3600" value="10"><span>sec</span></div></div>
+            <div><label for="stale">Mark stale after</label><div class="unit-input"><input id="stale" type="number" min="1" max="20" value="2"><span>missed refreshes</span></div></div>
+          </div>
+          <p class="hint" style="margin-top:.6rem">Data source URLs, timezone, diagnostics and reset would live here too.</p>
+        </details>
+      </section>
+    </div>
+
+    <aside>
+      <h2>Preview</h2>
+      <div id="preview"></div>
+      <p class="hint">Sample departures. Updates as you change settings.</p>
+    </aside>
+  </div>
+
+  <div class="footer"><div class="footer-inner">
+    <div id="footer-msg"></div>
+    <button class="ghost" type="button" onclick="alert('Prototype: would copy a share link')">Share board</button>
+    <button class="primary" type="button" id="open">Open board</button>
+  </div></div>
+
+  <script src="proto.js"></script>
+  <script>
+    protoBanner("a-layout-first.html");
+    const cfg = defaultProtoConfig();
+    let connectOpen = false;
+
+    const LAYOUTS = [
+      { id: "single", name: "Single stop", desc: "One list of departures.", thumb: `<div class="thumb"><i></i></div>` },
+      { id: "dual", name: "Two stops", desc: "Side by side, e.g. both directions.", thumb: `<div class="thumb" style="grid-template-columns:1fr 1fr"><i></i><i></i></div>` },
+      { id: "fourway", name: "Buses and trains", desc: "Two stops, each with a train platform underneath.", thumb: `<div class="thumb" style="grid-template-columns:1fr 1fr"><div class="col"><i></i><i class="t"></i></div><div class="col"><i></i><i class="t"></i></div></div>` }
+    ];
+
+    function renderLayouts() {
+      const host = document.getElementById("layouts");
+      host.innerHTML = LAYOUTS.map(l => `<button type="button" class="layout-card" role="radio" aria-checked="${cfg.layout === l.id}" data-l="${l.id}">${l.thumb}<div><strong>${l.name}</strong><div class="desc">${l.desc}</div></div></button>`).join("");
+      host.querySelectorAll("[data-l]").forEach(b => b.onclick = () => {
+        // Carry the stop you already picked into the new layout's first slot.
+        if (cfg.layout === "single" && b.dataset.l !== "single" && !cfg.left.stopId) cfg.left = Object.assign({}, cfg.main);
+        if (cfg.layout !== "single" && b.dataset.l === "single" && cfg.left.stopId) cfg.main = Object.assign({}, cfg.left);
+        cfg.layout = b.dataset.l;
+        renderLayouts(); renderSlots(); update();
+      });
+    }
+
+    function slotHtml(key, title, withTrain) {
+      return `<div class="slot" data-slot="${key}"><h3>${title}</h3>
+        <div><label>Bus stop</label><div data-picker="${key}"></div><div data-block="${key}"></div></div>
+        <div><label>Heading <span class="muted" style="font-weight:400">(optional)</span></label><input data-label="${key}" placeholder="Uses the stop name" value="${escapeHtml(cfg[key].label)}"></div>
+        <div><label>Routes</label><div data-routes="${key}"></div></div>
+        ${withTrain ? `<div class="train-part"><div><label>Train platform</label><div data-tpicker="${key}"></div><div data-block="train${key[0].toUpperCase() + key.slice(1)}"></div><div class="hint">The next two trains always show at the bottom of this side.</div></div>
+          <div><label>Train lines</label><div data-troutes="${key}"></div></div></div>` : ""}
+      </div>`;
+    }
+
+    function renderSlots() {
+      const host = document.getElementById("slots");
+      const four = cfg.layout === "fourway";
+      document.getElementById("slots-title").textContent = cfg.layout === "single" ? "Choose your stop" : four ? "Choose stops and platforms" : "Choose your two stops";
+      if (cfg.layout === "single") {
+        host.innerHTML = `<div class="slots">${slotHtml("main", "Stop", false)}</div>`;
+      } else {
+        host.innerHTML = `<div class="slots" style="--cols:2">
+          ${four ? `<div class="station-field"><label>Station heading <span class="muted" style="font-weight:400">(optional)</span></label><input id="station" placeholder="Uses the platform’s stop name" value="${escapeHtml(cfg.stationLabel)}"></div>` : ""}
+          ${slotHtml("left", "Left side", four)}${slotHtml("right", "Right side", four)}</div>`;
+        document.getElementById("station")?.addEventListener("input", e => { cfg.stationLabel = e.target.value; });
+      }
+      host.querySelectorAll("[data-picker]").forEach(el => {
+        const key = el.dataset.picker;
+        stopPicker(el, { source: STOPS, value: cfg[key].stopId, onChange: id => { cfg[key].stopId = id; cfg[key].routes = []; renderSlots(); update(); } });
+      });
+      host.querySelectorAll("[data-tpicker]").forEach(el => {
+        const key = el.dataset.tpicker;
+        stopPicker(el, { source: PLATFORMS, value: cfg.trains[key].stopId, placeholder: "Search station or platform", onChange: id => { cfg.trains[key].stopId = id; cfg.trains[key].routes = []; renderSlots(); update(); } });
+      });
+      host.querySelectorAll("[data-label]").forEach(el => el.oninput = () => { cfg[el.dataset.label].label = el.value; update(); });
+      renderChips();
+    }
+
+    function renderChips() {
+      document.querySelectorAll("[data-routes]").forEach(el => {
+        const key = el.dataset.routes;
+        routeChips(el, cfg[key].stopId, cfg[key].routes, cfg.colours, next => { cfg[key].routes = next; renderChips(); update(); });
+      });
+      document.querySelectorAll("[data-troutes]").forEach(el => {
+        const key = el.dataset.troutes;
+        routeChips(el, cfg.trains[key].stopId, cfg.trains[key].routes, cfg.colours, next => { cfg.trains[key].routes = next; renderChips(); update(); });
+      });
+    }
+
+    function renderStatus() {
+      const limited = cfg.keyMode === "none";
+      const keyText = { builtin: "Built-in AT key", personal: "Your AT key", none: "No key, limited live" }[cfg.keyMode];
+      document.getElementById("status").innerHTML = `
+        <span class="item"><span class="dot ${limited ? "limited" : ""}"></span><b>${limited ? "Limited live" : "Live"}</b>${keyText}</span>
+        <span class="item"><b>Timetable</b>loaded · 6,412 stops</span>
+        <span class="spacer"></span>
+        <button class="linkish" type="button" id="toggle-connect">${connectOpen ? "Hide connection" : "Connection settings"}</button>`;
+      document.getElementById("toggle-connect").onclick = () => { connectOpen = !connectOpen; renderStatus(); };
+      const panel = document.getElementById("connect");
+      if (!connectOpen) { panel.innerHTML = ""; return; }
+      panel.innerHTML = `<div class="connect-panel">
+        <label class="radio"><input type="radio" name="key" value="builtin" ${cfg.keyMode === "builtin" ? "checked" : ""}><span><strong>Use the built-in AT key</strong><br><span class="muted">Full live times, alerts and how full the bus is.</span></span></label>
+        <label class="radio"><input type="radio" name="key" value="personal" ${cfg.keyMode === "personal" ? "checked" : ""}><span><strong>Use your own key</strong><br><span class="muted">Free from the <a href="https://dev-portal.at.govt.nz/" target="_blank" rel="noopener">AT Developer Portal</a>.</span>
+          ${cfg.keyMode === "personal" ? `<span style="display:flex;gap:.4rem;margin-top:.4rem"><input type="password" placeholder="Paste your key"><button class="ghost small" type="button">Test</button></span>` : ""}</span></label>
+        <label class="radio"><input type="radio" name="key" value="none" ${cfg.keyMode === "none" ? "checked" : ""}><span><strong>No key</strong><br><span class="muted">Some live times; the rest show the timetable. No alerts.</span></span></label>
+        <div class="hint">Timetable: AT GTFS (auto-updates daily) · <button class="linkish" type="button">Upload a zip instead</button></div>
+      </div>`;
+      panel.querySelectorAll("[name=key]").forEach(r => r.onchange = () => { cfg.keyMode = r.value; renderStatus(); });
+    }
+
+    function bindLook() {
+      const bind = (id, key, fmt) => {
+        const el = document.getElementById(id), out = document.getElementById(id + "-out");
+        el.value = cfg[key]; out.textContent = fmt(cfg[key]);
+        el.oninput = () => { cfg[key] = Number(el.value); out.textContent = fmt(cfg[key]); update(); };
+      };
+      bind("rows", "pageSize", v => v + (v === 1 ? " row" : " rows"));
+      bind("rotate", "rotateSeconds", v => v + " sec");
+      bind("cutoff", "cutoff", v => v ? v + " min away" : "never");
+      const lock = document.getElementById("lock");
+      lock.checked = cfg.lockFirstPage;
+      lock.onchange = () => { cfg.lockFirstPage = lock.checked; document.getElementById("rotate").disabled = lock.checked; };
+      document.getElementById("restore-look").onclick = () => {
+        Object.assign(cfg, { pageSize: 5, rotateSeconds: 5, cutoff: 60, lockFirstPage: false });
+        bindLook(); update();
+      };
+    }
+
+    function renderColours() {
+      colourEditor(document.getElementById("colours"), cfg.colours, next => { cfg.colours = next; renderColours(); renderChips(); update(); });
+    }
+
+    function update() {
+      renderMiniBoard(document.getElementById("preview"), cfg);
+      const blockers = blockersFor(cfg);
+      document.querySelectorAll("[data-block]").forEach(el => {
+        const b = blockers.find(x => x.field === el.dataset.block);
+        el.innerHTML = b ? `<div class="blocker">${b.message}</div>` : "";
+      });
+      document.querySelectorAll(".slot").forEach(s => {
+        const k = s.dataset.slot, tk = "train" + k[0].toUpperCase() + k.slice(1);
+        s.classList.toggle("blocked", blockers.some(b => b.field === k || b.field === tk));
+      });
+      document.getElementById("n2").classList.toggle("done", !blockers.length);
+      document.getElementById("slots-sub").textContent = blockers.length ? blockers.length + " to go" : "Ready";
+      const msg = document.getElementById("footer-msg");
+      msg.className = blockers.length ? "todo" : "ready";
+      msg.innerHTML = blockers.length
+        ? `Before you open the board: <button class="linkish" type="button" id="jump">${blockers[0].message.toLowerCase()}</button>${blockers.length > 1 ? ` and ${blockers.length - 1} more` : ""}`
+        : "Ready to go. Changes save automatically.";
+      document.getElementById("jump")?.addEventListener("click", () => {
+        const f = blockers[0].field;
+        const sel = f.startsWith("train") ? `[data-tpicker="${f[5].toLowerCase() + f.slice(6)}"]` : `[data-picker="${f}"]`;
+        const target = document.querySelector(sel);
+        target?.scrollIntoView({ behavior: "smooth", block: "center" });
+        setTimeout(() => target?.querySelector("input")?.focus(), 300);
+      });
+    }
+
+    document.getElementById("open").onclick = () => {
+      const blockers = blockersFor(cfg);
+      if (blockers.length) document.getElementById("jump")?.click();
+      else alert("Prototype: the board would open here. No separate build step.");
+    };
+
+    renderStatus(); renderLayouts(); renderSlots(); bindLook(); renderColours(); update();
+  </script>
+</body>
+</html>

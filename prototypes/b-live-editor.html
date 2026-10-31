@@ -1,0 +1,253 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Option B · Live editor</title>
+  <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="proto.css">
+  <style>
+    body { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+    .toolbar { display: flex; align-items: center; gap: .7rem; padding: .55rem .8rem; border-bottom: 1px solid var(--border); background: var(--surface); flex-wrap: wrap; }
+    .toolbar h1 { font-size: 1rem; margin-right: .4rem; }
+    .seg { display: inline-flex; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+    .seg button { border-radius: 0; background: transparent; color: var(--muted); padding: .35rem .7rem; font-size: .82rem; }
+    .seg button + button { border-left: 1px solid var(--border); }
+    .seg button[aria-pressed=true] { background: var(--accent); color: var(--accent-text); }
+    .toolbar .spacer { flex: 1; }
+    .toolbar .hintline { font-size: .8rem; color: var(--muted); }
+    .toolbar .hintline.todo { color: var(--warn); }
+
+    .workspace { flex: 1; display: flex; min-height: 0; }
+    .stage { flex: 1; padding: 1rem; overflow: auto; display: flex; flex-direction: column; gap: .6rem; }
+    .stage-caption { font-size: .8rem; color: var(--muted); text-align: center; }
+
+    /* Board at roughly real proportions */
+    .board { background: #0d1729; border-radius: 10px; border: 1px solid var(--border); display: flex; flex-direction: column; aspect-ratio: 16 / 9; max-height: calc(100vh - 9rem); width: 100%; margin: 0 auto; overflow: hidden; }
+    .board .bands { flex: 1; display: grid; gap: 2px; background: var(--border); min-height: 0; }
+    .band { background: #0d1729; padding: clamp(.4rem, 1.4vw, 1rem); position: relative; display: flex; flex-direction: column; min-height: 0; cursor: pointer; outline: 2px solid transparent; outline-offset: -4px; transition: outline-color .15s; }
+    .band:hover, .band:focus-visible { outline-color: rgba(98,221,244,.6); }
+    .band.selected { outline-color: var(--accent); }
+    .band .edit-tag { position: absolute; top: .4rem; right: .4rem; font-size: .72rem; background: var(--accent); color: var(--accent-text); border-radius: 4px; padding: .05rem .4rem; font-weight: 700; opacity: 0; transition: opacity .15s; }
+    .band:hover .edit-tag, .band.selected .edit-tag { opacity: 1; }
+    .band h2 { font-size: clamp(.8rem, 1.6vw, 1.3rem); color: var(--muted); margin-bottom: .4em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-right: 3rem; }
+    .brow { display: flex; align-items: center; gap: .7em; padding: .28em 0; border-bottom: 1px solid rgba(255,255,255,.06); font-size: clamp(.8rem, 1.7vw, 1.45rem); }
+    .brow .pill { min-width: 3.2em; text-align: center; border-radius: 5px; font-weight: 800; padding: 0 .3em; cursor: pointer; }
+    .brow .pill:hover { outline: 2px dashed var(--text); outline-offset: 2px; }
+    .brow .dest { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 600; }
+    .brow .due { font-weight: 800; font-variant-numeric: tabular-nums; }
+    .train-zone { margin-top: auto; border-top: 2px solid var(--border); padding-top: .3em; }
+    .train-zone .brow { background: rgba(98,221,244,.06); }
+    .placeholder { flex: 1; display: grid; place-items: center; border: 2px dashed var(--border); border-radius: 8px; color: var(--muted); font-size: clamp(.85rem, 1.6vw, 1.2rem); text-align: center; padding: 1rem; }
+    .placeholder.small { flex: none; padding: .5em; font-size: clamp(.75rem, 1.3vw, 1rem); }
+    .board-foot { display: flex; justify-content: space-between; background: #f4f7fa; color: #142033; font-weight: 700; padding: .3em .8em; font-size: clamp(.7rem, 1.2vw, 1rem); }
+
+    /* Inspector panel: shows the band you clicked, or board settings */
+    .inspector { width: 340px; border-left: 1px solid var(--border); background: var(--surface); overflow-y: auto; padding: .9rem; display: grid; gap: .9rem; align-content: start; }
+    .inspector h2 { font-size: .95rem; display: flex; align-items: center; gap: .5rem; }
+    .inspector h2 button { margin-left: auto; }
+    .inspector .group { display: grid; gap: .55rem; padding-bottom: .9rem; border-bottom: 1px solid var(--border); }
+    .inspector .group:last-child { border-bottom: 0; }
+    .inspector h3 { font-size: .78rem; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+    .slider-field output { float: right; font-weight: 700; color: var(--text); }
+    .conn { display: flex; gap: .5rem; align-items: center; font-size: .85rem; }
+    .conn .dot { width: .55rem; height: .55rem; border-radius: 50%; background: var(--accent); }
+    .conn .dot.limited { background: var(--warn); }
+    .crumbs { font-size: .78rem; color: var(--muted); }
+    .crumbs button { font-size: .78rem; }
+
+    @media (max-width: 860px) {
+      body { height: auto; overflow: auto; }
+      .workspace { flex-direction: column; }
+      .inspector { width: auto; border-left: 0; border-top: 1px solid var(--border); }
+      .board { aspect-ratio: auto; min-height: 18rem; max-height: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="toolbar">
+    <h1>Auckland Live Departures</h1>
+    <div class="seg" role="group" aria-label="Layout" id="layout-seg"></div>
+    <span class="spacer"></span>
+    <span class="hintline" id="hintline"></span>
+    <button class="ghost" type="button" onclick="alert('Prototype: would copy a share link')">Share</button>
+    <button class="primary" type="button" id="open">Go full screen</button>
+  </div>
+  <div class="workspace">
+    <div class="stage">
+      <div class="board" id="board"></div>
+      <div class="stage-caption">Click a side of the board to choose its stop. Click a route pill to change its colour.</div>
+    </div>
+    <div class="inspector" id="inspector"></div>
+  </div>
+
+  <script src="proto.js"></script>
+  <script>
+    protoBanner("b-live-editor.html");
+    const cfg = defaultProtoConfig();
+    cfg.layout = "dual";
+    // What the inspector is showing: "board", a band key, or "colour:<route>".
+    let selection = "board";
+
+    const BAND_KEYS = () => cfg.layout === "single" ? ["main"] : ["left", "right"];
+    const SIDE_NAME = { main: "Stop", left: "Left side", right: "Right side" };
+
+    function renderSeg() {
+      const host = document.getElementById("layout-seg");
+      host.innerHTML = [["single", "Single"], ["dual", "Two stops"], ["fourway", "Buses and trains"]]
+        .map(([id, t]) => `<button type="button" data-l="${id}" aria-pressed="${cfg.layout === id}">${t}</button>`).join("");
+      host.querySelectorAll("[data-l]").forEach(b => b.onclick = () => {
+        if (cfg.layout === "single" && b.dataset.l !== "single") cfg.left = Object.assign({}, cfg.main);
+        if (cfg.layout !== "single" && b.dataset.l === "single") cfg.main = Object.assign({}, cfg.left);
+        cfg.layout = b.dataset.l;
+        if (!BAND_KEYS().includes(selection) && !selection.startsWith("colour:")) selection = "board";
+        renderAll();
+        // Point at whatever the new layout still needs.
+        const missing = BAND_KEYS().find(k => !cfg[k].stopId || (cfg.layout === "fourway" && !cfg.trains[k].stopId));
+        if (missing) { selection = missing; renderAll(); }
+      });
+    }
+
+    function renderBoard() {
+      const host = document.getElementById("board");
+      const four = cfg.layout === "fourway";
+      const size = Math.max(1, Math.min(10, cfg.pageSize));
+      const row = (r, train) => `<div class="brow"><span class="pill" data-pill="${r.route}" title="Change ${r.route} colour" style="${pillStyle(r.route, cfg.colours)}">${r.route}</span><span class="dest">${escapeHtml(r.dest)}</span><span class="due">${formatDue(r.mins, cfg.cutoff)}</span></div>`;
+      const bands = BAND_KEYS().map(k => {
+        const slot = cfg[k];
+        const title = slot.label || stopTitle(stopById(slot.stopId));
+        const rows = slot.stopId ? departuresFor(slot.stopId, slot.routes, four ? Math.max(1, size - 2) : size) : [];
+        const t = cfg.trains[k];
+        const trains = four && t.stopId ? departuresFor(t.stopId, t.routes, 2) : [];
+        return `<div class="band ${selection === k ? "selected" : ""}" data-band="${k}" tabindex="0" role="button" aria-label="Edit ${SIDE_NAME[k]}">
+          <span class="edit-tag">Edit</span>
+          ${slot.stopId ? `<h2>${escapeHtml(title)}</h2>${rows.length ? rows.map(r => row(r)).join("") : `<div class="placeholder small">All routes hidden</div>`}`
+            : `<div class="placeholder">+ Choose ${cfg.layout === "single" ? "a stop" : "the " + SIDE_NAME[k].toLowerCase() + " stop"}</div>`}
+          ${four ? `<div class="train-zone">${t.stopId ? trains.map(r => row(r, true)).join("") : `<div class="placeholder small">+ Choose a train platform</div>`}</div>` : ""}
+        </div>`;
+      });
+      host.innerHTML = `<div class="bands" style="grid-template-columns:repeat(${bands.length},minmax(0,1fr))">${bands.join("")}</div>
+        <div class="board-foot"><span>${cfg.lockFirstPage ? "Page 1" : `Page 1 of 2 · next page in ${cfg.rotateSeconds}s`}</span><span>${new Date().toLocaleTimeString("en-NZ", { hour: "2-digit", minute: "2-digit", hour12: false })}</span></div>`;
+      host.querySelectorAll("[data-band]").forEach(el => {
+        el.onclick = e => { if (e.target.closest("[data-pill]")) return; selection = el.dataset.band; renderAll(); };
+        el.onkeydown = e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); selection = el.dataset.band; renderAll(); } };
+      });
+      host.querySelectorAll("[data-pill]").forEach(el => el.onclick = () => {
+        const r = el.dataset.pill;
+        if (!cfg.colours[r]) cfg.colours[r] = FALLBACK_PILL.slice();
+        selection = "colour:" + r; renderAll();
+      });
+    }
+
+    function renderInspector() {
+      const host = document.getElementById("inspector");
+      if (selection.startsWith("colour:")) return renderColourInspector(host, selection.slice(7));
+      if (selection !== "board") return renderBandInspector(host, selection);
+      const limited = cfg.keyMode === "none";
+      host.innerHTML = `
+        <h2>Board settings</h2>
+        <div class="group">
+          <h3>Display</h3>
+          <div class="slider-field"><label for="rows">Rows per page <output>${cfg.pageSize}</output></label><input type="range" id="rows" min="1" max="10" step="1" value="${cfg.pageSize}"></div>
+          <div class="slider-field"><label for="rotate">Next page every <output>${cfg.rotateSeconds} sec</output></label><input type="range" id="rotate" min="3" max="30" step="1" value="${cfg.rotateSeconds}" ${cfg.lockFirstPage ? "disabled" : ""}></div>
+          <label style="display:flex;gap:.4rem;align-items:center;color:var(--text);font-weight:400"><input type="checkbox" id="lock" style="width:auto" ${cfg.lockFirstPage ? "checked" : ""}> Stay on page 1</label>
+          <div class="slider-field"><label for="cutoff">Show “min” until <output>${cfg.cutoff ? cfg.cutoff + " min" : "never"}</output></label><input type="range" id="cutoff" min="0" max="120" step="5" value="${cfg.cutoff}"></div>
+        </div>
+        <div class="group">
+          <h3>Connection</h3>
+          <div class="conn"><span class="dot ${limited ? "limited" : ""}"></span><strong>${limited ? "Limited live" : "Live"}</strong><span class="muted">· timetable loaded</span></div>
+          <select id="key">
+            <option value="builtin" ${cfg.keyMode === "builtin" ? "selected" : ""}>Built-in AT key</option>
+            <option value="personal" ${cfg.keyMode === "personal" ? "selected" : ""}>My own AT key</option>
+            <option value="none" ${cfg.keyMode === "none" ? "selected" : ""}>No key (limited live)</option>
+          </select>
+          ${cfg.keyMode === "personal" ? `<div style="display:flex;gap:.4rem"><input type="password" placeholder="Paste your key"><button class="ghost small" type="button">Test</button></div>` : ""}
+          <div class="hint">${limited ? "Some live times; the rest show the timetable. No alerts." : "Full live times, alerts and how full the bus is."}</div>
+        </div>
+        <div class="group">
+          <h3>Route colours</h3>
+          <div class="hint" style="margin:0">Click any route pill on the board to change its colour.</div>
+          <button class="ghost small" type="button" id="all-colours" style="justify-self:start">Edit all ${Object.keys(cfg.colours).length} colours</button>
+        </div>
+        <div class="group">
+          <h3>Advanced</h3>
+          <div class="hint" style="margin:0">Refresh rate, look-ahead, data source URLs, diagnostics and reset.</div>
+          <button class="ghost small" type="button" style="justify-self:start" onclick="alert('Prototype: would expand advanced settings')">Show advanced</button>
+        </div>`;
+      const live = (id, key, fmt) => {
+        const el = host.querySelector("#" + id);
+        el.oninput = () => { cfg[key] = Number(el.value); el.previousElementSibling.querySelector("output").textContent = fmt(cfg[key]); renderBoard(); };
+      };
+      live("rows", "pageSize", v => v);
+      live("rotate", "rotateSeconds", v => v + " sec");
+      live("cutoff", "cutoff", v => v ? v + " min" : "never");
+      host.querySelector("#lock").onchange = e => { cfg.lockFirstPage = e.target.checked; renderAll(); };
+      host.querySelector("#key").onchange = e => { cfg.keyMode = e.target.value; renderInspector(); };
+      host.querySelector("#all-colours").onclick = () => { selection = "colour:*"; renderAll(); };
+    }
+
+    function renderBandInspector(host, key) {
+      const four = cfg.layout === "fourway";
+      host.innerHTML = `
+        <div class="crumbs"><button class="linkish" type="button" data-back>Board settings</button> / ${SIDE_NAME[key]}</div>
+        <h2>${SIDE_NAME[key]}</h2>
+        <div class="group">
+          <h3>Bus stop</h3>
+          <div data-picker></div>
+          <div><label>Heading <span class="muted" style="font-weight:400">(optional)</span></label><input data-label placeholder="Uses the stop name" value="${escapeHtml(cfg[key].label)}"></div>
+          <div><label>Routes</label><div data-routes></div></div>
+        </div>
+        ${four ? `<div class="group"><h3>Train platform</h3><div data-tpicker></div><div class="hint">The next two trains always show at the bottom.</div><div><label>Train lines</label><div data-troutes></div></div></div>` : ""}
+        ${BAND_KEYS().length > 1 ? `<button class="ghost small" type="button" data-next style="justify-self:start">Edit ${key === "left" ? "right" : "left"} side →</button>` : ""}`;
+      host.querySelector("[data-back]").onclick = () => { selection = "board"; renderAll(); };
+      host.querySelector("[data-next]")?.addEventListener("click", () => { selection = key === "left" ? "right" : "left"; renderAll(); });
+      stopPicker(host.querySelector("[data-picker]"), { source: STOPS, value: cfg[key].stopId, onChange: id => { cfg[key].stopId = id; cfg[key].routes = []; renderAll(); } });
+      if (four) stopPicker(host.querySelector("[data-tpicker]"), { source: PLATFORMS, value: cfg.trains[key].stopId, placeholder: "Search station or platform", onChange: id => { cfg.trains[key].stopId = id; cfg.trains[key].routes = []; renderAll(); } });
+      host.querySelector("[data-label]").oninput = e => { cfg[key].label = e.target.value; renderBoard(); };
+      const chips = () => {
+        routeChips(host.querySelector("[data-routes]"), cfg[key].stopId, cfg[key].routes, cfg.colours, n => { cfg[key].routes = n; chips(); renderBoard(); });
+        if (four) routeChips(host.querySelector("[data-troutes]"), cfg.trains[key].stopId, cfg.trains[key].routes, cfg.colours, n => { cfg.trains[key].routes = n; chips(); renderBoard(); });
+      };
+      chips();
+      if (!cfg[key].stopId) setTimeout(() => host.querySelector("[data-picker] input")?.focus(), 0);
+    }
+
+    function renderColourInspector(host, route) {
+      host.innerHTML = `<div class="crumbs"><button class="linkish" type="button" data-back>Board settings</button> / Route colours</div>
+        <h2>${route === "*" ? "Route colours" : "Route " + escapeHtml(route)}</h2>
+        <div data-colours></div>`;
+      host.querySelector("[data-back]").onclick = () => { selection = "board"; renderAll(); };
+      const draw = () => {
+        const subset = route === "*" ? cfg.colours : { [route]: cfg.colours[route] };
+        colourEditor(host.querySelector("[data-colours]"), subset, next => {
+          if (route === "*") cfg.colours = next;
+          else if (next[route]) cfg.colours[route] = next[route];
+          else { delete cfg.colours[route]; selection = "board"; return renderAll(); }
+          draw(); renderBoard();
+        });
+        if (route !== "*") host.querySelector("[data-add]").parentElement.remove();
+      };
+      draw();
+    }
+
+    function renderHint() {
+      const blockers = blockersFor(cfg);
+      const el = document.getElementById("hintline");
+      el.className = "hintline" + (blockers.length ? " todo" : "");
+      el.textContent = blockers.length ? blockers[0].message + (blockers.length > 1 ? ` (+${blockers.length - 1} more)` : "") : "Saved automatically";
+    }
+
+    function renderAll() { renderSeg(); renderBoard(); renderInspector(); renderHint(); }
+
+    document.getElementById("open").onclick = () => {
+      const blockers = blockersFor(cfg);
+      if (!blockers.length) return alert("Prototype: the editor chrome would hide and the board goes full screen. The gear button brings this view back.");
+      const f = blockers[0].field;
+      selection = f.startsWith("train") ? f[5].toLowerCase() + f.slice(6) : f;
+      renderAll();
+    };
+
+    renderAll();
+  </script>
+</body>
+</html>
