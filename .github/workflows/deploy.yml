@@ -26,6 +26,7 @@ jobs:
           node tests/four-way.cjs
           node tests/share-board.cjs
           node tests/edge-cases.cjs
+          node tests/auto-key.cjs
       - name: Inject AT key from secret
         env:
           AT_API_KEY: ${{ secrets.AT_API_KEY }}

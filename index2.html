@@ -1016,6 +1016,10 @@ S-C: #D03A2E / #FFFFFF`;
     // Filled in at deploy time from the AT_API_KEY GitHub secret (see .github/workflows/deploy.yml).
     const BUILTIN_AT_KEY = "__AT_API_KEY__";
     const HAS_BUILTIN_KEY = !BUILTIN_AT_KEY.startsWith("__");
+    function subscriptionKey(cfg) {
+      const personal = String(cfg.subscriptionKey || "").trim();
+      return personal || (HAS_BUILTIN_KEY && !isMotat() ? BUILTIN_AT_KEY : "");
+    }
     const DEFAULT_CONFIG = {
       timezone: "Pacific/Auckland",
       gtfsUrl: DEFAULT_GTFS_URL,
@@ -1556,6 +1560,8 @@ S-C: #D03A2E / #FFFFFF`;
       } catch { return DEFAULT_CONFIG.timezone; }
     }
     function sanitizeConfig(cfg) {
+      // Migrate keys copied into settings by the old Auto button.
+      if (HAS_BUILTIN_KEY && cfg.subscriptionKey === BUILTIN_AT_KEY) cfg.subscriptionKey = "";
       // Saved browser data can be valid JSON with invalid field types.
       for (const [key, fallback] of Object.entries(DEFAULT_CONFIG)) {
         if (typeof fallback === "string" && typeof cfg[key] !== "string") cfg[key] = fallback;
@@ -2024,10 +2030,10 @@ S-C: #D03A2E / #FFFFFF`;
       if (isMotat()) return motatRefresh();
       const requestId = ++realtimeRequestSeq;
       const cfg = state.config;
-      const key = String(cfg.subscriptionKey || "").trim();
+      const key = subscriptionKey(cfg);
       const depKey = String(cfg.departuresKey || "").trim() || DEPARTURES_KEY || key;
-      // Did the feeds that authenticate with the USER's subscription key work? null = not
-      // tested this run. Drives the setup "Test" verdict, so it validates their key
+      // Did the feeds that authenticate with the selected subscription key work? null = not
+      // tested this run. Drives the setup "Test" verdict, so it validates that key
       // specifically (the departures API uses a different embedded key and always works).
       state.subKeyOk = null;
       state.refreshing = true;
@@ -2317,7 +2323,7 @@ S-C: #D03A2E / #FFFFFF`;
     function operatingMode(rows = [], nowMs = Date.now()) {
       if (isMotat()) return motatOperatingMode(rows, nowMs);
       const cfg = state.config;
-      const keySet = Boolean(String(cfg.subscriptionKey || "").trim());
+      const keySet = Boolean(subscriptionKey(cfg));
       const fresh = realtimeFresh(state.realtime, cfg, nowMs);
       const health = state.realtime && state.realtime.feedHealth || {};
       const tripUpdatesOk = Boolean(
@@ -2338,10 +2344,10 @@ S-C: #D03A2E / #FFFFFF`;
         return { id: "degraded", label: "Degraded", coverage, detail: "The latest refresh failed. Recently cached predictions remain visible until they become stale, then the board switches to scheduled times." };
       }
       if (keySet && tripUpdatesOk) {
-        return { id: "full", label: "Full live", coverage, detail: "Personal-key trip updates are connected; unmatched trips still fall back to the timetable." };
+        return { id: "full", label: "Full live", coverage, detail: "AT trip updates are connected; unmatched trips still fall back to the timetable." };
       }
       if (keySet) {
-        return { id: "degraded", label: "Degraded", coverage, detail: "A personal key is configured, but trip updates are unavailable. Using limited stop predictions and timetable fallbacks." };
+        return { id: "degraded", label: "Degraded", coverage, detail: "An AT key is configured, but trip updates are unavailable. Using limited stop predictions and timetable fallbacks." };
       }
       return { id: "limited", label: "Limited live", coverage, detail: "No personal key: only AT stop predictions are live; unmatched trips use scheduled times." };
     }
@@ -2371,7 +2377,7 @@ S-C: #D03A2E / #FFFFFF`;
             // survive long enough for its live prediction to be applied. Rows actually
             // gone are dropped below by the effectiveMs check.
             if (!Number.isFinite(scheduled) || scheduled < nowMs - 3600000 || scheduled > maxMs) continue;
-            const personalKeySet = Boolean(String(cfg.subscriptionKey || "").trim());
+            const personalKeySet = Boolean(subscriptionKey(cfg));
             let rtTrip = personalKeySet && rt && rt.trips && rt.trips[st.tripId];
             // A realtime update for another service date (same trip_id runs daily) says
             // nothing about this row — ignore it but keep the scheduled departure.
@@ -2465,7 +2471,7 @@ S-C: #D03A2E / #FFFFFF`;
 
     function boardAlerts() {
       if (isMotat()) return [];
-      if (!state.bundle || !state.realtime || !String(state.config.subscriptionKey || "").trim()) return [];
+      if (!state.bundle || !state.realtime || !subscriptionKey(state.config)) return [];
       const stops = new Set(boardStopIds());
       const routes = new Set(Object.keys(state.bundle.routes));
       return (state.realtime.alerts || []).filter(a => (a.stopIds || []).some(s => stops.has(s)) || (a.routeIds || []).some(r => routes.has(r)));
@@ -2620,7 +2626,7 @@ S-C: #D03A2E / #FFFFFF`;
       const dualReady = (!cfg.dualStopMode || Boolean(leftStopId && rightStopId)) && fourWayReady(cfg);
       const gtfsReady = Boolean(state.gtfs);
       const savedBoardReady = bundleHasSelectedStops(cfg);
-      const keySet = Boolean(String(cfg.subscriptionKey || "").trim());
+      const keySet = Boolean(subscriptionKey(cfg));
       const keyRequired = cfg.requireSubscriptionKey !== false;
       const keyUsable = keySet || !keyRequired;
       const canGo = keyUsable && dualReady && (gtfsReady || savedBoardReady);
@@ -2629,12 +2635,13 @@ S-C: #D03A2E / #FFFFFF`;
         : gtfsReady ? "Timetable loaded — pick your stops, then build the board."
         : "Waiting for timetable data from the GTFS URL...";
 
-      const keyVal = String(cfg.subscriptionKey || "").trim();
+      const autoKey = HAS_BUILTIN_KEY && !String(cfg.subscriptionKey || "").trim();
+      const keyVal = subscriptionKey(cfg);
       const keyStatePill = state.keyTest === "ok" ? "done" : state.keyTest === "fail" ? "bad" : "";
       const keyStateLabel = state.keyTest === "ok" ? "&#10003; valid"
         : state.keyTest === "fail" ? "&#10007; failed"
         : state.keyTest === "testing" ? "testing…"
-        : keyVal ? "untested" : (cfg.requireSubscriptionKey !== false ? "needed" : "optional");
+        : autoKey ? "Auto" : keyVal ? "untested" : (cfg.requireSubscriptionKey !== false ? "needed" : "optional");
       const ctaBlocked = !fourWayReady(cfg) ? "Choose both train platforms in Advanced" : !dualReady ? "Select at least two stops for dual-stop mode"
         : (keyRequired && !keySet) ? "Enter your AT API key first"
         : !(gtfsReady || savedBoardReady) ? "Load the timetable and rebuild for the selected stops"
@@ -2644,9 +2651,9 @@ S-C: #D03A2E / #FFFFFF`;
       const setupModeId = keySet ? (fullLiveUnavailable ? "degraded" : "full") : "limited";
       const setupModeLabel = keySet ? (fullLiveUnavailable ? "Degraded until trip updates connect" : "Full live requested") : "Limited live";
       const setupModeDetail = fullLiveUnavailable
-        ? "Your personal-key trip updates are not connected. The board will use limited stop predictions and scheduled fallbacks until they recover."
+        ? "AT trip updates are not connected. The board will use limited stop predictions and scheduled fallbacks until they recover."
         : keySet
-        ? "Trip updates, occupancy and service alerts will use your personal key. Any trip without a prediction still shows its scheduled time."
+        ? "Trip updates, occupancy and service alerts will use the configured AT key. Any trip without a prediction still shows its scheduled time."
         : "No personal key: only the limited per-stop prediction source is used. Missing predictions show fixed scheduled clock times; occupancy and alerts are unavailable.";
       const activePresetId = matchingPresetId(cfg);
       const activePreset = PRESETS[activePresetId];
@@ -2682,13 +2689,15 @@ S-C: #D03A2E / #FFFFFF`;
 
             <div class="connect-pill ${keyStatePill}">
               <div class="pill-head">
-                <span class="pill-title">Your AT API key${state.keyTest === "ok" || !keyRequired ? (keyRequired ? "" : `<span class="req" style="color:var(--muted);border-color:var(--border)">optional</span>`) : `<span class="req">required</span>`}</span>
+                <span class="pill-title">${autoKey ? "AT live connection" : "Your AT API key"}${autoKey || state.keyTest === "ok" || !keyRequired ? (keyRequired ? "" : `<span class="req" style="color:var(--muted);border-color:var(--border)">optional</span>`) : `<span class="req">required</span>`}</span>
                 <span class="pill-state ${state.keyTest === "ok" ? "ok" : state.keyTest === "fail" ? "bad" : ""}">${keyStateLabel}</span>
               </div>
-              ${state.keyTest === "ok"
+              ${autoKey && !state.editingKey
+                ? `<div class="pill-sub">Auto — using the configured AT key. <button class="linkish" type="button" data-action="fetchRealtime">Test connection</button> <button class="linkish" type="button" data-action="editKey">Use a personal key</button></div>`
+                : state.keyTest === "ok"
                 ? `<div class="pill-sub">Key accepted${fullLiveUnavailable ? "; trip updates unavailable" : ""}. <button class="linkish" type="button" data-action="editKey">Change key</button></div>`
                 : `<div class="pill-actions">
-                     <input name="subscriptionKey" type="text" value="${escapeHtml(cfg.subscriptionKey)}" placeholder="Paste your key" class="${state.keyTest === "fail" ? "key-bad" : ""}" autocomplete="off" spellcheck="false" ${keyRequired ? `required aria-required="true"` : ""}>
+                     <input name="subscriptionKey" type="password" value="${escapeHtml(autoKey ? "" : cfg.subscriptionKey)}" placeholder="Paste your key" class="${state.keyTest === "fail" ? "key-bad" : ""}" autocomplete="off" spellcheck="false" ${keyRequired ? `required aria-required="true"` : ""}>
                      <button class="ghost small" type="button" data-action="fetchRealtime">Test</button>
                      ${HAS_BUILTIN_KEY ? `<button class="ghost small" type="button" data-action="useBuiltinKey" title="Use the built-in AT key">Auto</button>` : ""}
                    </div>
@@ -2755,7 +2764,7 @@ S-C: #D03A2E / #FFFFFF`;
                 <div class="field"><label for="adv-poll">Refresh every</label><div class="unit-input"><input id="adv-poll" name="pollSeconds" type="number" min="5" max="3600" step="1" value="${cfg.pollSeconds}"><span>sec</span></div></div>
                 <div class="field"><label for="adv-stale">Mark stale after</label><div class="unit-input"><input id="adv-stale" name="staleMultiplier" type="number" min="1" max="20" step="1" value="${cfg.staleMultiplier}"><span>missed refreshes</span></div></div>
               </div>
-              <label class="checkbox-label plain"><input name="requireSubscriptionKey" type="checkbox" ${cfg.requireSubscriptionKey !== false ? "checked" : ""}> Require a personal AT key before opening</label>
+              <label class="checkbox-label plain"><input name="requireSubscriptionKey" type="checkbox" ${cfg.requireSubscriptionKey !== false ? "checked" : ""}> Require an AT key before opening</label>
               <div class="hint">Off lets the board open in Limited live: some trips get ETAs, the rest show scheduled times.</div>
             </div>
 
@@ -2984,9 +2993,9 @@ S-C: #D03A2E / #FFFFFF`;
 
       q("[data-action=fetchGtfs]")?.addEventListener("click", () => { readFormIntoConfig(); saveConfig(); fetchGtfs(); });
       q("[name=presetChoice]")?.addEventListener("change", e => applyPreset(e.target.value));
-      q("[data-action=editKey]")?.addEventListener("click", () => { state.keyTest = null; renderSetup(); });
+      q("[data-action=editKey]")?.addEventListener("click", () => { state.editingKey = true; state.keyTest = null; renderSetup(); });
       q("[data-action=useBuiltinKey]")?.addEventListener("click", () => {
-        state.config.subscriptionKey = BUILTIN_AT_KEY; state.keyTest = null; saveConfig(); renderSetup();
+        state.config.subscriptionKey = ""; state.editingKey = false; state.keyTest = null; saveConfig(); renderSetup();
         q("[data-action=fetchRealtime]")?.click();
       });
       q("[data-action=fetchRealtime]")?.addEventListener("click", () => {
@@ -3005,7 +3014,7 @@ S-C: #D03A2E / #FFFFFF`;
         state.config.subscriptionKey = e.target.value;
         state.keyTest = null;
         e.target.classList.remove("key-bad");
-        const enabled = (Boolean(e.target.value.trim()) || state.config.requireSubscriptionKey === false)
+        const enabled = (Boolean(subscriptionKey(state.config)) || state.config.requireSubscriptionKey === false)
           && fourWayReady() && (!state.config.dualStopMode || dualStopIds().every(Boolean));
         const go = q("[data-action=go]"); if (go) go.disabled = !enabled || !(state.gtfs || bundleHasSelectedStops());
         const openOnly = q("[data-action=openOnly]"); if (openOnly) openOnly.disabled = !enabled || !bundleHasSelectedStops();
@@ -3186,7 +3195,7 @@ S-C: #D03A2E / #FFFFFF`;
         pageLabel = pages.length > 1 ? " " + (state.page + 1) + "/" + pages.length : "";
         boardContent = pageRows.length ? renderTable(pageRows, cfg) : `<div class="empty-state"><div><strong>No departures</strong><br><span>Nothing scheduled in the next ${cfg.lookaheadHours}h.</span></div></div>`;
       }
-      const hasRT = Boolean(cfg.departuresUrl || (String(cfg.subscriptionKey || "").trim() && (cfg.realtimeUrl || cfg.alertsUrl)));
+      const hasRT = Boolean(cfg.departuresUrl || (subscriptionKey(cfg) && (cfg.realtimeUrl || cfg.alertsUrl)));
       const stale = isMotat() ? !motatFresh(Date.now()) : hasRT && !realtimeFresh(state.realtime, cfg, Date.now());
       const mode = operatingMode(pageRows);
       const alerts = Array.from(new Set(boardAlerts().map(a => a.header)));
@@ -3345,7 +3354,7 @@ S-C: #D03A2E / #FFFFFF`;
         timers.push(setInterval(() => { state.page++; renderColorDemo(); }, Math.max(3, state.config.rotateSeconds) * 1000));
         return;
       }
-      const keySet = Boolean(String(state.config.subscriptionKey || "").trim());
+      const keySet = Boolean(subscriptionKey(state.config));
       const keyOk = keySet || state.config.requireSubscriptionKey === false || isMotat();
       if (state.config.mode === "board" && bundleHasSelectedStops() && keyOk && fourWayReady() && (!state.config.dualStopMode || dualStopIds().every(Boolean))) { renderBoard(); startRuntime(); if (!isMotat()) maybeRebuildStaleBundle(); }
       else { state.config.mode = "setup"; renderSetup(); if (!isMotat()) autoLoadGtfs(); else autoTestMotat(); }
