@@ -1445,6 +1445,7 @@ S-C: #D03A2E / #FFFFFF`;
       expandedSections: { advanced: false }
     };
     let timers = [];
+    let clockTimer = null;
     let realtimeRequestSeq = 0;
     let bundleBuildSeq = 0;
     let gtfsLoadSeq = 0;
@@ -1494,7 +1495,7 @@ S-C: #D03A2E / #FFFFFF`;
       try { localStorage.setItem(STORE_KEY + ":" + name, JSON.stringify(value)); }
       catch { state.status = "Storage unavailable — settings will not persist."; }
     }
-    function clearTimers() { timers.forEach(clearInterval); timers = []; }
+    function clearTimers() { timers.forEach(clearInterval); timers = []; clearTimeout(clockTimer); }
     function splitList(text) {
       return String(text || "").split(/[,\n]/).map(v => v.trim()).filter(Boolean);
     }
@@ -2237,8 +2238,17 @@ S-C: #D03A2E / #FFFFFF`;
       const weekday = new Date(Date.UTC(+dateKey.slice(0,4), +dateKey.slice(4,6)-1, +dateKey.slice(6,8))).getUTCDay();
       return ["sunday","monday","tuesday","wednesday","thursday","friday","saturday"].map(d => String(c[d])==="1")[weekday];
     }
+    // Constructing an Intl.DateTimeFormat loads time zone data and is slow (badly so on weak
+    // ChromeOS hardware), and the board formats thousands of times per redraw: reuse them.
+    const dateFormats = new Map();
+    function dtf(locale, options) {
+      const key = locale + JSON.stringify(options);
+      let f = dateFormats.get(key);
+      if (!f) dateFormats.set(key, f = new Intl.DateTimeFormat(locale, options));
+      return f;
+    }
     function dateKeyFor(date, tz) {
-      const p = new Intl.DateTimeFormat("en-CA", { timeZone: tz, year:"numeric", month:"2-digit", day:"2-digit" }).formatToParts(date).reduce((a,x) => (x.type !== "literal" && (a[x.type]=x.value), a), {});
+      const p = dtf("en-CA", { timeZone: tz, year:"numeric", month:"2-digit", day:"2-digit" }).formatToParts(date).reduce((a,x) => (x.type !== "literal" && (a[x.type]=x.value), a), {});
       return p.year + p.month + p.day;
     }
     function shiftDateKey(key, days) {
@@ -2246,7 +2256,7 @@ S-C: #D03A2E / #FFFFFF`;
       return String(d.getUTCFullYear()).padStart(4,"0") + String(d.getUTCMonth()+1).padStart(2,"0") + String(d.getUTCDate()).padStart(2,"0");
     }
     function offsetMs(date, tz) {
-      const p = new Intl.DateTimeFormat("en-CA", { timeZone: tz, year:"numeric", month:"2-digit", day:"2-digit", hour:"2-digit", minute:"2-digit", second:"2-digit", hourCycle:"h23" }).formatToParts(date).reduce((a,x) => (x.type !== "literal" && (a[x.type]=x.value), a), {});
+      const p = dtf("en-CA", { timeZone: tz, year:"numeric", month:"2-digit", day:"2-digit", hour:"2-digit", minute:"2-digit", second:"2-digit", hourCycle:"h23" }).formatToParts(date).reduce((a,x) => (x.type !== "literal" && (a[x.type]=x.value), a), {});
       return Date.UTC(+p.year, +p.month-1, +p.day, +p.hour, +p.minute, +p.second) - date.getTime();
     }
     function gtfsEpoch(dateKey, time, tz) {
@@ -2254,11 +2264,19 @@ S-C: #D03A2E / #FFFFFF`;
       const [h, m, s = 0] = String(time).split(":").map(Number);
       if (m > 59 || s > 59) return NaN;
       // GTFS service times are elapsed seconds from local noon minus twelve hours.
+      return localNoon(dateKey, tz) + (h * 3600 + m * 60 + s - 43200) * 1000;
+    }
+    // Local noon depends only on the date, but is needed for every stop time on every redraw.
+    const noonCache = new Map();
+    function localNoon(dateKey, tz) {
+      const key = dateKey + "|" + tz;
+      if (noonCache.has(key)) return noonCache.get(key);
       // Resolve local noon iteratively: the UTC guess may fall across a DST change.
       const noonUtc = Date.UTC(+dateKey.slice(0,4), +dateKey.slice(4,6)-1, +dateKey.slice(6,8), 12);
       let noon = noonUtc;
       for (let i = 0; i < 3; i++) noon = noonUtc - offsetMs(new Date(noon), tz);
-      return noon + (h * 3600 + m * 60 + s - 43200) * 1000;
+      noonCache.set(key, noon);
+      return noon;
     }
     function formatDue(epoch, now, cfg) {
       const delta = epoch - now;
@@ -2267,10 +2285,10 @@ S-C: #D03A2E / #FFFFFF`;
       // Floor, not round: a bus 4m40s away reads "4", like the real PID and AT website.
       const mins = Math.floor(delta / 60000);
       if (mins <= cfg.relativeCutoffMinutes) return String(mins);
-      return new Intl.DateTimeFormat("en-NZ", { timeZone: cfg.timezone, hour:"2-digit", minute:"2-digit", hourCycle:"h23" }).format(new Date(epoch));
+      return dtf("en-NZ", { timeZone: cfg.timezone, hour:"2-digit", minute:"2-digit", hourCycle:"h23" }).format(new Date(epoch));
     }
     function clockLabel(date, tz) {
-      return new Intl.DateTimeFormat("en-NZ", { timeZone: tz, hour:"2-digit", minute:"2-digit", second:"2-digit", hourCycle:"h23" }).format(date);
+      return dtf("en-NZ", { timeZone: tz, hour:"2-digit", minute:"2-digit", second:"2-digit", hourCycle:"h23" }).format(date);
     }
     // Stop-level schedule_relationship values whose delay fields are not real predictions.
     // SKIPPED = bus won't stop there; NO_DATA = AT has no prediction. Both publish junk delay.
@@ -2316,7 +2334,7 @@ S-C: #D03A2E / #FFFFFF`;
       return null;
     }
     function timeLabel(epoch, tz) {
-      return new Intl.DateTimeFormat("en-NZ", { timeZone: tz, hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(new Date(epoch));
+      return dtf("en-NZ", { timeZone: tz, hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(new Date(epoch));
     }
     const PERSON_SVG = `<svg viewBox="0 0 140 405" aria-hidden="true"><circle cx="70" cy="42" r="42"/><rect height="124" rx="25" width="140" y="94"/><path d="m33 218h74v168a19 19 0 0 1 -19 19h-36a19 19 0 0 1 -19-19z"/></svg>`;
     function occupancyIcons(level) {
@@ -3208,6 +3226,7 @@ S-C: #D03A2E / #FFFFFF`;
       });
     }
 
+    const lastBoard = { el: null, key: "" };
     function renderBoard() {
       const cfg = state.config;
       const rows = deriveDepartures();
@@ -3233,8 +3252,9 @@ S-C: #D03A2E / #FFFFFF`;
       const alerts = Array.from(new Set(boardAlerts().map(a => a.header)));
       const notice = stopNotices();
       const frameless = Boolean(cfg.chromeHidden);
+      const clock = `<div class="clock">${clockLabel(state.now, cfg.timezone)}</div>`;
 
-      app.innerHTML = `
+      const html = `
         <main class="board ${frameless ? "frameless" : ""} ${cfg.dualStopMode ? "dual-mode" : ""}">
           <button class="ghost chrome-toggle" data-action="toggleChrome" title="${frameless ? "Show frame and controls" : "Hide frame and controls"}">${frameless ? "+" : "-"}</button>
           <section class="board-shell ${frameless ? "frameless" : ""}">
@@ -3264,10 +3284,22 @@ S-C: #D03A2E / #FFFFFF`;
                 : `<div class="legend"><span class="legend-swatch"></span>Frequent services</div>`}
               <div class="ticker">${isMotat() ? escapeHtml(motatTickerText()) : notice ? noticeMarquee(notice) : ""}</div>
               <div class="mode-indicator ${mode.id}" title="${escapeHtml(mode.detail)}"><span class="mode-dot ${mode.id}"></span>${escapeHtml(mode.label)} · ${escapeHtml(mode.coverage)}</div>
-              <div class="clock">${clockLabel(state.now, cfg.timezone)}</div>
+              ${clock}
             </footer>
           </section>
         </main>`;
+      // The board redraws every second, but between polls and page turns usually only the clock
+      // has changed. Rebuilding the whole DOM each tick is a long task on slow devices (and
+      // restarts the marquee), so in that case just update the clock text.
+      const key = html.replace(clock, "").replace(/animation-delay:-[\d.]+s/, "");
+      if (lastBoard.el && lastBoard.el === app.firstElementChild && lastBoard.key === key) {
+        const el = lastBoard.el.querySelector(".clock");
+        if (el) el.textContent = clockLabel(state.now, cfg.timezone);
+        return;
+      }
+      app.innerHTML = html;
+      lastBoard.el = app.firstElementChild;
+      lastBoard.key = key;
       if (cfg.dualStopMode) fitDualDestinations();
       wireShareButton();
       document.querySelector("[data-action=toggleChrome]")?.addEventListener("click", () => { saveConfig({ chromeHidden: !state.config.chromeHidden }); renderBoard(); });
@@ -3376,7 +3408,15 @@ S-C: #D03A2E / #FFFFFF`;
     // Runtime
     function startRuntime() {
       clearTimers();
-      timers.push(setInterval(() => { state.now = new Date(); if (state.config.mode === "board") renderBoard(); }, 1000));
+      // Tick just after each wall-clock second, not every 1000ms from whenever the board started.
+      // A fixed interval's phase can sit right on a second boundary, so a tick running a few ms
+      // late reads the next second and the display skips one; long tasks also push it later.
+      const tick = () => {
+        clockTimer = setTimeout(tick, 1020 - Date.now() % 1000);
+        state.now = new Date();
+        if (state.config.mode === "board") renderBoard();
+      };
+      clockTimer = setTimeout(tick, 1020 - Date.now() % 1000);
       timers.push(setInterval(() => { if (state.config.mode === "board" && !state.refreshing) refreshRealtime().then(() => { if (state.config.mode === "board" && !state.colorDemo) renderBoard(); }); }, Math.max(5, state.config.pollSeconds) * 1000));
       timers.push(setInterval(() => { if (state.config.mode === "board" && !state.pageLocked) { state.page++; renderBoard(); } }, Math.max(3, state.config.rotateSeconds) * 1000));
       refreshRealtime().then(() => { if (state.config.mode === "board") renderBoard(); });
