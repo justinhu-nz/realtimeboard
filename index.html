@@ -1035,6 +1035,10 @@
     .su-ppill { min-width: 2.5rem; text-align: center; border-radius: 3px; font-weight: 800; padding: 0 .3rem; font-size: .74rem; background: var(--accent); color: var(--accent-text); }
     .su-pdest { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .su-pdue { font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .su-results .su-sub { display: block; font-size: .72rem; color: var(--muted); }
+    .su-station-row { border-bottom: 1px solid var(--border); }
+    .su-dirs { margin-top: .4rem; }
+    .su-station-dirs { margin: .5rem 0; }
     .su-ptrain-title { font-size: .7rem; color: var(--muted); margin-top: .35rem; border-top: 1px solid var(--border); padding-top: .25rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .su-pfoot { display: flex; justify-content: space-between; gap: .5rem; padding: .25rem .55rem; background: #f4f7fa; color: #142033; font-weight: 700; font-size: .72rem; }
     .su-preview-empty { padding: 1.4rem .8rem; text-align: center; color: var(--muted); border: 1px dashed var(--border); border-radius: var(--radius); }
@@ -1172,6 +1176,16 @@ S-C: #D03A2E / #FFFFFF`;
       trainRightStopId: "",
       trainLeftRoutes: "",
       trainRightRoutes: "",
+      // What each train strip shows: "" = the chosen platform only, or (for the whole
+      // station) "city", "via" (trains that later call at the Via stop's station),
+      // "other" (not going to the city) or "all".
+      trainLeftShow: "",
+      trainRightShow: "",
+      trainLeftViaStopId: "",
+      trainRightViaStopId: "",
+      // The same choice for the main stops (single list, two stops, and the top of
+      // "Stops and trains"), keyed by stop: "stopId=city, stopId=via:viaStopId".
+      stopModes: "",
       chromeHidden: false,
       mode: "setup"
     };
@@ -1266,24 +1280,230 @@ S-C: #D03A2E / #FFFFFF`;
     function trainPlatformIds(cfg = state.config) {
       return [cfg.trainLeftStopId, cfg.trainRightStopId].map(id => String(id || "").trim());
     }
+    // Train strips. A strip can follow one platform (the original behaviour) or a whole
+    // station, sorted by where each train actually goes: a train counts as going to a
+    // station if that trip calls there after this stop. Platforms and direction ids are
+    // never used, so closures, turn-backs and diversions sort themselves. The three city
+    // stations below are the only network knowledge.
+    const CITY_STATION_NAMES = ["waitemata", "te waihorotiu", "karanga-a-hape"];
+    const TRAIN_SHOW_MODES = ["", "city", "via", "other", "all"];
+    function plainName(value) {
+      return String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+    }
+    function isCityStationName(name) {
+      const n = plainName(name);
+      return /train station/.test(n) && CITY_STATION_NAMES.some(city => n.startsWith(city));
+    }
+    // "Kingsland Train Station 2" -> "Kingsland"
+    // "Platform 2" / "Pier 3", or "" when the stop name already says it ("Pier 3",
+    // "Train Station 2", "Stop A").
+    function platformWord(name, code) {
+      code = String(code || "").trim();
+      if (!code) return "";
+      const escaped = code.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      if (new RegExp("(^|\\s)" + escaped + "$|\\bstop " + escaped + "\\b", "i").test(String(name || "").trim())) return "";
+      return (/ferry|wharf|pier/i.test(name) ? "Pier " : "Platform ") + code;
+    }
+    function platformSuffix(name, code) {
+      const word = platformWord(name, code);
+      return word ? " · " + word : "";
+    }
+    function shortStationName(name) {
+      return String(name || "").replace(/\s+Train Station(\s+\d+)?\s*$/i, "").replace(/\s+Station\s*$/i, "").trim();
+    }
+    function trainShow(index, cfg = state.config) {
+      const show = index === 0 ? cfg.trainLeftShow : cfg.trainRightShow;
+      return TRAIN_SHOW_MODES.includes(show) ? show : "";
+    }
+    function trainViaIds(cfg = state.config) {
+      return [cfg.trainLeftViaStopId, cfg.trainRightViaStopId].map(id => String(id || "").trim());
+    }
+    // stopModes: "stopId=city, stopId=via:viaStopId" -> Map(stopId -> { show, via })
+    function parseStopModes(cfg = state.config) {
+      const modes = new Map();
+      for (const part of splitList(cfg.stopModes)) {
+        const [stopId, value = ""] = part.split("=").map(v => v.trim());
+        const [show, via = ""] = value.split(":").map(v => v.trim());
+        if (stopId && show && TRAIN_SHOW_MODES.includes(show)) modes.set(stopId, { show, via });
+      }
+      return modes;
+    }
+    function formatStopModes(modes) {
+      return Array.from(modes).filter(([, m]) => m.show).map(([id, m]) => id + "=" + m.show + (m.via ? ":" + m.via : "")).join(", ");
+    }
+    function topStopIds(cfg = state.config) {
+      return cfg.dualStopMode ? dualStopIds(cfg).filter(Boolean) : splitList(cfg.stopIds);
+    }
+    // Every place a stop is shown, with how its departures are chosen:
+    // { key, stopId, show, via, routes } (routes: that slot's own line filter, or null).
+    function boardSlots(cfg = state.config) {
+      const modes = parseStopModes(cfg);
+      const slots = topStopIds(cfg).map(stopId => {
+        const m = modes.get(stopId) || { show: "", via: "" };
+        return { key: "stop:" + stopId, stopId, show: m.show, via: m.show === "via" ? m.via : "", routes: null };
+      });
+      if (fourWayEnabled(cfg)) {
+        const via = trainViaIds(cfg);
+        trainPlatformIds(cfg).forEach((stopId, i) => slots.push({ key: i === 0 ? "trainLeft" : "trainRight", stopId, show: trainShow(i, cfg), via: trainShow(i, cfg) === "via" ? via[i] : "", routes: i === 0 ? cfg.trainLeftRoutes : cfg.trainRightRoutes }));
+      }
+      return slots;
+    }
+    function topSlot(stopId, cfg = state.config) {
+      return boardSlots(cfg).find(slot => slot.key === "stop:" + stopId) || { key: "stop:" + stopId, stopId, show: "", via: "", routes: null };
+    }
+    function stripSlot(index, cfg = state.config) {
+      return boardSlots(cfg).find(slot => slot.key === (index === 0 ? "trainLeft" : "trainRight"));
+    }
+    // Identifies the station-sorting settings a saved board was built for ("" = none).
+    function stripKey(cfg = state.config) {
+      const sorted = boardSlots(cfg).filter(slot => slot.show);
+      return sorted.map(slot => [slot.key, slot.stopId, slot.show, slot.via].join("~")).join("|");
+    }
+    // A slot as resolved when the board was built: { show, platforms, targets }.
+    function bundleSlot(slot) {
+      const built = slot && slot.show && state.bundle && state.bundle.filters && state.bundle.filters[slot.key];
+      if (built && built.show === slot.show) return built;
+      return { show: "", platforms: [slot && slot.stopId].filter(Boolean), targets: [] };
+    }
+    function bundleStrip(index, cfg = state.config) {
+      return bundleSlot(stripSlot(index, cfg) || { stopId: trainPlatformIds(cfg)[index] });
+    }
+    function isRailRow(row) {
+      return Boolean(row.rail) || Number(state.bundle?.routes[row.routeId]?.type) === 2;
+    }
+    // Does this departure's trip call at one of these stations after this stop?
+    function callsLater(row, stationIds) {
+      if (!stationIds.length) return false;
+      const bundle = state.bundle;
+      const calls = bundle.tripCalls && bundle.tripCalls[row.tripId];
+      if (calls && row.stopSequence) return calls.some(c => c.q > row.stopSequence && stationIds.includes(c.s));
+      // A train that exists only in the live feed: use AT's live calls at the target
+      // platforms, then the destination text as a last resort.
+      const movements = row.liveOnly && state.realtime && state.realtime.movements;
+      if (!movements) return false;
+      for (const stationId of stationIds) {
+        const station = bundle.stations && bundle.stations[stationId];
+        if (!station) continue;
+        for (const platformId of station.platforms) {
+          const m = movements[row.tripId + ":" + platformId.split("-")[0]];
+          const when = m && (m.expected || m.scheduled);
+          if (when && when > row.effective) return true;
+        }
+      }
+      const dest = plainName(row.destination);
+      return stationIds.some(id => {
+        const station = bundle.stations && bundle.stations[id];
+        if (!station) return false;
+        const name = plainName(shortStationName(station.name));
+        return Boolean(name) && dest.includes(name) || (station.city && /\bvia city\b|city centre/.test(dest));
+      });
+    }
+    function slotRows(rows, slot) {
+      if (!slot) return [];
+      const built = bundleSlot(slot);
+      return rows.filter(row => {
+        if (!built.platforms.includes(row.stopId) || (built.show && !isRailRow(row))) return false;
+        if (slot.routes) {
+          const route = state.bundle.routes[row.routeId] || { shortName: row.routeLabel, longName: "", routeId: row.routeId };
+          if (!trainRoutesMatch(route, slot.routes)) return false;
+        }
+        if (built.show === "" || built.show === "all") return true;
+        const hit = callsLater(row, built.targets);
+        return built.show === "other" ? !hit : hit;
+      });
+    }
+    function trainStripRows(rows, index, cfg = state.config) {
+      return slotRows(rows, stripSlot(index, cfg));
+    }
+    // Rows for one side of a two-stop board (its top stop), or for the single list.
+    function sideRows(rows, stopId, cfg = state.config) {
+      return slotRows(rows, topSlot(stopId, cfg));
+    }
+    function singleListRows(rows, cfg = state.config) {
+      const keep = new Set(topStopIds(cfg).flatMap(stopId => sideRows(rows, stopId, cfg)));
+      return rows.filter(row => keep.has(row));
+    }
+    function slotLabel(slot) {
+      const built = bundleSlot(slot);
+      if (built.show === "city") return "To city";
+      if (built.show === "other") return "Not to city";
+      if (built.show === "all") return "All trains";
+      if (built.show === "via") {
+        const station = state.bundle?.stations?.[built.targets[0]];
+        return "Towards " + (station ? shortStationName(station.name) : "chosen station");
+      }
+      const stop = state.bundle?.stops[built.platforms[0]];
+      const code = stop?.platformCode;
+      return code ? (/ferry|wharf|pier/i.test(stop.name) ? "Pier " : "Platform ") + code : "Stop " + (built.platforms[0] || "").split("-")[0];
+    }
+    function trainStripLabel(index, cfg = state.config) {
+      return slotLabel(stripSlot(index, cfg) || { stopId: trainPlatformIds(cfg)[index] });
+    }
+    // "Kingsland Station" for a station-wide slot, otherwise the stop's own name.
+    function slotStationName(slot) {
+      const stop = state.bundle?.stops[slot.stopId];
+      const name = stop ? stop.name : stopDisplayName(slot.stopId);
+      return bundleSlot(slot).show ? shortStationName(name) + " Station" : name;
+    }
+    // The next timetabled train for a slot beyond the board's lookahead (up to a week
+    // out), for the empty message during closures. Cached: the scan is too heavy to
+    // repeat on every one-second redraw.
+    let nextTrainCache = {};
+    function nextSlotDeparture(slot, cfg = state.config) {
+      const bundle = state.bundle, nowMs = state.now.getTime();
+      const cached = nextTrainCache[slot.key];
+      const key = bundle.generatedAt + "|" + stripKey(cfg) + "|" + (slot.routes || "");
+      if (cached && cached.key === key && nowMs >= cached.from && nowMs < cached.until) return cached.value;
+      const built = bundleSlot(slot);
+      const today = dateKeyFor(state.now, cfg.timezone);
+      let best = null;
+      for (let d = -1; d <= 7; d++) {
+        const serviceDate = shiftDateKey(today, d);
+        if (best && gtfsEpoch(serviceDate, "00:00:00", cfg.timezone) > best) break;
+        for (const stopId of built.platforms) {
+          for (const st of bundle.stopTimesByStop[stopId] || []) {
+            if (!activeService(bundle, st.serviceId, serviceDate)) continue;
+            const scheduled = gtfsEpoch(serviceDate, st.departureTime, cfg.timezone);
+            if (!(scheduled > nowMs) || (best && scheduled >= best)) continue;
+            const row = { tripId: st.tripId, routeId: st.routeId, stopId, stopSequence: st.stopSequence, effective: scheduled };
+            if (slotRows([row], slot).length) best = scheduled;
+          }
+        }
+      }
+      nextTrainCache[slot.key] = { key, value: best, from: nowMs, until: best || nowMs + 10 * 60000 };
+      return best;
+    }
+    function emptySlotLabel(slot, cfg = state.config) {
+      const next = nextSlotDeparture(slot, cfg);
+      if (!next) return "No trains in the next week";
+      const sameDay = dateKeyFor(new Date(next), cfg.timezone) === dateKeyFor(state.now, cfg.timezone);
+      const day = sameDay ? "" : dtf("en-NZ", { timeZone: cfg.timezone, weekday: "short" }).format(new Date(next)) + " ";
+      return "No trains · next " + day + timeLabel(next, cfg.timezone);
+    }
+    function emptyStripLabel(index, cfg = state.config) {
+      return emptySlotLabel(stripSlot(index, cfg), cfg);
+    }
     function boardStopIds(cfg = state.config) {
       const buses = cfg.dualStopMode ? dualStopIds(cfg) : splitList(cfg.stopIds);
-      return Array.from(new Set([...buses, ...(fourWayEnabled(cfg) ? trainPlatformIds(cfg) : [])]));
+      const expanded = boardSlots(cfg).flatMap(slot => bundleSlot(slot).platforms);
+      return Array.from(new Set([...buses, ...(fourWayEnabled(cfg) ? trainPlatformIds(cfg) : []), ...expanded]));
     }
     function trainRoutesMatch(route, filters) {
       const allowed = new Set(splitList(filters).map(normLabel));
       return !allowed.size || [route.shortName, route.longName, route.routeId].some(label => allowed.has(normLabel(label)));
     }
+    // Every bottom stop chosen, and every "calling at" slot has its station.
     function fourWayReady(cfg = state.config) {
-      return !fourWayEnabled(cfg) || trainPlatformIds(cfg).every(Boolean);
+      if (fourWayEnabled(cfg) && !trainPlatformIds(cfg).every(Boolean)) return false;
+      return boardSlots(cfg).every(slot => slot.show !== "via" || slot.via);
     }
     function renderFourWaySettings(cfg) {
       const stops = state.gtfs ? state.gtfs.stops : Object.values(state.bundle?.stops || {}).map(s => ({ stop_id: s.stopId, stop_name: s.name, platform_code: s.platformCode }));
       return `<div class="four-way-settings">
         <label class="checkbox-label plain"><input name="fourWayMode" type="checkbox" ${cfg.fourWayMode ? "checked" : ""}> Show trains under each side (dual-stop mode)</label>
-        <p class="hint">In dual-stop mode, reserve the bottom two rows on each side for trains. Bus pages rotate above; trains always show the next two departures for that side’s platform. Rows per page includes the two train rows (minimum 3).</p>
+        <p class="hint">In dual-stop mode, reserve the bottom two rows on each side for a second stop, usually a train platform. The top stop’s pages rotate above; the bottom always shows the next two departures. Rows per page includes the two bottom rows (minimum 3).</p>
         ${cfg.fourWayMode ? `<div class="field"><label for="train-station-label">Thin station heading</label><input id="train-station-label" name="trainStationLabel" value="${escapeHtml(cfg.trainStationLabel)}" placeholder="e.g. Henderson Station"><div class="hint">Blank uses the platform’s stop name.</div></div>
-        <datalist id="train-platforms">${stops.filter(s => !s.location_type || s.location_type === "0").map(s => `<option value="${escapeHtml(s.stop_id)}">${escapeHtml(s.stop_name)}${s.platform_code ? " · Platform " + escapeHtml(s.platform_code) : ""} · ${escapeHtml(s.stop_code || s.stop_id.split("-")[0])}</option>`).join("")}</datalist>
+        <datalist id="train-platforms">${stops.filter(s => !s.location_type || s.location_type === "0").map(s => `<option value="${escapeHtml(s.stop_id)}">${escapeHtml(s.stop_name + platformSuffix(s.stop_name, s.platform_code))} · ${escapeHtml(s.stop_code || s.stop_id.split("-")[0])}</option>`).join("")}</datalist>
         <div class="row">${["Left", "Right"].map(side => `<div class="field"><label for="train-${side}-platform">${side} train platform</label><input id="train-${side}-platform" name="train${side}StopId" list="train-platforms" value="${escapeHtml(cfg['train' + side + 'StopId'])}" placeholder="Search station/platform or paste stop ID"><label for="train-${side}-routes">${side} train services</label><input id="train-${side}-routes" name="train${side}Routes" value="${escapeHtml(cfg['train' + side + 'Routes'])}" placeholder="All train services"><div class="hint">Comma-separated route names or IDs from the timetable. Blank includes every train service at this platform.</div></div>`).join("")}</div>
         <p class="hint">Choose the individual platform stop for each direction, then rebuild the board. Train services have their own filters; the bus route filter does not affect them.</p>` : ""}
       </div>`;
@@ -1293,7 +1513,8 @@ S-C: #D03A2E / #FFFFFF`;
       if (!state.bundle) return false;
       const ids = boardStopIds(cfg);
       // Older saved bundles did not retain route types; rebuild before using them for trains.
-      if (fourWayEnabled(cfg) && !trainPlatformIds(cfg).every(id => (state.bundle.stopTimesByStop?.[id] || []).some(st => Number(state.bundle.routes[st.routeId]?.type) === 2))) return false;
+      if (fourWayEnabled(cfg) && !trainPlatformIds(cfg).every(id => (state.bundle.stopTimesByStop?.[id] || []).some(st => Number.isFinite(state.bundle.routes[st.routeId]?.type)))) return false;
+      if ((state.bundle.stripKey || "") !== stripKey(cfg)) return false;
       return ids.every(id => Boolean(state.bundle.stops && state.bundle.stops[id]));
     }
     function gtfsRtArray(value) {
@@ -1428,7 +1649,7 @@ S-C: #D03A2E / #FFFFFF`;
     async function readUnpackedEntries(baseUrl, names) {
       const output = {};
       await Promise.all(names.map(async name => {
-        const res = await fetch(new URL(name, baseUrl).href);
+        const res = await fetch(new URL(name, baseUrl).href, { signal: AbortSignal.timeout(180000) });
         if (res.ok) output[name] = await res.text();
         else if (res.status !== 404) throw new Error(name + " fetch failed: " + res.status);
       }));
@@ -1585,7 +1806,7 @@ S-C: #D03A2E / #FFFFFF`;
               await ingestGtfs({ baseUrl: new URL(candidate, location.href).href }, candidate, requestId);
             } else {
               if (!("DecompressionStream" in globalThis)) throw new Error("no unzip support in this browser");
-              const res = await fetch(candidate);
+              const res = await fetch(candidate, { signal: AbortSignal.timeout(180000) });
               if (!res.ok) throw new Error("Fetch failed: " + res.status);
               await ingestGtfs({ buffer: await res.arrayBuffer() }, candidate, requestId);
             }
@@ -1672,17 +1893,49 @@ S-C: #D03A2E / #FFFFFF`;
       }
       if (fourWayEnabled()) {
         const platforms = trainPlatformIds().map(resolveStop);
-        if (!platforms.every(id => id && gtfsStopIds.has(id))) { setStatus("Choose a valid train platform for each side.", true); return; }
+        if (!platforms.every(id => id && gtfsStopIds.has(id))) { setStatus("Choose a valid bottom stop for each side.", true); return; }
         saveConfig({ trainLeftStopId: platforms[0], trainRightStopId: platforms[1] });
       }
-      const stopIds = new Set([...resolved, ...(fourWayEnabled() ? trainPlatformIds() : [])]);
-      const trainStops = new Set(fourWayEnabled() ? trainPlatformIds() : []);
+      // Station-wide slots: every platform of the chosen station is a board stop, and
+      // the platforms of the stations a slot sorts by are scanned for trip calls.
+      const filters = {}, stations = {}, targetStops = new Map(); // platform id -> station id
+      const stripsOn = boardSlots().some(slot => slot.show);
+      if (stripsOn) {
+        if (fourWayEnabled()) {
+          const via = trainViaIds().map(id => id && resolveStop(id));
+          saveConfig({ trainLeftViaStopId: via[0], trainRightViaStopId: via[1] });
+        }
+        const modes = new Map(Array.from(parseStopModes()).map(([id, m]) => [resolveStop(id), { show: m.show, via: m.via && resolveStop(m.via) }]));
+        if (formatStopModes(modes) !== state.config.stopModes) saveConfig({ stopModes: formatStopModes(modes) });
+        const byId = new Map(gtfs.stops.map(s => [s.stop_id, s]));
+        const stationId = s => s.parent_station || s.stop_id;
+        const addStation = stop => {
+          const id = stationId(stop);
+          stations[id] ||= {
+            name: (byId.get(id) || stop).stop_name || id, city: isCityStationName(stop.stop_name),
+            platforms: gtfs.stops.filter(s => s.location_type !== "1" && stationId(s) === id).map(s => s.stop_id)
+          };
+          return id;
+        };
+        const cityIds = Array.from(new Set(gtfs.stops.filter(s => s.location_type !== "1" && isCityStationName(s.stop_name)).map(addStation)));
+        for (const slot of boardSlots()) {
+          if (!slot.show || !byId.has(slot.stopId)) continue;
+          if (slot.show === "via" && !byId.has(slot.via)) { setStatus("Choose the station the trains at " + stopDisplayName(slot.stopId) + " should call at.", true); return; }
+          const targets = slot.show === "via" ? [addStation(byId.get(slot.via))] : slot.show === "all" ? [] : cityIds;
+          filters[slot.key] = { show: slot.show, platforms: stations[addStation(byId.get(slot.stopId))].platforms, targets };
+          for (const id of targets) for (const p of stations[id].platforms) targetStops.set(p, id);
+        }
+      }
+      const slotPlatforms = key => (filters[key] ? filters[key].platforms : []);
+      const trainStops = new Set(fourWayEnabled() ? [...trainPlatformIds(), ...slotPlatforms("trainLeft"), ...slotPlatforms("trainRight")] : []);
+      const topPlatforms = topStopIds().flatMap(id => slotPlatforms("stop:" + id));
+      const stopIds = new Set([...resolved, ...topPlatforms, ...trainStops]);
       if (!stopIds.size) { setStatus("Add at least one stop.", true); return; }
       if (open) setStatus("Building board...");
       const buildConfig = JSON.stringify(state.config);
       const stillCurrent = () => buildId === bundleBuildSeq && state.gtfs === gtfs && JSON.stringify(state.config) === buildConfig;
       let candidateStopTimes;
-      try { candidateStopTimes = await selectedStopTimesFor(stopIds); }
+      try { candidateStopTimes = await selectedStopTimesFor(new Set([...stopIds, ...targetStops.keys()])); }
       catch (err) { if (stillCurrent()) setStatus(friendlyError(err, "Board build"), true); return; }
       if (!stillCurrent()) return;
       const routeAllow = new Set(splitList(state.config.routeAllowlist).map(normLabel));
@@ -1700,8 +1953,10 @@ S-C: #D03A2E / #FFFFFF`;
         if (!trip || !route) continue;
         const labels = [route.route_short_name, route.route_long_name, route.route_id].filter(Boolean);
         if (trainStops.has(st.stop_id)) {
-          if (Number(route.route_type) !== 2) continue;
+          // Bottom strips have their own line filter, applied when drawing.
         } else if (routeAllow.size && !labels.some(label => routeAllow.has(normLabel(label)))) continue;
+        // A station-wide main stop only shows trains.
+        if (!trainStops.has(st.stop_id) && topPlatforms.includes(st.stop_id) && !resolved.includes(st.stop_id) && Number(route.route_type) !== 2) continue;
         selectedStopTimes.push(st);
         tripIds.add(st.trip_id); routeIds.add(trip.route_id); serviceIds.add(trip.service_id);
       }
@@ -1712,11 +1967,12 @@ S-C: #D03A2E / #FFFFFF`;
       if (fourWayEnabled()) {
         for (const [index, id] of trainPlatformIds().entries()) {
           const filters = index === 0 ? state.config.trainLeftRoutes : state.config.trainRightRoutes;
+          const platforms = filters[index === 0 ? "trainLeft" : "trainRight"] ? filters[index === 0 ? "trainLeft" : "trainRight"].platforms : [id];
           const matches = selectedStopTimes.some(st => {
             const route = routesById.get(tripsById.get(st.trip_id).route_id);
-            return st.stop_id === id && trainRoutesMatch({ shortName: route.route_short_name, longName: route.route_long_name, routeId: route.route_id }, filters);
+            return platforms.includes(st.stop_id) && trainRoutesMatch({ shortName: route.route_short_name, longName: route.route_long_name, routeId: route.route_id }, filters);
           });
-          if (!matches) { setStatus("No train services match the " + (index === 0 ? "left" : "right") + " platform and train lines. Check the train lines for that side.", true); return; }
+          if (!matches) { setStatus("No services match the " + (index === 0 ? "left" : "right") + " bottom stop and its lines. Check the lines for that side.", true); return; }
         }
       }
       const bundle = {
@@ -1731,6 +1987,15 @@ S-C: #D03A2E / #FFFFFF`;
       for (const stopId of stopIds) {
         const s = stopsById.get(stopId);
         if (s) bundle.stops[stopId] = { stopId, name: s.stop_name || stopId, platformCode: s.platform_code || "", lat: +s.stop_lat, lon: +s.stop_lon };
+      }
+      if (stripsOn) {
+        // Where each boardable train calls among the stations the strips sort by. Not
+        // filtered by pickup_type: a train that terminates in the city still goes there.
+        bundle.filters = filters; bundle.stations = stations; bundle.stripKey = stripKey(); bundle.tripCalls = {};
+        for (const st of candidateStopTimes) {
+          const station = targetStops.get(st.stop_id);
+          if (station && tripIds.has(st.trip_id)) (bundle.tripCalls[st.trip_id] ||= []).push({ s: station, q: +st.stop_sequence || 0 });
+        }
       }
       for (const routeId of routeIds) {
         const r = routesById.get(routeId);
@@ -1802,7 +2067,10 @@ S-C: #D03A2E / #FFFFFF`;
               expected: Number.isFinite(expected) ? expected : undefined,
               scheduled: Number.isFinite(scheduledMs) ? scheduledMs : undefined,
               cancelled: /cancel/i.test(String(m.arrivalStatus || "")) || /cancel/i.test(String(m.departureStatus || "")),
-              monitored: Boolean(m.monitored)
+              monitored: Boolean(m.monitored),
+              tripId: String(m.trip_id), code, routeId: String(m.route_id || ""), routeLabel: String(m.route_short_name || ""),
+              destination: String(m.destinationDisplay || ""), stopSequence: +m.stopSequence || 0,
+              boarding: String(m.departureBoardingActivity || "boarding") !== "noBoarding" && String(m.departureBoardingActivity || "boarding") !== "alighting"
             };
             movements[m.trip_id + ":" + code] = entry;
             // AT re-versions trip ids (the trailing hash) when timetables are republished, so a
@@ -1818,6 +2086,31 @@ S-C: #D03A2E / #FFFFFF`;
       const succeeded = results.length - errors.length;
       if (!succeeded) throw new Error("Departures API: " + errors.join("; "));
       return { movements, notices, requested: codes.length, succeeded, errors };
+    }
+
+    // Trains that exist only in the live feed have no timetable stop list. When one shows
+    // up at a strip's station, also ask AT what is due at the platforms the strips sort
+    // by, so the same "calls there later" rule can be applied to it. No extra requests
+    // on a normal day.
+    const knownTripStops = new WeakMap(); // bundle -> Set("tripBase:stopCode")
+    function liveOnlyMovement(m, bundle = state.bundle) {
+      let known = knownTripStops.get(bundle);
+      if (!known) knownTripStops.set(bundle, known = new Set(Object.values(bundle.stopTimesByStop).flat().map(st => tripIdBase(st.tripId) + ":" + st.stopId.split("-")[0])));
+      return !known.has(tripIdBase(m.tripId) + ":" + m.code);
+    }
+    async function addStripTargetMovements(result, fetchedCodes, key) {
+      const bundle = state.bundle;
+      if (!bundle || !bundle.filters) return result;
+      const filters = Object.values(bundle.filters);
+      const stripCodes = new Set(filters.flatMap(f => f.platforms).map(id => id.split("-")[0]));
+      const liveOnly = Object.entries(result.movements).some(([k, m]) => !k.startsWith("~") && stripCodes.has(m.code) && liveOnlyMovement(m, bundle));
+      if (!liveOnly) return result;
+      const targets = new Set(filters.flatMap(f => f.targets).flatMap(id => bundle.stations[id].platforms).map(id => id.split("-")[0]));
+      const extra = Array.from(targets).filter(code => !fetchedCodes.includes(code));
+      if (!extra.length) return result;
+      try { Object.assign(result.movements, (await fetchMovements(extra, key)).movements); }
+      catch (err) { console.warn("[realtime] strip target fetch failed:", err && err.message || err); }
+      return result;
     }
 
     async function refreshRealtime() {
@@ -1851,7 +2144,7 @@ S-C: #D03A2E / #FFFFFF`;
             kind: "departures",
             label: "stop predictions",
             run: depCodes.length
-              ? fetchMovements(depCodes, depKey)
+              ? fetchMovements(depCodes, depKey).then(result => addStripTargetMovements(result, depCodes, depKey))
               : Promise.resolve({ movements: {}, requested: 0, succeeded: 0, errors: [] })
           },
           ...userFeeds.map(feed => ({
@@ -2230,9 +2523,12 @@ S-C: #D03A2E / #FFFFFF`;
                 "| updates:", rtTrip && rtTrip.orderedUpdates ? rtTrip.orderedUpdates.length : 0
               );
             }
+            const rail = Number(route.type) === 2;
             rows.push({
-              key: st.tripId + ":" + stopId + ":" + serviceDate, tripId: st.tripId, routeId: route.routeId,
-              stopId, serviceDate, routeLabel: route.shortName, routeColor: route.color,
+              // A loop train can call at the same platform twice in one trip (city-bound,
+              // then outbound): keep both calls.
+              key: st.tripId + ":" + stopId + ":" + serviceDate + (rail ? ":" + st.stopSequence : ""), tripId: st.tripId, routeId: route.routeId,
+              stopId, stopSequence: st.stopSequence, serviceDate, routeLabel: route.shortName, routeColor: route.color,
               routeTextColor: route.textColor,
               destination: railDestination(st.headsign || trip.headsign || "", route),
               stopName: stop ? stop.name : stopId,
@@ -2242,6 +2538,29 @@ S-C: #D03A2E / #FFFFFF`;
               status: cancelled ? "cancelled" : predicted ? "live" : "scheduled"
             });
           }
+        }
+      }
+      // Station strips also show trains that exist only in AT's live feed (extra or
+      // rescheduled trains during disruptions).
+      const stripPlatforms = bundle.filters ? boardSlots(cfg).filter(slot => slot.show).flatMap(slot => bundleSlot(slot).platforms) : [];
+      if (rt && rt.movements && stripPlatforms.length) {
+        const byCode = new Map(stripPlatforms.map(id => [id.split("-")[0], id]));
+        for (const [k, m] of Object.entries(rt.movements)) {
+          const stopId = byCode.get(m.code);
+          if (k.startsWith("~") || !stopId || !m.tripId || !m.boarding || !liveOnlyMovement(m, bundle)) continue;
+          const effective = m.expected || m.scheduled;
+          if (!effective || effective < nowMs - 30000 || effective > maxMs) continue;
+          const route = bundle.routes[m.routeId] || Object.values(bundle.routes).find(r => r.type === 2 && r.shortName === m.routeLabel);
+          rows.push({
+            key: m.tripId + ":" + stopId + ":live", tripId: m.tripId, routeId: route ? route.routeId : m.routeId,
+            stopId, stopSequence: m.stopSequence, rail: true, liveOnly: true,
+            routeLabel: route ? route.shortName : m.routeLabel, routeColor: route ? route.color : "", routeTextColor: route ? route.textColor : "",
+            destination: railDestination(m.destination, { type: 2 }),
+            stopName: bundle.stops[stopId] ? bundle.stops[stopId].name : stopId,
+            scheduled: m.scheduled || effective, predicted: m.expected, effective,
+            predictedSource: m.expected ? "at-api" : null, occupancy: 0,
+            status: m.cancelled ? "cancelled" : m.expected ? "live" : "scheduled"
+          });
         }
       }
       const deduped = new Map();
@@ -2413,11 +2732,15 @@ S-C: #D03A2E / #FFFFFF`;
     // Setup screen: pick a layout, fill its slots, tune the look, open the board.
     // Fields save themselves and the board rebuilds in the background, so there is no
     // separate build step.
-    const SLOT_FIELDS = ["main", "left", "right", "trainLeft", "trainRight"];
+    const SLOT_FIELDS = ["main", "left", "right", "trainLeft", "trainRight", "trainLeftVia", "trainRightVia"];
+    // "via:<stopId>" fields are the "Towards" station pickers of main stops.
+    function isSlotField(field) {
+      return SLOT_FIELDS.includes(field) || String(field).startsWith("via:");
+    }
     const SETUP_LAYOUTS = [
       { id: "single", name: "Single list", desc: "One list. Add more than one stop to merge them.", thumb: `<i></i>` },
       { id: "dual", name: "Two stops", desc: "Side by side, e.g. both directions.", thumb: `<i></i><i></i>` },
-      { id: "fourway", name: "Buses and trains", desc: "Two stops, each with a train platform underneath.", thumb: `<span><i></i><i class="t"></i></span><span><i></i><i class="t"></i></span>` }
+      { id: "fourway", name: "Stops and trains", desc: "Two stops, each with a train station (or any stop) underneath.", thumb: `<span><i></i><i class="t"></i></span><span><i></i><i class="t"></i></span>` }
     ];
 
     function setupLayout(cfg = state.config) {
@@ -2430,6 +2753,10 @@ S-C: #D03A2E / #FFFFFF`;
     }
     function setupBusStopIds(cfg = state.config) {
       return setupLayout(cfg) === "single" ? splitList(cfg.stopIds) : [slotStopId("left", cfg), slotStopId("right", cfg)].filter(Boolean);
+    }
+    function setupExpandedStopIds(cfg = state.config) {
+      const modes = parseStopModes(cfg);
+      return setupBusStopIds(cfg).flatMap(id => modes.has(id) ? gtfsStationPlatforms(id) : [id]);
     }
     function keyMode(cfg = state.config) {
       if (String(cfg.subscriptionKey || "").trim() || state.editingKey) return "personal";
@@ -2450,6 +2777,9 @@ S-C: #D03A2E / #FFFFFF`;
           if (!left) out.push({ field: "trainLeft", message: "Choose the left train platform" });
           if (!right) out.push({ field: "trainRight", message: "Choose the right train platform" });
         }
+      }
+      for (const slot of boardSlots(cfg)) {
+        if (slot.show === "via" && !slot.via) out.push({ field: slot.key.startsWith("stop:") ? "via:" + slot.stopId : slot.key + "Via", message: "Choose a station that way" });
       }
       if (cfg.requireSubscriptionKey !== false && !subscriptionKey(cfg)) out.push({ field: "key", message: HAS_BUILTIN_KEY ? "Add your AT key" : "Add an AT key, or choose No key" });
       if (!state.gtfs && !bundleHasSelectedStops(cfg)) out.push({ field: "timetable", message: state.gtfsLoading ? "Wait for the timetable to load" : "Load the timetable" });
@@ -2473,19 +2803,69 @@ S-C: #D03A2E / #FFFFFF`;
       scheduleAutoBuild();
     }
 
+    // id is a stop id (that exact stop), or "station:<parent id>" (the whole station,
+    // sorted by where trains go). A station is stored as one of its platforms plus a
+    // direction; a different platform is used when this one is taken by another slot.
     function chooseSlotStop(slot, id) {
       const cfg = state.config;
-      if (slot === "main") saveConfig({ stopIds: Array.from(new Set([...splitList(cfg.stopIds), id])).join(", ") });
-      else if (slot === "left" || slot === "right") {
-        const patch = slot === "left" ? { dualStopLeftId: id } : { dualStopRightId: id };
-        const left = slot === "left" ? id : slotStopId("left");
-        const right = slot === "right" ? id : slotStopId("right");
-        saveConfig(Object.assign(patch, { stopIds: Array.from(new Set([left, right].filter(Boolean))).join(", ") }));
-      } else saveConfig(slot === "trainLeft" ? { trainLeftStopId: id, trainLeftRoutes: "" } : { trainRightStopId: id, trainRightRoutes: "" });
+      if (slot.startsWith("via:")) {
+        const stopId = slot.slice(4), modes = parseStopModes();
+        modes.set(stopId, { show: "via", via: id });
+        saveConfig({ stopModes: formatStopModes(modes) });
+      } else if (slot === "trainLeftVia" || slot === "trainRightVia") saveConfig({ [slot + "StopId"]: id });
+      else {
+        const station = id.startsWith("station:") ? id.slice(8) : "";
+        if (station) {
+          const taken = new Set(slot === "main" ? splitList(cfg.stopIds) : slot === "left" ? [slotStopId("right")] : slot === "right" ? [slotStopId("left")] : []);
+          const platforms = state.gtfs.stops.filter(s => s.parent_station === station && s.location_type !== "1")
+            .sort((a, b) => String(a.platform_code).localeCompare(String(b.platform_code), "en", { numeric: true }));
+          if (!platforms.length) return;
+          id = (platforms.find(s => !taken.has(s.stop_id)) || platforms[0]).stop_id;
+        }
+        const show = station ? defaultStationShow(id) : "";
+        if (slot === "main" || slot === "left" || slot === "right") {
+          const modes = parseStopModes();
+          const old = modes.get(id);
+          if (show) modes.set(id, { show: old && old.show ? old.show : show, via: old ? old.via : "" });
+          else modes.delete(id);
+          const patch = { stopModes: formatStopModes(modes) };
+          if (slot === "main") patch.stopIds = Array.from(new Set([...splitList(cfg.stopIds), id])).join(", ");
+          else {
+            patch[slot === "left" ? "dualStopLeftId" : "dualStopRightId"] = id;
+            const left = slot === "left" ? id : slotStopId("left"), right = slot === "right" ? id : slotStopId("right");
+            patch.stopIds = Array.from(new Set([left, right].filter(Boolean))).join(", ");
+          }
+          saveConfig(patch);
+        } else {
+          const Side = slot === "trainLeft" ? "Left" : "Right";
+          const keep = show && trainShow(Side === "Left" ? 0 : 1) ? cfg["train" + Side + "Show"] : show;
+          saveConfig({ ["train" + Side + "StopId"]: id, ["train" + Side + "Routes"]: "", ["train" + Side + "Show"]: keep });
+        }
+      }
       const picker = state.pickers[slot];
       if (picker) Object.assign(picker, { open: false, query: "", active: 0 });
       renderSetup();
       scheduleAutoBuild();
+    }
+
+    function defaultStationShow(stopId) {
+      return isCityStationName(stopDisplayName(stopId)) ? "all" : "city";
+    }
+    // Direction for a whole-station slot (key "stop:<id>", "trainLeft" or "trainRight").
+    function setSlotShow(key, show) {
+      if (key === "trainLeft" || key === "trainRight") saveConfig({ [key + "Show"]: show });
+      else {
+        const stopId = key.slice(5), modes = parseStopModes();
+        modes.set(stopId, { show, via: (modes.get(stopId) || {}).via || "" });
+        saveConfig({ stopModes: formatStopModes(modes) });
+      }
+      renderSetup();
+      scheduleAutoBuild();
+    }
+    function slotForPicker(slot, cfg = state.config) {
+      if (slot === "trainLeft" || slot === "trainRight") return stripSlot(slot === "trainLeft" ? 0 : 1, cfg);
+      if (slot === "left" || slot === "right") { const id = slotStopId(slot, cfg); return id ? topSlot(id, cfg) : null; }
+      return null;
     }
 
     // Background rebuild after stops or route filters change, so the preview is real and
@@ -2497,7 +2877,7 @@ S-C: #D03A2E / #FFFFFF`;
     async function autoBuild() {
       if (!state.gtfs || state.config.mode !== "setup") return;
       if (state.building) { state.buildQueued = true; return; }
-      if (setupBlockers().some(b => SLOT_FIELDS.includes(b.field))) return;
+      if (setupBlockers().some(b => isSlotField(b.field))) return;
       state.building = true;
       refreshSetupPreview();
       try { await buildBundle({ open: false }); }
@@ -2513,6 +2893,7 @@ S-C: #D03A2E / #FFFFFF`;
       const blockers = setupBlockers();
       if (blockers.length) { focusSetupField(blockers[0].field); return; }
       clearTimeout(state.autoBuildTimer);
+      state.buildQueued = false; // Opening uses the latest settings and replaces any queued preview.
       if (state.gtfs) await buildBundle();
       else { saveConfig({ mode: "board" }); render(); }
     }
@@ -2587,9 +2968,11 @@ S-C: #D03A2E / #FFFFFF`;
       return sortRoutes(Array.from(seen.values()));
     }
     function setupRoutesFor(field) {
-      if (field === "routeAllowlist") return unionRoutes(setupBusStopIds());
-      const routes = routesAtStop(field === "trainLeftRoutes" ? state.config.trainLeftStopId : state.config.trainRightStopId);
-      return routes && (state.gtfs ? routes.filter(r => r.type === 2) : routes);
+      if (field === "routeAllowlist") return unionRoutes(setupExpandedStopIds());
+      const index = field === "trainLeftRoutes" ? 0 : 1;
+      const platform = trainPlatformIds()[index];
+      const routes = trainShow(index) ? unionRoutes(gtfsStationPlatforms(platform)) : routesAtStop(platform);
+      return routes;
     }
     function chipStyle(label, cfg = state.config) {
       const custom = parseRouteColors(cfg.routeColors).get(normLabel(label));
@@ -2618,6 +3001,36 @@ S-C: #D03A2E / #FFFFFF`;
     }
 
     // Stop search. Picker state lives in state.pickers so it survives re-renders.
+    // Every platform of the station a platform belongs to (just itself without a timetable).
+    function gtfsStationPlatforms(stopId) {
+      const stop = state.gtfs && state.gtfs.stops.find(s => s.stop_id === stopId);
+      if (!stop || !stop.parent_station) return [stopId].filter(Boolean);
+      return state.gtfs.stops.filter(s => s.parent_station === stop.parent_station && s.location_type !== "1").map(s => s.stop_id);
+    }
+    function stripStationModesAllowed(stopId) {
+      const stop = state.gtfs && state.gtfs.stops.find(s => s.stop_id === stopId);
+      return Boolean(stop && stop.parent_station && isTrainPlatform(stop));
+    }
+    // Direction chips for a whole-station slot. Nothing for an exact stop.
+    function directionChipsHtml(slot, viaPickerSlot) {
+      if (!slot || !slot.show) return "";
+      const atCity = isCityStationName(stopDisplayName(slot.stopId));
+      const viaName = slot.via ? shortStationName(stopDisplayName(slot.via)) : "";
+      const options = [["city", "To city"], ["via", viaName ? "Towards " + viaName : "Towards…"], ["other", "Not to city"], ["all", "All trains"]]
+        .filter(([value]) => !atCity || value === slot.show || (value !== "city" && value !== "other"));
+      const hints = {
+        city: "Trains from any platform that go on to Waitematā, Te Waihorotiu or Karanga-a-Hape.",
+        via: "Trains from any platform that go on to the station you pick. Pick the next station that way.",
+        other: "Trains from any platform that don’t go on to a city station.",
+        all: "Every train you can board here."
+      };
+      return `<div class="su-chips su-dirs" role="group" aria-label="Which trains">${options.map(([value, label]) => `<button type="button" class="su-chip ${value === slot.show ? "" : "off"}" aria-pressed="${value === slot.show}" data-set-show="${escapeHtml(slot.key)}" data-show="${value}">${escapeHtml(label)}</button>`).join("")}</div>
+        ${slot.show === "via" ? `<div data-field="${escapeHtml(viaPickerSlot)}" style="margin-top:.4rem"><label class="su-label">Towards</label>${pickerHtml(viaPickerSlot, "station", slot.via, "Next station that way, like Morningside")}</div>` : ""}
+        <div class="hint">${hints[slot.show]}</div>`;
+    }
+    function trainShowHtml(Side, cfg = state.config) {
+      return directionChipsHtml(stripSlot(Side === "Left" ? 0 : 1, cfg), "train" + Side + "Via");
+    }
     function isTrainPlatform(stop) {
       // Bus stands at stations have letter platform codes ("Stop A Henderson Station").
       return /train station/i.test(stop.stop_name || "") || (/^\d+$/.test(stop.platform_code || "") && /station/i.test(stop.stop_name || ""));
@@ -2633,26 +3046,74 @@ S-C: #D03A2E / #FFFFFF`;
       if (!state.gtfs || !q) return [];
       const scored = [];
       for (const s of state.gtfs.stops) {
-        if (s.location_type === "1" || (kind === "train" && !isTrainPlatform(s))) continue;
+        if (s.location_type === "1" || (kind === "station" && !isTrainPlatform(s))) continue;
         const name = String(s.stop_name || "").toLowerCase(), code = String(s.stop_code || "").toLowerCase();
-        const score = code === q || s.stop_id === query.trim() ? 0 : name.startsWith(q) ? 1 : (name + " " + code + " " + s.stop_id + " " + (s.stop_desc || "")).toLowerCase().includes(q) ? 2 : -1;
+        let score = code === q || s.stop_id === query.trim() ? 0 : name.startsWith(q) ? 1 : (name + " " + code + " " + s.stop_id + " " + (s.stop_desc || "")).toLowerCase().includes(q) ? 2 : -1;
+        // The bottom-strip picker takes any stop, but lists train platforms first.
+        if (score > 0 && kind === "train" && !isTrainPlatform(s)) score += 2;
         if (score >= 0) scored.push([score, s]);
       }
-      return scored.sort((a, b) => a[0] - b[0] || String(a[1].stop_name).localeCompare(String(b[1].stop_name))).slice(0, 12).map(x => x[1]);
+      const sorted = scored.sort((a, b) => a[0] - b[0] || String(a[1].stop_name).localeCompare(String(b[1].stop_name))).map(x => x[1]);
+      if (kind !== "station") return sorted.slice(0, 12);
+      // "Towards" pickers: one result per station.
+      const seen = new Set();
+      return sorted.filter(st => { const key = st.parent_station || st.stop_id; return !seen.has(key) && seen.add(key); }).slice(0, 12);
+    }
+    // Search results for a picker: { id, label, sub, code }. Train platforms bring a
+    // "whole station" row above them, except in "Towards" pickers (always a station).
+    function stationLabel(stopId) {
+      const stop = state.gtfs && state.gtfs.stops.find(s => s.stop_id === stopId);
+      const parent = stop && stop.parent_station && state.gtfs.stops.find(s => s.stop_id === stop.parent_station);
+      return { label: shortStationName((parent || stop || {}).stop_name || stopDisplayName(stopId)) + " Station", code: (parent && parent.stop_code) || (stop && stop.stop_code) || stopId.split("-")[0] };
+    }
+    function pickerEntries(slot, kind, query) {
+      const stops = pickerMatches(kind, query);
+      if (kind === "station") return stops.map(st => ({ id: st.stop_id, ...stationLabel(st.stop_id), sub: "" }));
+      const stations = !slot.startsWith("via:") && !slot.endsWith("Via");
+      const byId = stations ? new Map(state.gtfs.stops.map(s => [s.stop_id, s])) : null;
+      // Groups: a station row with its platforms, or a single stop. A station whose
+      // name starts with the search goes first, so "Kingsland" lists the station on top.
+      const q = query.trim().toLowerCase(), groups = new Map();
+      for (const s of stops) {
+        const train = isTrainPlatform(s) && s.parent_station;
+        const key = stations && train ? "station:" + s.parent_station : s.stop_id;
+        if (!groups.has(key)) {
+          const group = { first: false, entries: [] };
+          if (key.startsWith("station:")) {
+            const parent = byId.get(s.parent_station) || {};
+            const label = shortStationName(parent.stop_name || s.stop_name) + " Station";
+            group.first = label.toLowerCase().startsWith(q);
+            group.entries.push({ id: key, label, sub: "All platforms, sorted by direction", code: parent.stop_code || s.parent_station.split("-")[0], station: true });
+          }
+          groups.set(key, group);
+        }
+        const word = platformWord(s.stop_name, s.platform_code);
+        groups.get(key).entries.push({ id: s.stop_id, label: (s.stop_name || s.stop_id) + (word ? " · " + word : ""), sub: stations && train ? "This platform only" : "", code: s.stop_code || s.stop_id.split("-")[0] });
+      }
+      const ordered = Array.from(groups.values());
+      return [...ordered.filter(g => g.first), ...ordered.filter(g => !g.first)].flatMap(g => g.entries);
     }
     function pickerHtml(slot, kind, value, placeholder) {
       const p = state.pickers[slot] ||= { query: "", open: false, active: 0 };
+      if (value && !p.open && kind === "station") {
+        const { label, code } = stationLabel(value);
+        return `<div class="su-picked"><span class="su-picked-name">${escapeHtml(label)}</span><span class="su-code">${escapeHtml(code)}</span><button class="ghost small" type="button" data-picker-change="${slot}">Change</button></div>`;
+      }
       if (value && !p.open) {
         const { name, code, platform } = stopLabelParts(value);
-        return `<div class="su-picked"><span class="su-picked-name">${escapeHtml(name)}${platform ? ` · Platform ${escapeHtml(platform)}` : ""}</span><span class="su-code">${escapeHtml(code)}</span><button class="ghost small" type="button" data-picker-change="${slot}">Change</button></div>`;
+        const owner = slotForPicker(slot);
+        const whole = owner && owner.show;
+        const parent = whole && state.gtfs && state.gtfs.stops.find(s => s.stop_id === state.gtfs.stops.find(x => x.stop_id === value)?.parent_station);
+        const label = whole ? shortStationName(name) + " Station · all platforms" : name + platformSuffix(name, platform);
+        return `<div class="su-picked"><span class="su-picked-name">${escapeHtml(label)}</span><span class="su-code">${escapeHtml(parent ? parent.stop_code || code : code)}</span><button class="ghost small" type="button" data-picker-change="${slot}">Change</button></div>`;
       }
       if (!state.gtfs) return `<div class="hint">${state.gtfsLoading ? "Loading the timetable so you can search stops…" : "Load the timetable to search stops."}</div>`;
-      const results = p.open ? pickerMatches(kind, p.query) : [];
+      const results = p.open ? pickerEntries(slot, kind, p.query) : [];
       p.active = Math.min(p.active, Math.max(0, results.length - 1));
       const list = !p.open ? "" : !p.query.trim()
-        ? `<div class="su-results"><div class="su-empty">${kind === "train" ? "Type a station name, like Henderson" : "Type a stop name or number"}</div></div>`
-        : `<div class="su-results" role="listbox">${results.length ? results.map((s, i) => `<button type="button" role="option" data-pick="${escapeHtml(s.stop_id)}" data-pick-slot="${slot}" class="${i === p.active ? "active" : ""}"><span>${escapeHtml(s.stop_name || s.stop_id)}${s.platform_code ? ` · Platform ${escapeHtml(s.platform_code)}` : ""}</span><span class="su-code">${escapeHtml(s.stop_code || s.stop_id.split("-")[0])}</span></button>`).join("") : `<div class="su-empty">No stops match “${escapeHtml(p.query)}”.</div>`}</div>`;
-      return `<div class="su-picker"><input type="search" data-picker-input="${slot}" data-picker-kind="${kind}" data-focus-key="picker-${slot}" value="${escapeHtml(p.query)}" placeholder="${escapeHtml(placeholder)}" autocomplete="off" aria-expanded="${p.open}">${list}</div>`;
+        ? `<div class="su-results"><div class="su-empty">${kind === "station" ? "Type a train station, like Morningside" : kind === "train" ? "Type a station or stop, like Henderson" : "Type a stop name or number"}</div></div>`
+        : `<div class="su-results" role="listbox">${results.length ? results.map((r, i) => `<button type="button" role="option" data-pick="${escapeHtml(r.id)}" data-pick-slot="${escapeHtml(slot)}" class="${i === p.active ? "active" : ""} ${r.station ? "su-station-row" : ""}"><span>${escapeHtml(r.label)}${r.sub ? `<small class="su-sub">${escapeHtml(r.sub)}</small>` : ""}</span><span class="su-code">${escapeHtml(r.code)}</span></button>`).join("") : `<div class="su-empty">No stops match “${escapeHtml(p.query)}”.</div>`}</div>`;
+      return `<div class="su-picker"><input type="search" data-picker-input="${escapeHtml(slot)}" data-picker-kind="${kind}" data-focus-key="picker-${escapeHtml(slot)}" value="${escapeHtml(p.query)}" placeholder="${escapeHtml(placeholder)}" autocomplete="off" aria-expanded="${p.open}">${list}</div>`;
     }
     function blockerHtml(field, blockers) {
       const b = blockers.find(x => x.field === field);
@@ -2670,7 +3131,7 @@ S-C: #D03A2E / #FFFFFF`;
       const cfg = state.config;
       const blockers = setupBlockers(cfg);
       if (!bundleHasSelectedStops(cfg)) {
-        const text = blockers.some(b => SLOT_FIELDS.includes(b.field)) ? "Choose your stops to see a preview."
+        const text = blockers.some(b => isSlotField(b.field)) ? "Choose your stops to see a preview."
           : state.building ? "Building the preview…"
           : state.gtfs ? "The preview appears in a moment."
           : state.gtfsLoading ? "Loading the timetable…" : "The preview appears once the timetable loads.";
@@ -2679,21 +3140,25 @@ S-C: #D03A2E / #FFFFFF`;
       state.now = new Date();
       let rows = [];
       try { rows = deriveDepartures(); } catch { rows = []; }
-      const routeType = row => Number(state.bundle.routes[row.routeId]?.type);
       const rowHtml = (r, train) => `<div class="su-prow ${train ? "train" : ""}"><span class="su-ppill" style="${chipStyle(r.routeLabel, cfg)}">${escapeHtml(r.routeLabel)}</span><span class="su-pdest">${escapeHtml(normalizeDestinationLabel(r.destination))}</span><span class="su-pdue">${setupDueLabel(r, cfg)}</span></div>`;
-      const band = (title, busRows, trainRows, trainTitle) => `<div class="su-pband"><h4>${escapeHtml(title)}</h4>${busRows.length ? busRows.map(r => rowHtml(r)).join("") : `<div class="su-preview-empty small">No upcoming departures</div>`}${trainRows ? `<div class="su-ptrain-title">${escapeHtml(trainTitle)}</div>${trainRows.length ? trainRows.map(r => rowHtml(r, true)).join("") : `<div class="su-preview-empty small">No upcoming trains</div>`}` : ""}</div>`;
+      const band = (title, busRows, trainRows, trainTitle) => `<div class="su-pband"><h4>${escapeHtml(title)}</h4>${busRows.length ? busRows.map(r => rowHtml(r)).join("") : `<div class="su-preview-empty small">No upcoming departures</div>`}${trainRows ? `<div class="su-ptrain-title">${escapeHtml(trainTitle)}</div>${trainRows.length ? trainRows.map(r => rowHtml(r, true)).join("") : `<div class="su-preview-empty small">No upcoming departures</div>`}` : ""}</div>`;
       let bands;
       if (!cfg.dualStopMode) {
         const ids = splitList(cfg.stopIds);
-        bands = [band(ids.length > 1 ? ids.length + " stops" : stopDisplayName(ids[0]), rows.slice(0, cfg.pageSize))];
+        const only = ids.length === 1 && bundleSlot(topSlot(ids[0], cfg)).show ? topSlot(ids[0], cfg) : null;
+        bands = [band(ids.length > 1 ? ids.length + " stops" : only ? slotStationName(only) + " · " + slotLabel(only) : stopDisplayName(ids[0]), singleListRows(rows, cfg).slice(0, cfg.pageSize))];
       } else {
         const four = fourWayEnabled(cfg);
         const platforms = trainPlatformIds(cfg);
         const labels = [cfg.dualStopLeftLabel, cfg.dualStopRightLabel];
         bands = dualStopIds(cfg).map((stopId, i) => {
-          const bus = rows.filter(r => r.stopId === stopId && (!four || routeType(r) === 3)).slice(0, four ? Math.max(3, cfg.pageSize) - 2 : cfg.pageSize);
-          const trains = four ? rows.filter(r => r.stopId === platforms[i] && routeType(r) === 2 && trainRoutesMatch(state.bundle.routes[r.routeId], i === 0 ? cfg.trainLeftRoutes : cfg.trainRightRoutes)).slice(0, 2) : null;
-          return band(String(labels[i] || "").trim() || stopDisplayName(stopId), bus, trains, cfg.trainStationLabel || stopDisplayName(platforms[i]));
+          const stripAll = four ? trainStripRows(rows, i, cfg) : [];
+          const inStrip = new Set(stripAll);
+          const bus = sideRows(rows, stopId, cfg).filter(r => !inStrip.has(r)).slice(0, four ? Math.max(3, cfg.pageSize) - 2 : cfg.pageSize);
+          const top = topSlot(stopId, cfg), topTitle = bundleSlot(top).show ? slotStationName(top) + " · " + slotLabel(top) : stopDisplayName(stopId);
+          const trains = four ? stripAll.slice(0, 2) : null;
+          const whole = four && bundleStrip(i, cfg).show;
+          return band(String(labels[i] || "").trim() || topTitle, bus, trains, (cfg.trainStationLabel || (whole ? shortStationName(stopDisplayName(platforms[i])) + " Station" : stopDisplayName(platforms[i]))) + (whole ? " · " + trainStripLabel(i, cfg) : ""));
         });
       }
       return `<div class="su-preview ${state.building ? "building" : ""}"><div class="su-pbands" style="grid-template-columns:repeat(${bands.length},minmax(0,1fr))">${bands.join("")}</div>
@@ -2748,7 +3213,7 @@ S-C: #D03A2E / #FFFFFF`;
         <div class="su-connect" ${open ? "" : "hidden"}>
           <div class="su-connect-group" data-field="key">
             <h3>Live data</h3>
-            ${HAS_BUILTIN_KEY ? option("builtin", "Use the built-in AT key", "Full live times, alerts and how full the bus is.", `<span class="su-inline"><button class="linkish" type="button" data-action="fetchRealtime">Test connection</button> ${keyNote}</span>`) : ""}
+            ${HAS_BUILTIN_KEY ? option("builtin", "Use the built-in AT key", "Full live times, alerts and how full each service is.", `<span class="su-inline"><button class="linkish" type="button" data-action="fetchRealtime">Test connection</button> ${keyNote}</span>`) : ""}
             ${option("personal", "Use your own key", `Free from the <a href="https://dev-portal.at.govt.nz/" target="_blank" rel="noopener">AT Developer Portal &#8599;</a>.`,
               `<span class="su-inline"><input name="subscriptionKey" type="password" value="${escapeHtml(cfg.subscriptionKey)}" placeholder="Paste your key" data-focus-key="subscriptionKey" class="${state.keyTest === "fail" ? "key-bad" : ""}" autocomplete="off" spellcheck="false"><button class="ghost small" type="button" data-action="fetchRealtime">Test</button></span><span class="su-inline">${keyNote}</span>`)}
             ${HAS_BUILTIN_KEY ? "" : option("none", "No key", "Some live times; the rest show the timetable. No alerts or occupancy.")}
@@ -2779,7 +3244,7 @@ S-C: #D03A2E / #FFFFFF`;
       const layout = setupLayout(cfg);
       const four = layout === "fourway";
       const blockers = setupBlockers(cfg);
-      const slotsDone = !blockers.some(b => SLOT_FIELDS.includes(b.field));
+      const slotsDone = !blockers.some(b => isSlotField(b.field));
       const colours = Array.from(parseRouteColors(cfg.routeColors).values());
       const busStops = setupBusStopIds(cfg);
       // Timetable progress already shows in the status line.
@@ -2788,19 +3253,22 @@ S-C: #D03A2E / #FFFFFF`;
       const sideSlot = side => {
         const Side = side[0].toUpperCase() + side.slice(1);
         const labelKey = side === "left" ? "dualStopLeftLabel" : "dualStopRightLabel";
-        return `<div class="su-slot ${blockers.some(b => b.field === side || b.field === "train" + Side) ? "blocked" : ""}">
+        return `<div class="su-slot ${blockers.some(b => b.field === side || b.field === "train" + Side || b.field === "train" + Side + "Via" || b.field === "via:" + slotStopId(side, cfg)) ? "blocked" : ""}">
           <h3>${Side} side</h3>
-          <div data-field="${side}"><label class="su-label">Bus stop</label>${pickerHtml(side, "bus", slotStopId(side, cfg), "Search stop name or number")}${blockerHtml(side, blockers)}</div>
+          <div data-field="${side}"><label class="su-label">Stop or station</label>${pickerHtml(side, "bus", slotStopId(side, cfg), "Search stop, platform or station")}${blockerHtml(side, blockers)}
+            ${slotStopId(side, cfg) ? directionChipsHtml(topSlot(slotStopId(side, cfg), cfg), "via:" + slotStopId(side, cfg)) + blockerHtml("via:" + slotStopId(side, cfg), blockers) : ""}</div>
           <div><label class="su-label" for="su-${side}-label">Heading <span class="muted">(optional)</span></label><input id="su-${side}-label" data-cfg="${labelKey}" data-live data-focus-key="${labelKey}" value="${escapeHtml(cfg[labelKey])}" placeholder="Uses the stop name"></div>
-          ${four ? `<div class="su-train" data-field="train${Side}"><label class="su-label">Train platform</label>${pickerHtml("train" + Side, "train", cfg["train" + Side + "StopId"], "Search station or platform")}${blockerHtml("train" + Side, blockers)}
-            <div class="hint">The next two trains always show at the bottom of this side.</div>
-            ${cfg["train" + Side + "StopId"] ? `<label class="su-label" style="margin-top:.4rem">Train lines</label>${routeChipsHtml("train" + Side + "Routes", "No train lines found at this platform.")}` : ""}</div>` : ""}
+          ${four ? `<div class="su-train" data-field="train${Side}"><label class="su-label">Underneath: train station or stop</label>${pickerHtml("train" + Side, "train", cfg["train" + Side + "StopId"], "Search station, platform or stop")}${blockerHtml("train" + Side, blockers)}
+            <div class="hint">The next two departures always show at the bottom of this side.</div>
+            ${cfg["train" + Side + "StopId"] ? trainShowHtml(Side, cfg) + blockerHtml("train" + Side + "Via", blockers) : ""}
+            ${cfg["train" + Side + "StopId"] ? `<label class="su-label" style="margin-top:.4rem">Lines</label>${routeChipsHtml("train" + Side + "Routes", "No lines found at this stop.")}` : ""}</div>` : ""}
         </div>`;
       };
       const stopsBody = layout === "single"
         ? `<div class="su-slot ${blockers.some(b => b.field === "main") ? "blocked" : ""}" data-field="main">
-            ${busStops.length ? `<div class="chips">${busStops.map(id => { const p = stopLabelParts(id); return `<span class="chip">${escapeHtml(p.name)}<span class="chip-id">${escapeHtml(p.code)}</span><button type="button" data-removestop="${escapeHtml(id)}" title="Remove stop" aria-label="Remove ${escapeHtml(p.name)}">&times;</button></span>`; }).join("")}</div>` : ""}
-            <div><label class="su-label">${busStops.length ? "Add another stop" : "Bus stop"}</label>${pickerHtml("main", "bus", "", "Search stop name or number")}${blockerHtml("main", blockers)}</div>
+            ${busStops.length ? `<div class="chips">${busStops.map(id => { const p = stopLabelParts(id); const whole = topSlot(id, cfg).show; const name = whole ? shortStationName(p.name) + " Station" : p.name + platformSuffix(p.name, p.platform); return `<span class="chip">${escapeHtml(name)}<span class="chip-id">${escapeHtml(whole ? "all platforms" : p.code)}</span><button type="button" data-removestop="${escapeHtml(id)}" title="Remove stop" aria-label="Remove ${escapeHtml(name)}">&times;</button></span>`; }).join("")}</div>` : ""}
+            ${busStops.filter(id => topSlot(id, cfg).show).map(id => `<div class="su-station-dirs"><label class="su-label">${escapeHtml(shortStationName(stopDisplayName(id)))} Station</label>${directionChipsHtml(topSlot(id, cfg), "via:" + id)}${blockerHtml("via:" + id, blockers)}</div>`).join("")}
+            <div><label class="su-label">${busStops.length ? "Add another stop or station" : "Stop or station"}</label>${pickerHtml("main", "bus", "", "Search stop, platform or station")}${blockerHtml("main", blockers)}</div>
           </div>`
         : `<div class="su-slots">
             ${four ? `<div class="su-station"><label class="su-label" for="su-station">Station heading <span class="muted">(optional)</span></label><input id="su-station" data-cfg="trainStationLabel" data-live data-focus-key="trainStationLabel" value="${escapeHtml(cfg.trainStationLabel)}" placeholder="Uses the platform’s stop name"></div>` : ""}
@@ -2827,15 +3295,15 @@ S-C: #D03A2E / #FFFFFF`;
               </section>
 
               <section class="su-section">
-                <h2><span class="su-n ${slotsDone ? "done" : ""}">2</span>${layout === "single" ? "Choose your stops" : four ? "Choose stops and platforms" : "Choose your two stops"}<small>${slotsDone ? "Ready" : blockers.filter(b => SLOT_FIELDS.includes(b.field)).length + " to go"}</small></h2>
+                <h2><span class="su-n ${slotsDone ? "done" : ""}">2</span>${layout === "single" ? "Choose your stops" : four ? "Choose stops and platforms" : "Choose your two stops"}<small>${slotsDone ? "Ready" : blockers.filter(b => isSlotField(b.field)).length + " to go"}</small></h2>
                 ${stopsBody}
-                ${busStops.length ? `<div class="su-routes"><label class="su-label">Bus routes</label>${routeChipsHtml("routeAllowlist", "No routes found at these stops.")}</div>` : ""}
+                ${busStops.length ? `<div class="su-routes"><label class="su-label">${four ? "Routes at the top stops" : "Routes"}</label>${routeChipsHtml("routeAllowlist", "No routes found at these stops.")}</div>` : ""}
               </section>
 
               <section class="su-section">
                 <h2><span class="su-n done">3</span>Look and feel<small><button class="linkish" type="button" data-restore="display">Restore defaults</button></small></h2>
                 <div class="su-look">
-                  ${[["pageSize", "Rows per page", 1, Math.max(12, cfg.pageSize), 1, four ? "Includes the two train rows." : ""], ["rotateSeconds", "Next page every", 3, Math.max(60, cfg.rotateSeconds), 1, ""], ["relativeCutoffMinutes", "Show “min” until", 0, 180, 5, "After that, show the clock time, like 14:35."]].map(([key, label, min, max, step, hint]) => `
+                  ${[["pageSize", "Rows per page", 1, Math.max(12, cfg.pageSize), 1, four ? "Includes the two rows underneath." : ""], ["rotateSeconds", "Next page every", 3, Math.max(60, cfg.rotateSeconds), 1, ""], ["relativeCutoffMinutes", "Show “min” until", 0, 180, 5, "After that, show the clock time, like 14:35."]].map(([key, label, min, max, step, hint]) => `
                     <div><label class="su-label" for="su-${key}">${label} <output data-out="${key}">${setupValueLabel(key, cfg[key])}</output></label><input type="range" id="su-${key}" data-cfg="${key}" data-focus-key="${key}" min="${min}" max="${max}" step="${step}" value="${cfg[key]}" ${key === "rotateSeconds" && cfg.lockFirstPage ? "disabled" : ""}>${hint ? `<div class="hint">${hint}</div>` : ""}</div>`).join("")}
                 </div>
                 <label class="checkbox-label plain su-check"><input type="checkbox" data-cfg="lockFirstPage" data-rerender ${cfg.lockFirstPage ? "checked" : ""}> Stay on page 1 (don’t rotate)</label>
@@ -2934,12 +3402,12 @@ S-C: #D03A2E / #FFFFFF`;
         input.addEventListener("focus", () => { if (!p.open) { p.open = true; renderSetup(); } });
         input.addEventListener("input", () => { p.query = input.value; p.open = true; p.active = 0; renderSetup(); });
         input.addEventListener("keydown", e => {
-          const results = pickerMatches(input.dataset.pickerKind, p.query);
+          const results = pickerEntries(slot, input.dataset.pickerKind, p.query);
           if (e.key === "ArrowDown" || e.key === "ArrowUp") {
             e.preventDefault();
             p.active = Math.max(0, Math.min(results.length - 1, p.active + (e.key === "ArrowDown" ? 1 : -1)));
             renderSetup();
-          } else if (e.key === "Enter" && results[p.active]) { e.preventDefault(); chooseSlotStop(slot, results[p.active].stop_id); }
+          } else if (e.key === "Enter" && results[p.active]) { e.preventDefault(); chooseSlotStop(slot, results[p.active].id); }
           else if (e.key === "Escape") { p.open = false; p.query = ""; renderSetup(); }
         });
         input.addEventListener("blur", () => setTimeout(() => {
@@ -2955,10 +3423,13 @@ S-C: #D03A2E / #FFFFFF`;
         renderSetup();
       }));
       all("[data-removestop]").forEach(btn => btn.addEventListener("click", () => {
-        saveConfig({ stopIds: splitList(state.config.stopIds).filter(id => id !== btn.dataset.removestop).join(", ") });
+        const modes = parseStopModes();
+        modes.delete(btn.dataset.removestop);
+        saveConfig({ stopIds: splitList(state.config.stopIds).filter(id => id !== btn.dataset.removestop).join(", "), stopModes: formatStopModes(modes) });
         renderSetup();
         scheduleAutoBuild();
       }));
+      all("[data-set-show]").forEach(btn => btn.addEventListener("click", () => setSlotShow(btn.dataset.setShow, btn.dataset.show)));
       all("[data-route-field]").forEach(btn => btn.addEventListener("click", () => toggleRoute(btn.dataset.routeField, btn.dataset.route)));
       all("[data-route-all]").forEach(btn => btn.addEventListener("click", () => { saveConfig({ [btn.dataset.routeAll]: "" }); renderSetup(); scheduleAutoBuild(); }));
 
@@ -3080,7 +3551,7 @@ S-C: #D03A2E / #FFFFFF`;
       // Ask for route lists for the chosen stops up front, and build once per stop set when
       // the saved board doesn't cover them (e.g. right after the timetable loads).
       if (state.gtfs) {
-        loadStopRoutes([...setupBusStopIds(), ...(fourWayEnabled() ? trainPlatformIds() : [])]);
+        loadStopRoutes([...setupExpandedStopIds(), ...(fourWayEnabled() ? trainPlatformIds().flatMap((id, i) => trainShow(i) ? gtfsStationPlatforms(id) : [id]) : [])]);
         const buildKey = boardStopIds().join("|");
         if (!state.building && !bundleHasSelectedStops() && state.autoBuiltFor !== buildKey) { state.autoBuiltFor = buildKey; scheduleAutoBuild(); }
       }
@@ -3115,8 +3586,11 @@ S-C: #D03A2E / #FFFFFF`;
       const fourWay = fourWayEnabled(cfg);
       const busPageSize = fourWay ? Math.max(3, cfg.pageSize) - 2 : cfg.pageSize;
       const platforms = trainPlatformIds(cfg);
+      // The top of each side shows every mode at its stop, minus whatever that side's
+      // bottom strip shows (only matters when both use the same stop).
+      const stripKeys = [0, 1].map(i => new Set(fourWay ? trainStripRows(rows, i, cfg) : []));
       const stopPages = ids.map(stopId => {
-        const stopRows = rows.filter(row => row.stopId === stopId && (!fourWay || Number(state.bundle.routes[row.routeId]?.type) === 3));
+        const stopRows = sideRows(rows, stopId, cfg).filter(row => !fourWay || !stripKeys[ids.indexOf(stopId)].has(row));
         const pages = [];
         for (let i = 0; i < stopRows.length; i += busPageSize) pages.push(stopRows.slice(i, i + busPageSize));
         if (!pages.length) pages.push([]);
@@ -3128,18 +3602,22 @@ S-C: #D03A2E / #FFFFFF`;
         const pages = stopPages[index];
         const pageIndex = state.pageLocked ? 0 : state.page % pages.length;
         const pageRows = pages[pageIndex];
-        const trainRows = fourWay ? rows.filter(row => row.stopId === platforms[index] && Number(state.bundle.routes[row.routeId]?.type) === 2 && trainRoutesMatch(state.bundle.routes[row.routeId], index === 0 ? cfg.trainLeftRoutes : cfg.trainRightRoutes)).slice(0, 2) : [];
+        const trainRows = fourWay ? trainStripRows(rows, index, cfg).slice(0, 2) : [];
         const trainStop = state.bundle?.stops[platforms[index]];
-        const stationName = cfg.trainStationLabel || trainStop?.name || platforms[index];
-        const platformLabel = trainStop?.platformCode ? "Platform " + trainStop.platformCode : "Stop " + (platforms[index] || "").split("-")[0];
-        const trainContent = fourWay ? `<div class="train-station-strip" title="${escapeHtml(stationName + ' · ' + platformLabel)}">${escapeHtml(stationName)} <span>${escapeHtml(platformLabel)}</span></div>${renderTable(trainRows, { ...cfg, pageSize: 2 }, { slots: 2, hideHeader: true, emptyLabel: "No upcoming trains" })}` : "";
-        const stop = state.bundle && state.bundle.stops[stopId];
-        const name = String(labels[index] || "").trim() || (stop && stop.name) || stopId;
+        const wholeStation = fourWay && bundleStrip(index, cfg).show;
+        const stationName = cfg.trainStationLabel || (wholeStation ? shortStationName(trainStop?.name) + " Station" : trainStop?.name) || platforms[index];
+        const platformLabel = fourWay ? trainStripLabel(index, cfg) : "";
+        const trainContent = fourWay ? `<div class="train-station-strip" title="${escapeHtml(stationName + ' · ' + platformLabel)}">${escapeHtml(stationName)} <span>${escapeHtml(platformLabel)}</span></div>${renderTable(trainRows, { ...cfg, pageSize: 2 }, { slots: 2, hideHeader: true, emptyLabel: wholeStation && !trainRows.length ? emptyStripLabel(index, cfg) : "No upcoming departures" })}` : "";
+        const slot = topSlot(stopId, cfg);
+        const sorted = Boolean(bundleSlot(slot).show);
+        const name = String(labels[index] || "").trim() || slotStationName(slot) || stopId;
+        const codeLabel = sorted ? slotLabel(slot) : "Stop " + stopId.split("-")[0];
+        const topEmpty = sorted && !pageRows.length ? emptySlotLabel(slot, cfg) : "";
         return {
           pageRows: [...pageRows, ...trainRows], pageCount: pages.length,
           html: `<section class="dual-band ${fourWay ? "four-way-band" : ""}" aria-label="${escapeHtml(name)} departures">
-            <div class="dual-band-header"><div><span class="dual-direction">${escapeHtml(name)}</span><span class="dual-stop-code">Stop ${escapeHtml(stopId.split("-")[0])}</span></div>${pages.length > 1 ? `<span class="dual-page">${pageIndex + 1}/${pages.length}</span>` : ""}</div>
-            ${fourWay ? renderTable(pageRows, cfg, { slots: busPageSize, emptyLabel: "No upcoming buses" }) : pageRows.length ? renderTable(pageRows, cfg) : `<div class="empty-state"><div><strong>No departures</strong><br><span>Nothing scheduled in the next ${cfg.lookaheadHours}h.</span></div></div>`}
+            <div class="dual-band-header"><div><span class="dual-direction">${escapeHtml(name)}</span><span class="dual-stop-code">${escapeHtml(codeLabel)}</span></div>${pages.length > 1 ? `<span class="dual-page">${pageIndex + 1}/${pages.length}</span>` : ""}</div>
+            ${fourWay ? renderTable(pageRows, cfg, { slots: busPageSize, emptyLabel: topEmpty || "No upcoming departures" }) : pageRows.length ? renderTable(pageRows, cfg) : `<div class="empty-state"><div><strong>${topEmpty ? escapeHtml(topEmpty) : "No departures"}</strong><br><span>${topEmpty ? "Nothing in the next " + cfg.lookaheadHours + "h. Check the alerts below." : "Nothing scheduled in the next " + cfg.lookaheadHours + "h."}</span></div></div>`}
             ${trainContent}
           </section>`
         };
@@ -3191,13 +3669,17 @@ S-C: #D03A2E / #FFFFFF`;
         pageLabel = dual.pageCount > 1 ? " " + (state.page + 1) + "/" + dual.pageCount : "";
         boardContent = dual.html;
       } else {
+        const listRows = singleListRows(rows, cfg);
         const pages = [];
-        for (let i = 0; i < rows.length; i += cfg.pageSize) pages.push(rows.slice(i, i + cfg.pageSize));
+        for (let i = 0; i < listRows.length; i += cfg.pageSize) pages.push(listRows.slice(i, i + cfg.pageSize));
         if (!pages.length) pages.push([]);
         state.page %= pages.length;
         pageRows = pages[state.page] || [];
         pageLabel = pages.length > 1 ? " " + (state.page + 1) + "/" + pages.length : "";
-        boardContent = pageRows.length ? renderTable(pageRows, cfg) : `<div class="empty-state"><div><strong>No departures</strong><br><span>Nothing scheduled in the next ${cfg.lookaheadHours}h.</span></div></div>`;
+        // Station-wide stops say when their next train is (useful during closures).
+        const sortedEmpty = topStopIds(cfg).map(id => topSlot(id, cfg)).filter(slot => bundleSlot(slot).show)
+          .map(slot => slotStationName(slot) + " · " + slotLabel(slot) + ": " + emptySlotLabel(slot, cfg));
+        boardContent = pageRows.length ? renderTable(pageRows, cfg) : `<div class="empty-state"><div><strong>No departures</strong><br><span>Nothing scheduled in the next ${cfg.lookaheadHours}h.</span>${sortedEmpty.map(text => `<br><span>${escapeHtml(text)}</span>`).join("")}</div></div>`;
       }
       const hasRT = Boolean(cfg.departuresUrl || (subscriptionKey(cfg) && (cfg.realtimeUrl || cfg.alertsUrl)));
       const stale = hasRT && !realtimeFresh(state.realtime, cfg, Date.now());
@@ -3394,6 +3876,7 @@ S-C: #D03A2E / #FFFFFF`;
       "stopIds", "routeAllowlist", "frequentRoutes", "routeColors",
       "dualStopMode", "dualStopLeftId", "dualStopRightId", "dualStopLeftLabel", "dualStopRightLabel",
       "fourWayMode", "trainStationLabel", "trainLeftStopId", "trainRightStopId", "trainLeftRoutes", "trainRightRoutes",
+      "trainLeftShow", "trainRightShow", "trainLeftViaStopId", "trainRightViaStopId", "stopModes",
       "pageSize", "rotateSeconds", "lookaheadHours", "relativeCutoffMinutes", "lockFirstPage", "chromeHidden"
     ];
     function sharedBoardPreferences(cfg) {
@@ -3448,7 +3931,7 @@ S-C: #D03A2E / #FFFFFF`;
       dialog.className = "share-dialog";
       dialog.setAttribute("aria-labelledby", "share-board-title");
       dialog.innerHTML = `<h2 id="share-board-title">Share board preferences</h2>
-        <p>Includes stops, direction headings, bus and train service filters, colours and display layout. API keys, feed URLs and connection settings stay in this browser.</p>
+        <p>Includes stops, direction headings, route filters, colours and display layout. API keys, feed URLs and connection settings stay in this browser.</p>
         <label for="share-board-url">Board link</label><input id="share-board-url" type="text" readonly spellcheck="false">
         <p class="hint">The link opens with these preferences ready to review and build. Live data uses the recipient’s own connection settings.</p>
         <div class="share-dialog-actions"><button class="primary" data-copy-share>Copy link</button><button class="ghost" data-close-share>Close</button></div>

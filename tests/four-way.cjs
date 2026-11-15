@@ -25,7 +25,7 @@ for (const file of ['index.html', 'index2.html', 'index-live.html']) {
  assert(run('second.pageRows.some(r=>r.destination==="West bus 3")'));
  run('state.pageLocked=true; var locked=renderDualStopBoards(rows,state.config)');
  assert(run('locked.pageRows.some(r=>r.destination==="West bus 0")'));
- assert(run('renderDualStopBoards([],state.config).html.includes("No upcoming trains")'));
+ assert(run('/No upcoming (trains|departures)/.test(renderDualStopBoards([],state.config).html)'));
  run('state.config.pageSize=1');
  assert.strictEqual(run('renderDualStopBoards(rows,state.config).pageRows.filter(r=>r.stopId==="busW").length'),1);
  run('state.config.fourWayMode=false');
@@ -59,7 +59,7 @@ for (const file of ['index.html', 'index2.html', 'index-live.html']) {
  assert.deepStrictEqual(Array.from(run('departureStopCodes()')),['busW','busC','railW','railC']);
  run('state.config.trainLeftRoutes="DOES NOT EXIST"; var savedBundle=state.bundle');
  await run('buildBundle()');
- assert(run('state.error.includes("No train services match the left")'));
+ assert(run('/No (train )?services match the left/.test(state.error)'));
  assert(run('state.bundle === savedBundle'));
  console.log(file+': GTFS build, platform migration, route metadata, independent bus/train filters, live stop codes, invalid filters; platform inclusion, service filtering, fixed trains, bus pagination, locking, empty states, minimum rows, and disabled mode passed');
 }

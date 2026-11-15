@@ -1,3 +1,19 @@
+# Debug review — 15 November 2026
+
+Three fixes from the local review:
+
+- **Open board:** On the main board and the live editor, opening the board while a preview build was pending could start a third build and leave the user in settings. The explicit Open action now clears the queued preview.
+- **MOTAT tracker:** Resetting during tracker sign-in could start three more requests after reset. Late device and history responses could also write to cleared state. Tracker requests now check which refresh they belong to; superseded tests cannot repaint settings, and changing the tracker connection clears the old tracker state. Failed history loads can retry. Switching source also invalidates pending timetable work.
+- **Timetable downloads:** All four published pages now bound individual ZIP and unpacked-file requests to three minutes. The regression suite simulates a ZIP timeout and checks that the loader can finish using the unpacked fallback.
+
+All seven dependency-free Node suites passed. The November AT timetable snapshot passed the rail scenarios, including city/non-city classification for 455 departures. The optional snapshot test now identifies its required feed version: an older snapshot schedules trains through the November closure.
+
+Offline headless Chrome exercised all eight HTML pages. On the three maintained apps the run covered setup, demo, scheduled departures, refresh and connection-test navigation, sharing, and setup widths of 375, 768 and 1440 pixels. It also checked a route click inside the live editor iframe, startup/demo/settings on the legacy page, and layout selection in all three interactive prototypes. Chrome workers read stop tables and filtered stop times from a real 34 MB GTFS ZIP on all four root pages.
+
+Also checked script syntax, ran the train-strip CLI prototype on the November feed, and staged the four Pages artifacts locally using a dummy key. Production AT responses, MOTAT authentication/cookies, Safari/Firefox, and a hosted deployment were not tested. The public-client credential model described below remains unchanged.
+
+---
+
 # Debug review — 1 November 2026
 
 Reviewed the current standalone apps (`index.html`, `index2.html`, `index-live.html`), regression tests, deployment workflow, and supporting prototype scripts. Preserved pre-existing uncommitted changes. Changes are local; nothing was committed or deployed.

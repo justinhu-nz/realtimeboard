@@ -13,6 +13,42 @@ const assert = require('node:assert/strict');
     });
     const run = code => vm.runInContext(code, context);
     run(source);
+    // A stalled ZIP must time out and let the loader try the unpacked candidate.
+    await run(`(async () => {
+      render=()=>{}; renderSetup=()=>{}; var files=[], zipTimedOut=false;
+      globalThis.DecompressionStream = class {};
+      globalThis.AbortSignal = {timeout(ms) { if (!(ms > 0 && ms <= 300000)) throw Error('unbounded timeout'); return { bounded:true }; }};
+      globalThis.fetch=async (url, options) => {
+        if (!options?.signal?.bounded) throw Error('missing timeout');
+        if (url.endsWith('.zip')) { zipTimedOut=true; throw Error('timed out'); }
+        files.push(url); return {ok:true,text:async()=> 'id,name\\ns,Test'};
+      };
+      gtfsWorkerTask=async ({baseUrl,names}) => {
+        const entries=await readUnpackedEntries(baseUrl,names);
+        return Object.fromEntries(Object.entries(entries).map(([key,text])=>[key,csvParse(text)]));
+      };
+      if (!await fetchGtfs({candidates:['https://fixture.example/stalled.zip','https://fixture.example/fallback/']})) throw Error('GTFS fallback failed');
+      if (!zipTimedOut || files.length !== 6 || state.gtfs.stops.length !== 1) throw Error('Incomplete fallback');
+    })()`);
+    if (file === 'index2.html') {
+      // Reset independently during each network await, including tracker sign-in.
+      for (const stage of ['session','devices','positions','history']) {
+        context.stage = stage;
+        run(`render=()=>{}; resetAll(); boardSource='motat'; state.config={...MOTAT_DEFAULT_CONFIG};
+          var release, started, atStage=new Promise(r=>started=r), afterReset=false, lateCalls=0;
+          var position={deviceId:1,fixTime:new Date().toISOString(),latitude:-36.86,longitude:174.72};
+          motatFetchJson=async path=>{
+            if(afterReset) lateCalls++;
+            const kind=path.includes('deviceId=')?'history':path.split('/').pop().split('?')[0];
+            if(kind===stage) {started();await new Promise(r=>release=r);}
+            return kind==='session'?{}:kind==='devices'?[{id:1,name:'Tram'}]:[position];
+          };`);
+        const tracker=run('motatRefresh()');
+        await run('atStage'); run('resetAll();afterReset=true;release()'); await tracker;
+        assert.equal(run('lateCalls'),0,'no tracker follow-up after reset during '+stage);
+        assert(run('!motat.loggedIn && !motat.namesAt && !motat.seeded.size && !Object.keys(motat.trams).length && !motat.lastOk'),stage);
+      }
+    }
     run(`render=()=>{};renderSetup=()=>{};
       state.config={...DEFAULT_CONFIG,stopIds:'s',dualStopMode:false,fourWayMode:false,routeAllowlist:'',requireSubscriptionKey:false};
       state.gtfs={source:'fixture',feedInfo:[],calendars:[],calendarDates:[],stops:[{stop_id:'s'}],
@@ -51,6 +87,19 @@ const assert = require('node:assert/strict');
     await refresh;
     assert.equal(run('buildOptions.open'), false, file + ': stale refresh must not navigate');
     assert.equal(run(`normalizeRealtime({entity:[{alert:{header_text:{translation:[{text:'Alert'}]},informed_entity:[null,42,{stop_id:'s'}]}}]},'test').alerts[0].stopIds.join(',')`), 's');
-    console.log(file + ': background builds, obsolete build/reset races, missing times, malformed alert selectors passed');
+    if (file !== 'index2.html') {
+      run(`state.config.mode='setup'; state.gtfs={}; state.building=false;
+        globalThis.clearTimeout=()=>{}; refreshSetupPreview=readFormIntoConfig=saveConfig=()=>{};
+        setupBlockers=()=>[]; var builds=[];
+        buildBundle=({open=true}={})=>new Promise(resolve=>builds.push({open,resolve}));`);
+      const background=run('autoBuild()');
+      await run('autoBuild()'); // another edit while the background scan is pending
+      const open=run('openBoardFromSetup()');
+      run('builds[0].resolve()'); await background;
+      assert.deepEqual(Array.from(run('builds.map(b=>b.open)')),[false,true],
+        file+': a queued preview must not supersede Open board');
+      run('builds[1].resolve()'); await open;
+    }
+    console.log(file + ': bounded downloads and fallback, background builds, obsolete build/reset races, missing times, malformed alert selectors passed');
   }
 })().catch(error => {console.error(error);process.exitCode=1;});

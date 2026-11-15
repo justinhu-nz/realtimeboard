@@ -24,6 +24,8 @@ jobs:
       - name: Run regression tests
         run: |
           node tests/four-way.cjs
+          node tests/train-strips.cjs
+          node tests/any-mode.cjs
           node tests/share-board.cjs
           node tests/edge-cases.cjs
           node tests/auto-key.cjs

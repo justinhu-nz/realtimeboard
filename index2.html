@@ -1110,7 +1110,8 @@ S-C: #D03A2E / #FFFFFF`;
       trackerToken: MOTAT_TOKEN,
       closedDates: "2026-10-12..2026-10-16"
     });
-    const motat = { trams: {}, names: {}, namesAt: 0, lastOk: 0, loggedIn: false, error: "", test: null, seeded: new Set() };
+    const newTrackerState = () => ({ trams: {}, names: {}, namesAt: 0, lastOk: 0, loggedIn: false, error: "", test: null, seeded: new Set() });
+    const motat = newTrackerState();
 
     function loadMotatConfig() {
       const stored = loadJson("motat-config");
@@ -1122,6 +1123,10 @@ S-C: #D03A2E / #FFFFFF`;
       clearTimers();
       realtimeRequestSeq++;
       state.refreshing = false; state.refreshFailed = false;
+      if (motat.test === "testing") motat.test = null;
+      if (state.gtfsLoading) state.autoGtfsAttempted = false;
+      gtfsLoadSeq++; bundleBuildSeq++;
+      state.gtfsLoading = false;
       boardSource = source === "motat" ? "motat" : "at";
       saveJson("source", boardSource);
       state.config = isMotat() ? loadMotatConfig() : loadConfig();
@@ -1204,18 +1209,25 @@ S-C: #D03A2E / #FFFFFF`;
       if (!res.ok) throw new Error("HTTP " + res.status);
       return res.json();
     }
-    async function motatAuthed(path) {
+    async function motatAuthed(path, requestId) {
+      const read = async endpoint => {
+        if (requestId !== realtimeRequestSeq) throw new Error("Tracker refresh superseded");
+        const data = await motatFetchJson(endpoint);
+        if (requestId !== realtimeRequestSeq) throw new Error("Tracker refresh superseded");
+        return data;
+      };
       if (!motat.loggedIn) {
-        await motatFetchJson("/api/session?token=" + encodeURIComponent(state.config.trackerToken || ""));
+        await read("/api/session?token=" + encodeURIComponent(state.config.trackerToken || ""));
+        if (requestId !== realtimeRequestSeq) throw new Error("Tracker refresh superseded");
         motat.loggedIn = true;
       }
-      try { return await motatFetchJson(path); }
+      try { return await read(path); }
       catch (err) {
         if (!err.auth) throw err;
         // Session expired: log in once more. A second 401 straight after a successful
         // login means the browser is refusing the tracker's cookie.
-        await motatFetchJson("/api/session?token=" + encodeURIComponent(state.config.trackerToken || ""));
-        try { return await motatFetchJson(path); }
+        await read("/api/session?token=" + encodeURIComponent(state.config.trackerToken || ""));
+        try { return await read(path); }
         catch (again) { if (again.auth) again.cookieBlocked = true; throw again; }
       }
     }
@@ -1225,12 +1237,14 @@ S-C: #D03A2E / #FFFFFF`;
       try {
         const nowMs = Date.now();
         if (nowMs - motat.namesAt > 5 * 60000) {
-          const devices = await motatAuthed("/api/devices");
+          const devices = await motatAuthed("/api/devices", requestId);
+          if (requestId !== realtimeRequestSeq) return;
           motat.names = Object.fromEntries(devices.map(d => [d.id, d.name]));
           motat.namesAt = nowMs;
         }
-        const positions = await motatAuthed("/api/positions");
-        await motatSeedHistory(positions, nowMs);
+        const positions = await motatAuthed("/api/positions", requestId);
+        if (requestId !== realtimeRequestSeq) return;
+        await motatSeedHistory(positions, nowMs, requestId);
         if (requestId !== realtimeRequestSeq) return;
         positions.forEach(p => motatAddFix(p));
         motat.lastOk = Date.now();
@@ -1245,20 +1259,25 @@ S-C: #D03A2E / #FFFFFF`;
           : "Tram tracker unreachable (" + (err.message || err) + ").";
         console.warn("[motat]", err);
       } finally {
-        if (requestId === realtimeRequestSeq) state.refreshing = false;
+        if (requestId === realtimeRequestSeq) {
+          state.refreshing = false;
+          if (motat.test === "testing") motat.test = motat.error ? "fail" : "ok";
+        }
       }
+      return requestId === realtimeRequestSeq;
     }
     // First sighting of a working tram: pull its last 20 minutes so direction and
     // terminus arrival time are known immediately instead of after a few polls.
-    async function motatSeedHistory(positions, nowMs) {
-      const fresh = positions.filter(p => !motat.seeded.has(p.deviceId) && nowMs - motatParseTime(p.fixTime) < MOTAT_FIX_MAX_AGE_MS);
+    async function motatSeedHistory(positions, nowMs, requestId) {
+      const fresh = positions.filter(p => p && p.deviceId != null && !motat.seeded.has(p.deviceId) && nowMs - motatParseTime(p.fixTime) < MOTAT_FIX_MAX_AGE_MS);
       await Promise.all(fresh.map(async p => {
-        motat.seeded.add(p.deviceId);
         const from = new Date(nowMs - 20 * 60000).toISOString(), to = new Date(nowMs).toISOString();
         try {
-          const hist = await motatAuthed(`/api/positions?deviceId=${encodeURIComponent(p.deviceId)}&from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`);
+          const hist = await motatAuthed(`/api/positions?deviceId=${encodeURIComponent(p.deviceId)}&from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`, requestId);
+          if (requestId !== realtimeRequestSeq) return;
           hist.forEach(h => motatAddFix(h));
-        } catch (err) { console.warn("[motat] history", p.deviceId, err); }
+          motat.seeded.add(p.deviceId);
+        } catch (err) { if (requestId === realtimeRequestSeq) console.warn("[motat] history", p.deviceId, err); }
       }));
     }
     function motatParseTime(value) {
@@ -1266,6 +1285,7 @@ S-C: #D03A2E / #FFFFFF`;
       return Date.parse(String(value || "").replace(/([+-]\d\d)(\d\d)$/, "$1:$2"));
     }
     function motatAddFix(p) {
+      if (!p || p.deviceId == null) return;
       const t = motatParseTime(p.fixTime);
       if (!Number.isFinite(t) || t > Date.now() + 60000 || p.valid === false ||
           !Number.isFinite(p.latitude) || !Number.isFinite(p.longitude) ||
@@ -1675,7 +1695,7 @@ S-C: #D03A2E / #FFFFFF`;
     async function readUnpackedEntries(baseUrl, names) {
       const output = {};
       await Promise.all(names.map(async name => {
-        const res = await fetch(new URL(name, baseUrl).href);
+        const res = await fetch(new URL(name, baseUrl).href, { signal: AbortSignal.timeout(180000) });
         if (res.ok) output[name] = await res.text();
         else if (res.status !== 404) throw new Error(name + " fetch failed: " + res.status);
       }));
@@ -1820,7 +1840,7 @@ S-C: #D03A2E / #FFFFFF`;
               await ingestGtfs({ baseUrl: new URL(candidate, location.href).href }, candidate, requestId);
             } else {
               if (!("DecompressionStream" in globalThis)) throw new Error("no unzip support in this browser");
-              const res = await fetch(candidate);
+              const res = await fetch(candidate, { signal: AbortSignal.timeout(180000) });
               if (!res.ok) throw new Error("Fetch failed: " + res.status);
               await ingestGtfs({ buffer: await res.arrayBuffer() }, candidate, requestId);
             }
@@ -2630,7 +2650,7 @@ S-C: #D03A2E / #FFFFFF`;
       bundleBuildSeq++;
       state.gtfsLoading = false;
       boardSource = "at";
-      Object.assign(motat, { trams: {}, names: {}, namesAt: 0, lastOk: 0, loggedIn: false, error: "", test: null, seeded: new Set() });
+      Object.assign(motat, newTrackerState());
       state.config = Object.assign({}, DEFAULT_CONFIG);
       state.bundle = null; state.gtfs = null; state.realtime = null;
       state.status = ""; state.error = ""; state.refreshing = false; state.refreshFailed = false;
@@ -2867,9 +2887,8 @@ S-C: #D03A2E / #FFFFFF`;
     function autoTestMotat() {
       if (motat.test || motat.lastOk) return;
       motat.test = "testing";
-      motatRefresh().then(() => {
-        motat.test = motat.error ? "fail" : "ok";
-        if (isMotat() && state.config.mode === "setup") renderSetup();
+      motatRefresh().then(current => {
+        if (current && isMotat() && state.config.mode === "setup") renderSetup();
       });
     }
     function renderMotatSetup() {
@@ -2964,9 +2983,7 @@ S-C: #D03A2E / #FFFFFF`;
         saveConfig();
         motat.test = "testing";
         renderMotatSetup();
-        await motatRefresh();
-        motat.test = motat.error ? "fail" : "ok";
-        renderMotatSetup();
+        if (await motatRefresh() && isMotat() && state.config.mode === "setup") renderMotatSetup();
       });
     }
 
@@ -3140,8 +3157,14 @@ S-C: #D03A2E / #FFFFFF`;
       if (v("staleMultiplier") !== undefined) cfg.staleMultiplier = clampNumber(v("staleMultiplier"), 2, 1, 20);
       if (v("routeAllowlist") !== undefined) cfg.routeAllowlist = v("routeAllowlist");
       if (v("stopIds") !== undefined) cfg.stopIds = v("stopIds");
-      if (v("trackerUrl") !== undefined) cfg.trackerUrl = v("trackerUrl").trim() || MOTAT_DEFAULT_CONFIG.trackerUrl;
-      if (v("trackerToken") !== undefined && v("trackerToken").trim() !== cfg.trackerToken) { cfg.trackerToken = v("trackerToken").trim(); motat.loggedIn = false; }
+      const trackerUrl = v("trackerUrl") === undefined ? cfg.trackerUrl : v("trackerUrl").trim() || MOTAT_DEFAULT_CONFIG.trackerUrl;
+      const trackerToken = v("trackerToken") === undefined ? cfg.trackerToken : v("trackerToken").trim();
+      if (trackerUrl !== cfg.trackerUrl || trackerToken !== cfg.trackerToken) {
+        cfg.trackerUrl = trackerUrl; cfg.trackerToken = trackerToken;
+        realtimeRequestSeq++;
+        state.refreshing = false; state.refreshFailed = false;
+        Object.assign(motat, newTrackerState());
+      }
       if (v("closedDates") !== undefined) cfg.closedDates = v("closedDates");
     }
 
