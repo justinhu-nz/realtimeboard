@@ -1897,8 +1897,9 @@ S-C: #D03A2E / #FFFFFF`;
       result.answered = Object.assign(result.answered || {}, more.answered);
       return result;
     }
-    // A board stop that AT says has nothing due is only believed when the station's other
-    // platforms list something (see droppedFromAtList). Ask about those platforms only then.
+    // A board stop that AT says has nothing due is only believed when AT lists something
+    // elsewhere (see droppedFromAtList). On a one-platform board, ask about the station's
+    // other platforms so that check has something to go on.
     async function addEmptyStopSiblings(result, fetchedCodes, key) {
       const bundle = state.bundle;
       if (!bundle) return result;
@@ -2262,20 +2263,20 @@ S-C: #D03A2E / #FFFFFF`;
     // next two hours, tracked or not (untracked ones have monitored:false and no expected
     // time). During closures AT leaves the affected trips out while the published timetable
     // still has them. So a timetabled trip AT doesn't list is treated as not running, but
-    // only when AT answered for that stop, the trip is 2-100 minutes away, and the stop or
-    // one of its sibling platforms lists something (an empty answer everywhere = unknown).
+    // only when AT answered for that stop, the trip is due in 2+ minutes (by its predicted
+    // time: a late train whose timetabled time has passed still counts) and timetabled
+    // within 100 minutes, and AT listed something somewhere this refresh. A whole station
+    // can be empty during a closure; nothing listed anywhere means the API is unwell.
     const AT_LIST_MIN_AHEAD_MS = 2 * 60000;
     const AT_LIST_MAX_AHEAD_MS = 100 * 60000;
-    function droppedFromAtList(rt, bundle, stopId, tripId, scheduled, nowMs) {
+    function droppedFromAtList(rt, stopId, tripId, scheduled, effective, nowMs) {
       const answered = rt && rt.stopsAnswered;
       if (!answered || !rt.movements) return false;
-      const ahead = scheduled - nowMs;
-      if (ahead < AT_LIST_MIN_AHEAD_MS || ahead > AT_LIST_MAX_AHEAD_MS) return false;
+      if (effective - nowMs < AT_LIST_MIN_AHEAD_MS || scheduled - nowMs > AT_LIST_MAX_AHEAD_MS) return false;
       const code = stopId.split("-")[0];
       if (!Number.isFinite(answered[code])) return false;
       if (rt.movements[tripId + ":" + code] || rt.movements["~" + tripIdBase(tripId) + ":" + code]) return false;
-      const stop = bundle.stops[stopId];
-      return [code, ...((stop && stop.siblingCodes) || [])].some(c => answered[c] > 0);
+      return Object.values(answered).some(count => count > 0);
     }
     function stopIsRail(bundle, stopId) {
       return (bundle.stopTimesByStop[stopId] || []).some(st => Number(bundle.routes[st.routeId] && bundle.routes[st.routeId].type) === 2);
@@ -2338,7 +2339,7 @@ S-C: #D03A2E / #FFFFFF`;
             // says it departed minutes ago (e.g. an "early" bus shown as "Now" long after gone).
             if (effectiveMs < nowMs - 30000 || effectiveMs > maxMs) continue;
             const cancelled = cancelledTrip || (mvValid && mv.cancelled) || (stopUpdate && ["CANCELED","CANCELLED","SKIPPED"].includes(stopUpdate.scheduleRelationship));
-            if (droppedFromAtList(rt, bundle, stopId, st.tripId, scheduled, nowMs)) {
+            if (droppedFromAtList(rt, stopId, st.tripId, scheduled, effectiveMs, nowMs)) {
               if (location.hash === "#debug") console.log("[dropped] not in AT's list:", route.shortName, st.tripId, "at", stopId, new Date(scheduled).toString());
               continue;
             }

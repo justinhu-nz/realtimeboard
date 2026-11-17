@@ -51,7 +51,10 @@ for (const file of ['index.html', 'index2.html', 'index-live.html']) {
   assert(!ids().includes('ow-1-aaaaaaaa'), `${file}: train AT dropped, other platform listed -> hidden`);
 
   live({}, {'9305': 0, '9304': 0});
-  assert(ids().includes('ow-1-aaaaaaaa'), `${file}: empty answer at every platform is unknown -> shown`);
+  assert(ids().includes('ow-1-aaaaaaaa'), `${file}: AT listed nothing anywhere -> unknown -> shown`);
+
+  live({...mv('bus-1-bbbbbbbb', '8204', 20), ...mv('bus-2-cccccccc', '8204', 35)}, {'9305': 0, '9304': 0, '8204': 2});
+  assert(!ids().includes('ow-1-aaaaaaaa'), `${file}: whole station empty during a closure, other stops listed -> hidden`);
 
   live({...otherPlatform}, {'9304': 1});
   assert(ids().includes('ow-1-aaaaaaaa'), `${file}: no answer for this platform -> shown`);
@@ -67,6 +70,18 @@ for (const file of ['index.html', 'index2.html', 'index-live.html']) {
 
   live({...otherPlatform}, {'9305': 0, '9304': 1}, NOW - 3600000);
   assert(ids().includes('ow-1-aaaaaaaa'), `${file}: stale live data -> timetable`);
+
+  // 17 Nov, 23:15: the 23:04 left Newmarket 17 min late per trip updates; the board carried
+  // that delay to Kingsland and showed a live ETA, though AT's list had dropped the train.
+  setup({owMin: -11});
+  run(`state.config.subscriptionKey='key';`);
+  context.__late = {startDate: '20261117', updates: {'9305-k2': {departureDelay: 1025}}};
+  live({...otherPlatform}, {'9305': 0, '9304': 1});
+  run('state.realtime.trips={"ow-1-aaaaaaaa":__late};');
+  assert(!ids().includes('ow-1-aaaaaaaa'), `${file}: late train past its timetabled time, not in AT's list -> hidden`);
+  live({...otherPlatform, ...mv('ow-1-aaaaaaaa', '9305', -11)}, {'9305': 1, '9304': 1});
+  run('state.realtime.trips={"ow-1-aaaaaaaa":__late};');
+  assert(ids().includes('ow-1-aaaaaaaa'), `${file}: late train still in AT's list -> shown`);
 
   setup({owMin: 1});
   live({...otherPlatform}, {'9305': 0, '9304': 1});
