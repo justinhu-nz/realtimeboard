@@ -1781,9 +1781,17 @@ S-C: #D03A2E / #FFFFFF`;
         stops: {}, routes: {}, trips: {},
         calendars: {}, calendarDates: {}, stopTimesByStop: {}
       };
+      const platformsByParent = new Map();
+      for (const s of state.gtfs.stops) {
+        if (!s.parent_station) continue;
+        if (!platformsByParent.has(s.parent_station)) platformsByParent.set(s.parent_station, []);
+        platformsByParent.get(s.parent_station).push(s.stop_id.split("-")[0]);
+      }
       for (const stopId of stopIds) {
         const s = stopsById.get(stopId);
-        if (s) bundle.stops[stopId] = { stopId, name: s.stop_name || stopId, platformCode: s.platform_code || "", lat: +s.stop_lat, lon: +s.stop_lon };
+        // siblingCodes: the station's other platforms, used to sanity-check an empty live list.
+        const siblingCodes = s && s.parent_station ? (platformsByParent.get(s.parent_station) || []).filter(code => code !== stopId.split("-")[0]) : [];
+        if (s) bundle.stops[stopId] = { stopId, name: s.stop_name || stopId, platformCode: s.platform_code || "", lat: +s.stop_lat, lon: +s.stop_lon, siblingCodes };
       }
       for (const routeId of routeIds) {
         const r = routesById.get(routeId);
@@ -1834,6 +1842,7 @@ S-C: #D03A2E / #FFFFFF`;
       const base = String(state.config.departuresUrl || "").replace(/\/+$/, "");
       const movements = {};
       const notices = [];
+      const answered = {}; // stop code -> number of trips AT listed there
       const results = await Promise.all(codes.map(async code => {
         try {
           const res = await fetch(base + "/" + encodeURIComponent(code) + "?scope=tripsData", {
@@ -1843,6 +1852,7 @@ S-C: #D03A2E / #FFFFFF`;
           const payload = await res.json();
           if (!res.ok || payload.message) throw new Error((payload.message || "fetch failed") + " (" + res.status + ")");
           const feed = payload.response || payload;
+          answered[code] = gtfsRtArray(feed.movements).filter(m => m && m.trip_id).length;
           for (const ext of gtfsRtArray(feed.extensions)) {
             if (ext && ext.text) notices.push({ code, priority: String(ext.priority || "low").toLowerCase(), text: String(ext.text).trim() });
           }
@@ -1855,7 +1865,10 @@ S-C: #D03A2E / #FFFFFF`;
               expected: Number.isFinite(expected) ? expected : undefined,
               scheduled: Number.isFinite(scheduledMs) ? scheduledMs : undefined,
               cancelled: /cancel/i.test(String(m.arrivalStatus || "")) || /cancel/i.test(String(m.departureStatus || "")),
-              monitored: Boolean(m.monitored)
+              monitored: Boolean(m.monitored),
+              tripId: String(m.trip_id), code, routeId: String(m.route_id || ""), routeLabel: String(m.route_short_name || ""),
+              destination: String(m.destinationDisplay || ""), stopSequence: +m.stopSequence || 0,
+              boarding: String(m.departureBoardingActivity || "boarding") !== "noBoarding" && String(m.departureBoardingActivity || "boarding") !== "alighting"
             };
             movements[m.trip_id + ":" + code] = entry;
             // AT re-versions trip ids (the trailing hash) when timetables are republished, so a
@@ -1870,7 +1883,37 @@ S-C: #D03A2E / #FFFFFF`;
       const errors = results.filter(r => !r.ok).map(r => r.error);
       const succeeded = results.length - errors.length;
       if (!succeeded) throw new Error("Departures API: " + errors.join("; "));
-      return { movements, notices, requested: codes.length, succeeded, errors };
+      return { movements, notices, answered, requested: codes.length, succeeded, errors };
+    }
+
+    const knownTripStops = new WeakMap(); // bundle -> Set("tripBase:stopCode")
+    function liveOnlyMovement(m, bundle = state.bundle) {
+      let known = knownTripStops.get(bundle);
+      if (!known) knownTripStops.set(bundle, known = new Set(Object.values(bundle.stopTimesByStop).flat().map(st => tripIdBase(st.tripId) + ":" + st.stopId.split("-")[0])));
+      return !known.has(tripIdBase(m.tripId) + ":" + m.code);
+    }
+    function mergeMovements(result, more) {
+      Object.assign(result.movements, more.movements);
+      result.answered = Object.assign(result.answered || {}, more.answered);
+      return result;
+    }
+    // A board stop that AT says has nothing due is only believed when the station's other
+    // platforms list something (see droppedFromAtList). Ask about those platforms only then.
+    async function addEmptyStopSiblings(result, fetchedCodes, key) {
+      const bundle = state.bundle;
+      if (!bundle) return result;
+      const asked = new Set([...fetchedCodes, ...Object.keys(result.answered || {})]);
+      const extra = new Set();
+      for (const stop of Object.values(bundle.stops)) {
+        const code = stop.stopId.split("-")[0];
+        if (result.answered && result.answered[code] === 0) {
+          for (const sibling of stop.siblingCodes || []) if (!asked.has(sibling)) extra.add(sibling);
+        }
+      }
+      if (!extra.size) return result;
+      try { mergeMovements(result, await fetchMovements(Array.from(extra), key)); }
+      catch (err) { console.warn("[realtime] sibling platform fetch failed:", err && err.message || err); }
+      return result;
     }
 
     async function refreshRealtime() {
@@ -1904,7 +1947,7 @@ S-C: #D03A2E / #FFFFFF`;
             kind: "departures",
             label: "stop predictions",
             run: depCodes.length
-              ? fetchMovements(depCodes, depKey)
+              ? fetchMovements(depCodes, depKey).then(result => addEmptyStopSiblings(result, depCodes, depKey))
               : Promise.resolve({ movements: {}, requested: 0, succeeded: 0, errors: [] })
           },
           ...userFeeds.map(feed => ({
@@ -1951,9 +1994,10 @@ S-C: #D03A2E / #FFFFFF`;
           vehicles: Object.assign(a.vehicles || {}, f.vehicles || {}),
           alerts: (a.alerts || []).concat(f.alerts || []),
           movements: a.movements,
+          stopsAnswered: a.stopsAnswered,
           notices: a.notices,
           feedHealth: a.feedHealth
-        }), { fetchedAt: Date.now(), trips: {}, vehicles: {}, alerts: [], movements, notices: departuresResult.notices || [], feedHealth });
+        }), { fetchedAt: Date.now(), trips: {}, vehicles: {}, alerts: [], movements, stopsAnswered: departuresResult.answered || {}, notices: departuresResult.notices || [], feedHealth });
         const parts = [];
         const liveCount = Object.values(movements).filter(m => m.expected).length;
         if (depCodes.length) parts.push(liveCount.toLocaleString() + " stop predictions from " + departuresResult.succeeded + "/" + departuresResult.requested + " stops");
@@ -2214,6 +2258,29 @@ S-C: #D03A2E / #FFFFFF`;
       return { id: "limited", label: "Limited live", coverage, detail: "No personal key: only AT stop predictions are live; unmatched trips use scheduled times." };
     }
 
+    // AT's departures API lists every trip it expects to pick up at a stop for about the
+    // next two hours, tracked or not (untracked ones have monitored:false and no expected
+    // time). During closures AT leaves the affected trips out while the published timetable
+    // still has them. So a timetabled trip AT doesn't list is treated as not running, but
+    // only when AT answered for that stop, the trip is 2-100 minutes away, and the stop or
+    // one of its sibling platforms lists something (an empty answer everywhere = unknown).
+    const AT_LIST_MIN_AHEAD_MS = 2 * 60000;
+    const AT_LIST_MAX_AHEAD_MS = 100 * 60000;
+    function droppedFromAtList(rt, bundle, stopId, tripId, scheduled, nowMs) {
+      const answered = rt && rt.stopsAnswered;
+      if (!answered || !rt.movements) return false;
+      const ahead = scheduled - nowMs;
+      if (ahead < AT_LIST_MIN_AHEAD_MS || ahead > AT_LIST_MAX_AHEAD_MS) return false;
+      const code = stopId.split("-")[0];
+      if (!Number.isFinite(answered[code])) return false;
+      if (rt.movements[tripId + ":" + code] || rt.movements["~" + tripIdBase(tripId) + ":" + code]) return false;
+      const stop = bundle.stops[stopId];
+      return [code, ...((stop && stop.siblingCodes) || [])].some(c => answered[c] > 0);
+    }
+    function stopIsRail(bundle, stopId) {
+      return (bundle.stopTimesByStop[stopId] || []).some(st => Number(bundle.routes[st.routeId] && bundle.routes[st.routeId].type) === 2);
+    }
+
     function deriveDepartures() {
       const bundle = state.bundle, cfg = state.config;
       if (!bundle) return [];
@@ -2271,6 +2338,10 @@ S-C: #D03A2E / #FFFFFF`;
             // says it departed minutes ago (e.g. an "early" bus shown as "Now" long after gone).
             if (effectiveMs < nowMs - 30000 || effectiveMs > maxMs) continue;
             const cancelled = cancelledTrip || (mvValid && mv.cancelled) || (stopUpdate && ["CANCELED","CANCELLED","SKIPPED"].includes(stopUpdate.scheduleRelationship));
+            if (droppedFromAtList(rt, bundle, stopId, st.tripId, scheduled, nowMs)) {
+              if (location.hash === "#debug") console.log("[dropped] not in AT's list:", route.shortName, st.tripId, "at", stopId, new Date(scheduled).toString());
+              continue;
+            }
             if (location.hash === "#debug" && predicted) {
               const deltaSec = Math.round((predicted - scheduled) / 1000);
               const dueMin = Math.round((predicted - nowMs) / 60000);
@@ -2295,6 +2366,32 @@ S-C: #D03A2E / #FFFFFF`;
               status: cancelled ? "cancelled" : predicted ? "live" : "scheduled"
             });
           }
+        }
+      }
+      // Trips that exist only in AT's live list (extra or re-planned services during
+      // disruptions). Since a timetabled trip AT drops is hidden above, its replacement must
+      // show here. Bus stops only take routes already on the board, so route filters hold.
+      const liveStops = boardStopIds(cfg).filter(id => bundle.stops[id]);
+      if (rt && rt.movements && liveStops.length) {
+        const byCode = new Map(liveStops.map(id => [id.split("-")[0], id]));
+        for (const [k, m] of Object.entries(rt.movements)) {
+          const stopId = byCode.get(m.code);
+          if (k.startsWith("~") || !stopId || !m.tripId || !m.boarding || !liveOnlyMovement(m, bundle)) continue;
+          const effective = m.expected || m.scheduled;
+          if (!effective || effective < nowMs - 30000 || effective > maxMs) continue;
+          const rail = stopIsRail(bundle, stopId);
+          const route = bundle.routes[m.routeId] || Object.values(bundle.routes).find(r => (r.type === 2) === rail && r.shortName === m.routeLabel);
+          if (!route && !rail) continue;
+          rows.push({
+            key: m.tripId + ":" + stopId + ":live", tripId: m.tripId, routeId: route ? route.routeId : m.routeId,
+            stopId, stopSequence: m.stopSequence, rail, liveOnly: true,
+            routeLabel: route ? route.shortName : m.routeLabel, routeColor: route ? route.color : "", routeTextColor: route ? route.textColor : "",
+            destination: rail ? railDestination(m.destination, { type: 2 }) : m.destination,
+            stopName: bundle.stops[stopId] ? bundle.stops[stopId].name : stopId,
+            scheduled: m.scheduled || effective, predicted: m.expected, effective,
+            predictedSource: m.expected ? "at-api" : null, occupancy: 0,
+            status: m.cancelled ? "cancelled" : m.expected ? "live" : "scheduled"
+          });
         }
       }
       const deduped = new Map();
@@ -3497,7 +3594,10 @@ S-C: #D03A2E / #FFFFFF`;
     async function maybeRebuildStaleBundle() {
       if (bundleRefreshAttempted || !state.bundle) return;
       const builtAt = Date.parse(state.bundle.generatedAt || "") || 0;
-      if (Date.now() - builtAt < BUNDLE_MAX_AGE_MS) return;
+      // Boards saved before sibling platforms were recorded can't sanity-check an empty live
+      // list (droppedFromAtList), so refresh them in the background too.
+      const lacksSiblings = Object.values(state.bundle.stops || {}).some(stop => !Array.isArray(stop.siblingCodes));
+      if (!lacksSiblings && Date.now() - builtAt < BUNDLE_MAX_AGE_MS) return;
       bundleRefreshAttempted = true;
       console.info("[bundle] saved board is " + Math.round((Date.now() - builtAt) / 86400000) + " days old - refreshing from GTFS zip");
       if (await fetchGtfs({ quiet: true })) {
