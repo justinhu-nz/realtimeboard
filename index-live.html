@@ -678,6 +678,8 @@
       }
       .dual-mode .dual-band .dep-head > div:nth-child(3),
       .dual-mode .dual-band .dep-row > div:nth-child(3) { display: none; }
+      /* The Cancelled badge lives in that hidden column, so repeat it above the time. */
+      .dual-mode .dual-band .badge.due-badge { display: block; width: fit-content; margin: 0 0 calc(.2 * var(--dual-unit)) auto; padding: calc(.15 * var(--dual-unit)) calc(.3 * var(--dual-unit)); font-size: calc(.75 * var(--dual-unit)); line-height: 1.2; }
     }
     .board.frameless.dual-mode .dual-bands { gap: 0; }
     .board.frameless.dual-mode .dual-band { border-radius: 0; border-top: 0; border-bottom: 0; }
@@ -792,6 +794,7 @@
     }
     .occ-cell svg { display: block; fill: currentColor; width: 0.62rem; height: 1.8rem; }
     .occ-cell .dim { color: rgba(185, 200, 216, .38); }
+    .due-badge { display: none; }
     .due-cell {
       text-align: right;
       font-size: clamp(1.9rem, 2.8vw, 3rem);
@@ -3585,7 +3588,7 @@ S-C: #D03A2E / #FFFFFF`;
         const due = (cancelled || r.status === "scheduled")
           ? timeLabel(r.scheduled, cfg.timezone)
           : formatDue(r.effective, state.now.getTime(), cfg);
-        return `<div class="dep-row"><div><span class="route-pill${pillClass}"${pillStyle}>${escapeHtml(r.routeLabel)}</span></div><div><div class="dest-cell"><strong>${escapeHtml(normalizeDestinationLabel(r.destination))}</strong></div></div><div>${middle}</div><div class="due-cell">${due}</div></div>`;
+        return `<div class="dep-row"><div><span class="route-pill${pillClass}"${pillStyle}>${escapeHtml(r.routeLabel)}</span></div><div><div class="dest-cell"><strong>${escapeHtml(normalizeDestinationLabel(r.destination))}</strong></div></div><div>${middle}</div><div class="due-cell">${cancelled ? `<span class="badge cancelled due-badge">Cancelled</span>` : ""}${due}</div></div>`;
       }).join("")}${placeholders}</div></div>`;
     }
 
