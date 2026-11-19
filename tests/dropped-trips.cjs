@@ -83,9 +83,20 @@ for (const file of ['index.html', 'index2.html', 'index-live.html']) {
   run('state.realtime.trips={"ow-1-aaaaaaaa":__late};');
   assert(ids().includes('ow-1-aaaaaaaa'), `${file}: late train still in AT's list -> shown`);
 
+  // 19 Nov 2026: an early bus drops out of AT's list seconds after it leaves. It must not
+  // come back at its timetabled time when that is under 2 minutes away.
   setup({owMin: 1});
   live({...otherPlatform}, {'9305': 0, '9304': 1});
-  assert(ids().includes('ow-1-aaaaaaaa'), `${file}: due within 2 minutes -> shown`);
+  assert(!ids().includes('ow-1-aaaaaaaa'), `${file}: due within 2 minutes, not in AT's list -> hidden`);
+  live({...otherPlatform, ...mv('ow-1-aaaaaaaa', '9305', 1)}, {'9305': 1, '9304': 1});
+  assert(ids().includes('ow-1-aaaaaaaa'), `${file}: due within 2 minutes, still in AT's list -> shown`);
+
+  setup({busMin: 1});
+  live({...mv('bus-1-bbbbbbbb', '8204', 1, {expected: at(-1)}), ...mv('bus-2-cccccccc', '8204', 16)}, {'8204': 2});
+  assert(!ids().includes('bus-1-bbbbbbbb'), `${file}: bus predicted to have left a minute ago -> hidden`);
+  live({...mv('bus-2-cccccccc', '8204', 16)}, {'8204': 1});
+  let early = ids();
+  assert(!early.includes('bus-1-bbbbbbbb') && early.includes('bus-2-cccccccc'), `${file}: early bus gone from AT's list, timetabled in 1 min -> hidden`);
 
   setup({owMin: 110});
   live({...otherPlatform}, {'9305': 0, '9304': 1});

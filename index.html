@@ -2495,16 +2495,18 @@ S-C: #D03A2E / #FFFFFF`;
     // next two hours, tracked or not (untracked ones have monitored:false and no expected
     // time). During closures AT leaves the affected trips out while the published timetable
     // still has them. So a timetabled trip AT doesn't list is treated as not running, but
-    // only when AT answered for that stop, the trip is due in 2+ minutes (by its predicted
-    // time: a late train whose timetabled time has passed still counts) and timetabled
-    // within 100 minutes, and AT listed something somewhere this refresh. A whole station
-    // can be empty during a closure; nothing listed anywhere means the API is unwell.
-    const AT_LIST_MIN_AHEAD_MS = 2 * 60000;
+    // only when AT answered for that stop, the trip is timetabled within 100 minutes, and AT
+    // listed something somewhere this refresh. A whole station can be empty during a
+    // closure; nothing listed anywhere means the API is unwell.
+    // The same rule clears a bus that left early: AT drops a trip within seconds of its
+    // predicted departure (never before it, in 38 departures polled on 19 Nov 2026), so
+    // there is no grace period near departure. With one, an early bus came back at its
+    // timetabled time for up to 2.5 minutes after it had gone.
     const AT_LIST_MAX_AHEAD_MS = 100 * 60000;
-    function droppedFromAtList(rt, stopId, tripId, scheduled, effective, nowMs) {
+    function droppedFromAtList(rt, stopId, tripId, scheduled, nowMs) {
       const answered = rt && rt.stopsAnswered;
       if (!answered || !rt.movements) return false;
-      if (effective - nowMs < AT_LIST_MIN_AHEAD_MS || scheduled - nowMs > AT_LIST_MAX_AHEAD_MS) return false;
+      if (scheduled - nowMs > AT_LIST_MAX_AHEAD_MS) return false;
       const code = stopId.split("-")[0];
       if (!Number.isFinite(answered[code])) return false;
       if (rt.movements[tripId + ":" + code] || rt.movements["~" + tripIdBase(tripId) + ":" + code]) return false;
@@ -2571,7 +2573,7 @@ S-C: #D03A2E / #FFFFFF`;
             // says it departed minutes ago (e.g. an "early" bus shown as "Now" long after gone).
             if (effectiveMs < nowMs - 30000 || effectiveMs > maxMs) continue;
             const cancelled = cancelledTrip || (mvValid && mv.cancelled) || (stopUpdate && ["CANCELED","CANCELLED","SKIPPED"].includes(stopUpdate.scheduleRelationship));
-            if (droppedFromAtList(rt, stopId, st.tripId, scheduled, effectiveMs, nowMs)) {
+            if (droppedFromAtList(rt, stopId, st.tripId, scheduled, nowMs)) {
               if (location.hash === "#debug") console.log("[dropped] not in AT's list:", route.shortName, st.tripId, "at", stopId, new Date(scheduled).toString());
               continue;
             }
